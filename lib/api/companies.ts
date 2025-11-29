@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ApiResponse, createErrorResponse, createSuccessResponse } from '@/lib/types/api'
 import { Company, CompanyInsert, CompanyUpdate } from '@/lib/types'
 
-export async function getCompany(companyId: string): ApiResponse<Company> {
+export async function getCompany(companyId: string): Promise<ApiResponse<Company>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -19,7 +19,7 @@ export async function getCompany(companyId: string): ApiResponse<Company> {
   }
 }
 
-export async function getCompanyBySlug(slug: string): ApiResponse<Company> {
+export async function getCompanyBySlug(slug: string): Promise<ApiResponse<Company>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -39,7 +39,7 @@ export async function getCompanyBySlug(slug: string): ApiResponse<Company> {
 export async function updateCompany(
   companyId: string,
   updates: CompanyUpdate
-): ApiResponse<Company> {
+): Promise<ApiResponse<Company>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase

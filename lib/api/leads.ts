@@ -5,7 +5,7 @@ import { Lead, LeadInsert, LeadUpdate, LeadFilters, LeadWithUser } from '@/lib/t
 export async function getLeads(
   companyId: string,
   filters?: LeadFilters
-): ApiResponse<Lead[]> {
+): Promise<ApiResponse<Lead[]>> {
   try {
     const supabase = createClient()
     let query = supabase
@@ -57,7 +57,7 @@ export async function getLeads(
     const { data, error, count } = await query
 
     if (error) throw error
-    return createSuccessResponse(data || [], count)
+    return createSuccessResponse(data || [], count ?? undefined)
   } catch (error) {
     return createErrorResponse(error)
   }
@@ -66,7 +66,7 @@ export async function getLeads(
 export async function getLead(
   companyId: string,
   leadId: string
-): ApiResponse<LeadWithUser> {
+): Promise<ApiResponse<LeadWithUser>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -91,7 +91,7 @@ export async function getLead(
 export async function createLead(
   companyId: string,
   lead: LeadInsert
-): ApiResponse<Lead> {
+): Promise<ApiResponse<Lead>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -111,7 +111,7 @@ export async function updateLead(
   companyId: string,
   leadId: string,
   updates: LeadUpdate
-): ApiResponse<Lead> {
+): Promise<ApiResponse<Lead>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase
@@ -132,7 +132,7 @@ export async function updateLead(
 export async function deleteLead(
   companyId: string,
   leadId: string
-): ApiResponse<Lead> {
+): Promise<ApiResponse<Lead>> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase

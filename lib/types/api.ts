@@ -9,7 +9,20 @@ export type ApiResponse<T> = {
 
 // Helper to create error responses
 export function createErrorResponse(error: unknown): ApiResponse<never> {
-  const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
+  let errorMessage = 'An unknown error occurred'
+  
+  if (error instanceof Error) {
+    errorMessage = error.message
+  } else if (typeof error === 'object' && error !== null) {
+    // Handle Supabase/PostgrestError which has message, details, hint, code
+    const supaError = error as { message?: string; details?: string; hint?: string; code?: string }
+    errorMessage = supaError.message || supaError.details || JSON.stringify(error)
+    if (supaError.hint) errorMessage += ` (Hint: ${supaError.hint})`
+    if (supaError.code) errorMessage += ` [Code: ${supaError.code}]`
+  }
+  
+  console.error('API Error:', error)
+  
   return {
     data: null,
     error: new Error(errorMessage),

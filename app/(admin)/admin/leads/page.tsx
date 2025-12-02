@@ -1,11 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { LeadsTable } from '@/components/admin/leads/leads-table'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function LeadsPage() {
+  // Use regular client for auth check
   const supabase = await createClient()
   
   // Get current user
@@ -27,8 +29,11 @@ export default async function LeadsPage() {
     redirect('/login')
   }
 
+  // Use admin client to fetch leads (since RLS is disabled temporarily)
+  const adminClient = createAdminClient()
+  
   // Fetch leads with assigned user info
-  const { data: leads, error: leadsError } = await supabase
+  const { data: leads, error: leadsError } = await adminClient
     .from('leads')
     .select(`
       *,

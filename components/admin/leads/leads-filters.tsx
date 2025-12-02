@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, X, Filter } from 'lucide-react'
@@ -14,9 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   LEAD_FILTER_OPTIONS,
-  LEAD_STATUS_LABELS,
-  LEAD_SOURCE_LABELS,
-  LEAD_PRIORITY_LABELS,
 } from '@/lib/constants/leads'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 
@@ -35,19 +32,19 @@ export function LeadsFilters({
 }: LeadsFiltersProps) {
   const [searchValue, setSearchValue] = useState(globalFilter)
 
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setGlobalFilter(searchValue)
+    }, 300)
+    
+    return () => clearTimeout(timeoutId)
+  }, [searchValue, setGlobalFilter])
+
   // Get current filter values
   const statusFilter = (columnFilters.find((f) => f.id === 'status')?.value as string[]) || []
   const sourceFilter = (columnFilters.find((f) => f.id === 'source')?.value as string[]) || []
   const priorityFilter = (columnFilters.find((f) => f.id === 'priority')?.value as string[]) || []
-
-  const handleSearchChange = (value: string) => {
-    setSearchValue(value)
-    // Debounce search
-    const timeoutId = setTimeout(() => {
-      setGlobalFilter(value)
-    }, 300)
-    return () => clearTimeout(timeoutId)
-  }
 
   const handleClearFilters = () => {
     setGlobalFilter('')
@@ -95,7 +92,7 @@ export function LeadsFilters({
           <Input
             placeholder="Search leads by name, email, phone, or address..."
             value={searchValue}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchChange(e.target.value)}
+            onChange={(e) => setSearchValue(e.target.value)}
             className="pl-10 pr-10"
           />
           {searchValue && (

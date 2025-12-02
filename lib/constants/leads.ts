@@ -13,10 +13,13 @@ export const LEAD_STATUSES = {
   NEW: 'new',
   CONTACTED: 'contacted',
   QUALIFIED: 'qualified',
-  PROPOSAL_SENT: 'proposal_sent',
-  NEGOTIATING: 'negotiating',
+  QUOTE_SENT: 'quote_sent',
+  FOLLOW_UP: 'follow_up',
   WON: 'won',
+  INVOICED: 'invoiced',
+  CLOSED: 'closed',
   LOST: 'lost',
+  ARCHIVED: 'archived',
 } as const
 
 export type LeadStatus = typeof LEAD_STATUSES[keyof typeof LEAD_STATUSES]
@@ -25,20 +28,26 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   new: 'New',
   contacted: 'Contacted',
   qualified: 'Qualified',
-  proposal_sent: 'Proposal Sent',
-  negotiating: 'Negotiating',
+  quote_sent: 'Quote Sent',
+  follow_up: 'Follow Up',
   won: 'Won',
+  invoiced: 'Invoiced',
+  closed: 'Closed',
   lost: 'Lost',
+  archived: 'Archived',
 }
 
 export const LEAD_STATUS_COLORS: Record<LeadStatus, string> = {
   new: 'bg-blue-100 text-blue-700 border-blue-200',
   contacted: 'bg-purple-100 text-purple-700 border-purple-200',
   qualified: 'bg-green-100 text-green-700 border-green-200',
-  proposal_sent: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  negotiating: 'bg-orange-100 text-orange-700 border-orange-200',
+  quote_sent: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  follow_up: 'bg-orange-100 text-orange-700 border-orange-200',
   won: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  invoiced: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  closed: 'bg-teal-100 text-teal-700 border-teal-200',
   lost: 'bg-gray-100 text-gray-700 border-gray-200',
+  archived: 'bg-slate-100 text-slate-700 border-slate-200',
 }
 
 // Status order for pipeline progress
@@ -46,10 +55,12 @@ export const LEAD_STATUS_ORDER: LeadStatus[] = [
   'new',
   'contacted',
   'qualified',
-  'proposal_sent',
-  'negotiating',
+  'quote_sent',
+  'follow_up',
   'won',
-  // Note: 'lost' is treated as terminal state, not shown in linear progression
+  'invoiced',
+  'closed',
+  // Note: 'lost' and 'archived' are terminal states, not shown in linear progression
 ]
 
 // ============================================================================
@@ -194,6 +205,9 @@ export const LEAD_FILTER_OPTIONS = {
     label,
   })),
 }
+
+// Convenience export for form dropdowns
+export const SERVICE_TYPE_OPTIONS = LEAD_FILTER_OPTIONS.serviceTypes
 
 // ============================================================================
 // Utility Functions

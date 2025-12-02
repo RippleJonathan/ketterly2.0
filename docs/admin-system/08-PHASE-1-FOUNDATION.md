@@ -1,6 +1,6 @@
 # Phase 1: Lead Management System
 
-**Goal**: Build a complete lead management system with list views, detail pages, forms, kanban pipeline, and activity tracking.
+**Goal**: Build a complete lead management system with list views, detail pages, forms, pipeline progress visualization, and activity tracking.
 
 **Duration**: ~2-3 weeks  
 **Prerequisites**: Phase 0 complete (database, types, API layer, auth, admin layout)
@@ -15,7 +15,7 @@ Phase 1 focuses exclusively on creating a production-ready lead management syste
 - Create new leads with validation
 - Edit existing lead information
 - View detailed lead profiles
-- Track lead pipeline status with kanban board
+- Track lead pipeline status with visual progress indicator
 - Log activities (notes, calls, emails, meetings)
 - Assign leads to team members
 - Filter and search leads by multiple criteria
@@ -42,30 +42,39 @@ export const LEAD_STATUSES = {
   NEW: 'new',
   CONTACTED: 'contacted',
   QUALIFIED: 'qualified',
-  PROPOSAL_SENT: 'proposal_sent',
-  NEGOTIATING: 'negotiating',
+  QUOTE_SENT: 'quote_sent',
+  FOLLOW_UP: 'follow_up',
   WON: 'won',
+  INVOICED: 'invoiced',
+  CLOSED: 'closed',
   LOST: 'lost',
+  ARCHIVED: 'archived',
 } as const
 
 export const LEAD_STATUS_LABELS = {
   new: 'New',
   contacted: 'Contacted',
   qualified: 'Qualified',
-  proposal_sent: 'Proposal Sent',
-  negotiating: 'Negotiating',
+  quote_sent: 'Quote Sent',
+  follow_up: 'Follow Up',
   won: 'Won',
+  invoiced: 'Invoiced',
+  closed: 'Closed',
   lost: 'Lost',
+  archived: 'Archived',
 }
 
 export const LEAD_STATUS_COLORS = {
   new: 'bg-blue-100 text-blue-700',
   contacted: 'bg-purple-100 text-purple-700',
   qualified: 'bg-green-100 text-green-700',
-  proposal_sent: 'bg-yellow-100 text-yellow-700',
-  negotiating: 'bg-orange-100 text-orange-700',
+  quote_sent: 'bg-yellow-100 text-yellow-700',
+  follow_up: 'bg-orange-100 text-orange-700',
   won: 'bg-emerald-100 text-emerald-700',
+  invoiced: 'bg-indigo-100 text-indigo-700',
+  closed: 'bg-teal-100 text-teal-700',
   lost: 'bg-gray-100 text-gray-700',
+  archived: 'bg-slate-100 text-slate-700',
 }
 
 export const LEAD_SOURCES = {
@@ -346,7 +355,7 @@ Visual status indicator on lead detail page:
 
 **Visual Example:**
 ```
-[●] New → [●] Contacted → [●] Qualified → [○] Proposal → [○] Negotiating → [○] Won/Lost
+[●] New → [●] Contacted → [●] Qualified → [○] Quote Sent → [○] Follow Up → [○] Won → [○] Invoiced → [○] Closed
 ```
 
 ### 4.3 Status Update Mutation
@@ -480,7 +489,7 @@ Create modal with comprehensive filters:
 
 ### 6.2 Saved Filters
 Allow saving filter combinations:
-- "Hot Leads" (priority: high/urgent, status: qualified/negotiating)
+- "Hot Leads" (priority: high/urgent, status: qualified/follow_up)
 - "Unassigned New Leads" (status: new, assigned_to: null)
 - "Won This Month" (status: won, created this month)
 - User can create custom saved filters
@@ -613,7 +622,7 @@ Before moving to Phase 2, verify:
 - [ ] Lead detail page with all information
 - [ ] Create new lead form with validation
 - [ ] Edit existing lead form
-- [ ] Kanban pipeline with drag & drop
+- [ ] Pipeline progress bar with inline status updates
 - [ ] Activity timeline with quick add
 - [ ] Advanced filtering modal
 - [ ] Lead assignment system

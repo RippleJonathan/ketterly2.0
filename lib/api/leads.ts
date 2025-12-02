@@ -40,12 +40,28 @@ export async function getLeads(
       }
     }
 
+    if (filters?.service_type) {
+      if (Array.isArray(filters.service_type)) {
+        query = query.in('service_type', filters.service_type)
+      } else {
+        query = query.eq('service_type', filters.service_type)
+      }
+    }
+
     if (filters?.assigned_to !== undefined) {
       if (filters.assigned_to === null) {
         query = query.is('assigned_to', null)
       } else {
         query = query.eq('assigned_to', filters.assigned_to)
       }
+    }
+
+    if (filters?.created_from) {
+      query = query.gte('created_at', filters.created_from)
+    }
+
+    if (filters?.created_to) {
+      query = query.lte('created_at', filters.created_to)
     }
 
     if (filters?.search) {
@@ -94,15 +110,20 @@ export async function createLead(
 ): Promise<ApiResponse<Lead>> {
   try {
     const supabase = createClient()
+    
     const { data, error } = await supabase
       .from('leads')
-      .insert({ ...lead, company_id: companyId })
+      .insert({ ...lead, company_id: companyId } as any)
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Create lead error:', error)
+      throw error
+    }
     return createSuccessResponse(data)
   } catch (error) {
+    console.error('Create lead exception:', error)
     return createErrorResponse(error)
   }
 }
@@ -114,17 +135,22 @@ export async function updateLead(
 ): Promise<ApiResponse<Lead>> {
   try {
     const supabase = createClient()
+    
     const { data, error } = await supabase
       .from('leads')
-      .update(updates)
+      .update(updates as any)
       .eq('company_id', companyId)
       .eq('id', leadId)
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Update lead error:', error)
+      throw error
+    }
     return createSuccessResponse(data)
   } catch (error) {
+    console.error('Update lead exception:', error)
     return createErrorResponse(error)
   }
 }
@@ -137,7 +163,7 @@ export async function deleteLead(
     const supabase = createClient()
     const { data, error } = await supabase
       .from('leads')
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: new Date().toISOString() } as any)
       .eq('company_id', companyId)
       .eq('id', leadId)
       .select()

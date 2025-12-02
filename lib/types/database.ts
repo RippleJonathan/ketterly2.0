@@ -67,6 +67,9 @@ export interface Database {
           subscription_status: 'active' | 'paused' | 'cancelled' | 'expired'
           trial_ends_at: string | null
           onboarding_completed: boolean
+          replacement_warranty_years: number
+          repair_warranty_years: number
+          contract_terms: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -87,6 +90,9 @@ export interface Database {
           subscription_status?: 'active' | 'paused' | 'cancelled' | 'expired'
           trial_ends_at?: string | null
           onboarding_completed?: boolean
+          replacement_warranty_years?: number
+          repair_warranty_years?: number
+          contract_terms?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
@@ -107,6 +113,9 @@ export interface Database {
           subscription_status?: 'active' | 'paused' | 'cancelled' | 'expired'
           trial_ends_at?: string | null
           onboarding_completed?: boolean
+          replacement_warranty_years?: number
+          repair_warranty_years?: number
+          contract_terms?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null

@@ -11,9 +11,9 @@ export default function DashboardPage() {
 
   // Calculate stats
   const totalLeads = leads.length
-  const newLeads = leads.filter(l => l.status === 'new').length
-  const qualifiedLeads = leads.filter(l => l.status === 'qualified').length
-  const wonLeads = leads.filter(l => l.status === 'won').length
+  const newLeads = leads.filter((l: any) => l.status === 'new').length
+  const qualifiedLeads = leads.filter((l: any) => l.status === 'qualified').length
+  const wonLeads = leads.filter((l: any) => l.status === 'won').length
 
   const stats = [
     {
@@ -112,7 +112,7 @@ export default function DashboardPage() {
             Recent Leads
           </h2>
           <div className="space-y-3">
-            {leads.slice(0, 5).map((lead) => (
+            {leads.slice(0, 5).map((lead: any) => (
               <div
                 key={lead.id}
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"

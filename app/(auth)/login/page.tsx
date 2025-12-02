@@ -25,8 +25,8 @@ export default function LoginPage() {
       if (error) throw error
 
       toast.success('Welcome back!')
-      router.push('/admin/dashboard')
-      router.refresh()
+      // Force a hard redirect to ensure cookies are set properly
+      window.location.href = '/admin/dashboard'
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in')
     } finally {
@@ -113,8 +113,8 @@ export default function LoginPage() {
         {/* Footer */}
         <p className="text-center text-sm text-gray-600 mt-6">
           Don't have an account?{' '}
-          <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-            Contact sales
+          <a href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+            Sign up
           </a>
         </p>
       </div>

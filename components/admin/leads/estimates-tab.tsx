@@ -208,8 +208,8 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   }
 
   const handleSendToCustomer = async () => {
-    // Send email and get the share token
-    const result = await sendQuoteEmail.mutateAsync(quote.id)
+    // Send email with PDF attachment and get the share token
+    const result = await sendQuoteEmail.mutateAsync({ quoteId: quote.id, includePdf: true })
     if (result?.shareToken) {
       const url = `${window.location.origin}/quote/${result.shareToken}`
       setShareUrl(url)
@@ -438,34 +438,17 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => sendQuoteEmail.mutate(quote.id)}
+                  onClick={() => sendQuoteEmail.mutate({ quoteId: quote.id, includePdf: true })}
                   disabled={sendQuoteEmail.isPending}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   {sendQuoteEmail.isPending ? 'Resending...' : 'Resend Email'}
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => acceptQuote.mutate(quote.id)}
-                  disabled={acceptQuote.isPending}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  Accept Quote
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => declineQuote.mutate(quote.id)}
-                  disabled={declineQuote.isPending}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Decline
-                </Button>
               </>
             )}
 
-            {quote.status === 'pending_company_signature' && (
+            {(quote.status === 'sent' || quote.status === 'pending_company_signature' || quote.status === 'pending_customer_signature') && (
               <>
                 <Button
                   size="sm"

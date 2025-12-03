@@ -8,6 +8,9 @@ export async function POST(
 ) {
   try {
     const { id: quoteId } = await params
+    const body = await request.json()
+    const { includePdf = false } = body // New option to include PDF attachment
+    
     const supabase = await createClient()
 
     // Get current user
@@ -19,7 +22,7 @@ export async function POST(
     // Get user details with company
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('id, email, full_name, company_id, companies(*)')
+      .select('id, email, full_name, phone, company_id, companies(*)')
       .eq('id', user.id)
       .single()
 
@@ -91,7 +94,9 @@ export async function POST(
         id: userData.id,
         email: userData.email,
         full_name: userData.full_name,
-      }
+        phone: userData.phone,
+      },
+      includePdf // Pass the includePdf flag
     )
 
     if (!result.success) {

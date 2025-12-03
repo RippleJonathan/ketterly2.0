@@ -7,8 +7,10 @@ import { AddActivityForm } from '@/components/admin/leads/add-activity-form'
 import { StageChecklist } from '@/components/admin/leads/stage-checklist'
 import { EstimatesTab } from '@/components/admin/leads/estimates-tab'
 import { FilesTab } from '@/components/admin/leads/files-tab'
+import { PhotosTab } from '@/components/admin/leads/photos-tab'
+import { MeasurementsTab } from '@/components/admin/leads/measurements-tab'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare } from 'lucide-react'
+import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image } from 'lucide-react'
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -83,6 +85,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: 'measurements', label: 'Measurements', icon: Ruler },
     { id: 'estimates', label: 'Estimates', icon: DollarSign },
     { id: 'work-orders', label: 'Work Orders', icon: ClipboardList },
+    { id: 'photos', label: 'Photos', icon: Image },
     { id: 'notes', label: 'Notes & Activity', icon: StickyNote },
     { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'payments', label: 'Payments', icon: CreditCard },
@@ -147,14 +150,14 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
           })}
         </nav>
       </div>
-
       {/* Tab Content */}
       <div className="pb-6">
         {tab === 'details' && <DetailsTab lead={lead} />}
         {tab === 'checklist' && <ChecklistTab leadId={id} currentStage={lead.status} />}
-        {tab === 'measurements' && <PlaceholderTab title="Measurements" description="Roof measurements, square footage, material calculations" />}
+        {tab === 'measurements' && <MeasurementsTab leadId={id} />}
         {tab === 'estimates' && <EstimatesTab leadId={id} leadName={lead.full_name} />}
         {tab === 'work-orders' && <PlaceholderTab title="Work Orders" description="Schedule and track work orders" />}
+        {tab === 'photos' && <PhotosTab leadId={id} leadName={lead.full_name} />}
         {tab === 'notes' && <ActivityTab leadId={id} />}
         {tab === 'documents' && <FilesTab leadId={id} leadName={lead.full_name} />}
         {tab === 'payments' && <PlaceholderTab title="Payments" description="Track deposits, payments, and invoices" />}

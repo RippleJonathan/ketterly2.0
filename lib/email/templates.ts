@@ -118,45 +118,55 @@ interface QuoteEmailProps extends EmailTemplateProps {
   validUntil: string
   viewQuoteUrl: string
   senderName: string
+  senderPhone?: string
 }
 
 export function quoteEmailTemplate(props: QuoteEmailProps): string {
   const content = `
-    <p>Hi ${props.customerName},</p>
+    <p style="font-size: 16px;">Hi ${props.customerName},</p>
     
-    <p>Thank you for considering ${props.companyName} for your roofing project!</p>
+    <p style="font-size: 16px;">Thank you for the opportunity to earn your business! I've prepared a detailed quote for your roofing project.</p>
     
-    <p>I've prepared a detailed estimate for you:</p>
+    <p style="font-size: 16px;">Your personalized estimate includes:</p>
+    <ul style="font-size: 16px; line-height: 1.8;">
+      <li>Complete breakdown of labor and materials</li>
+      <li>Project timeline and warranty information</li>
+      <li>Terms and conditions</li>
+    </ul>
     
-    <div class="quote-details">
-      <div class="detail-row">
-        <span class="detail-label">Quote Number:</span>
-        <span class="detail-value">${props.quoteNumber}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Project:</span>
-        <span class="detail-value">${props.quoteTitle}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Total Amount:</span>
-        <span class="detail-value">${props.totalAmount}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Valid Until:</span>
-        <span class="detail-value">${props.validUntil}</span>
-      </div>
+    <div style="background: linear-gradient(135deg, ${props.primaryColor || '#1e40af'} 0%, ${props.primaryColor ? adjustColor(props.primaryColor, -20) : '#1e3a8a'} 100%); padding: 30px; border-radius: 12px; text-align: center; margin: 30px 0;">
+      <p style="color: white; font-size: 18px; margin: 0 0 20px 0; font-weight: 600;">Ready to review your quote?</p>
+      <a href="${props.viewQuoteUrl}" class="button" style="background-color: white; color: ${props.primaryColor || '#1e40af'}; display: inline-block; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        View Your Quote
+      </a>
+      <p style="color: rgba(255,255,255,0.9); font-size: 13px; margin: 15px 0 0 0;">Quote #${props.quoteNumber} • Valid until ${props.validUntil}</p>
     </div>
     
-    <p style="text-align: center;">
-      <a href="${props.viewQuoteUrl}" class="button">View & Accept Quote</a>
-    </p>
+    <p style="font-size: 16px;">Click the button above to review all the details and digitally sign if you're ready to move forward.</p>
     
-    <p>You can review the complete details, including all line items and terms, by clicking the button above. If you have any questions or would like to discuss the estimate, please don't hesitate to reach out.</p>
+    <p style="font-size: 16px;">Have questions? I'm here to help!</p>
     
-    <p>Best regards,<br>${props.senderName}<br>${props.companyName}</p>
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+      <p style="margin: 5px 0; font-size: 16px;"><strong>${props.senderName}</strong></p>
+      <p style="margin: 5px 0; color: #6b7280; font-size: 15px;">${props.companyName}</p>
+      ${props.senderPhone ? `<p style="margin: 5px 0; color: #6b7280; font-size: 15px;">📞 <a href="tel:${props.senderPhone}" style="color: ${props.primaryColor || '#1e40af'}; text-decoration: none;">${props.senderPhone}</a></p>` : ''}
+    </div>
   `
 
   return emailLayout(content, props)
+}
+
+// Helper function to darken color for gradient
+function adjustColor(color: string, percent: number): string {
+  const num = parseInt(color.replace('#', ''), 16)
+  const amt = Math.round(2.55 * percent)
+  const R = (num >> 16) + amt
+  const G = (num >> 8 & 0x00FF) + amt
+  const B = (num & 0x0000FF) + amt
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255))
+    .toString(16).slice(1)
 }
 
 /**

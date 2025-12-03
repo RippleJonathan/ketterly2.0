@@ -373,22 +373,26 @@ export function useSendQuoteEmail() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (quoteId: string) => {
+    mutationFn: async ({ quoteId, includePdf = false }: { quoteId: string, includePdf?: boolean }) => {
       if (!company?.id) throw new Error('No company found')
       
       const response = await fetch(`/api/quotes/${quoteId}/send-email`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ includePdf }),
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
+        const result = await response.json().catch(() => ({ error: 'Failed to send email' }))
         throw new Error(result.error || 'Failed to send email')
       }
 
+      const result = await response.json()
       return result
     },
-    onSuccess: (data, quoteId) => {
+    onSuccess: (data, { quoteId }) => {
       queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
       toast.success('Quote sent successfully!')

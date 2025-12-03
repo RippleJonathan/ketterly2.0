@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendExecutedContractToCustomer } from '@/lib/email/notifications'
 
 /**
  * POST /api/quotes/[id]/sign-company
@@ -109,6 +111,58 @@ export async function POST(
         { error: 'Failed to create signature: ' + signatureError.message },
         { status: 500 }
       )
+    }
+
+    console.log('Company signature created successfully:', signature.id)
+
+    // Check if both signatures are now complete (customer + company_rep)
+    const adminClient = createAdminClient()
+    const { data: allSignatures, error: sigError } = await adminClient
+      .from('quote_signatures')
+      .select('signer_type')
+      .eq('quote_id', quoteId)
+    
+    const hasCustomerSig = allSignatures?.some(s => s.signer_type === 'customer')
+    const hasCompanySig = allSignatures?.some(s => s.signer_type === 'company_rep')
+    
+    console.log('[DUAL SIGNATURE] Signature status:', {
+      hasCustomerSig,
+      hasCompanySig,
+      bothComplete: hasCustomerSig && hasCompanySig
+    })
+
+    // If both signatures are complete, send executed contract email to customer
+    if (hasCustomerSig && hasCompanySig) {
+      console.log('[DUAL SIGNATURE] Both signatures complete - sending executed contract email')
+      
+      // Fetch full quote with relations
+      const { data: fullQuote, error: quoteError } = await adminClient
+        .from('quotes')
+        .select('*, lead:leads(*), company:companies(*)')
+        .eq('id', quoteId)
+        .single()
+      
+      if (quoteError) {
+        console.error('[DUAL SIGNATURE] Failed to fetch quote:', quoteError)
+      }
+      
+      if (fullQuote?.lead && fullQuote?.company) {
+        console.log('[DUAL SIGNATURE] Sending to:', fullQuote.lead.email)
+        console.log('[DUAL SIGNATURE] Quote:', fullQuote.quote_number, 'Company:', fullQuote.company.name)
+        
+        try {
+          const emailResult = await sendExecutedContractToCustomer(fullQuote, fullQuote.company)
+          if (emailResult.success) {
+            console.log('[DUAL SIGNATURE] ✅ Executed contract email sent successfully:', emailResult.data)
+          } else {
+            console.error('[DUAL SIGNATURE] ❌ Failed to send email:', emailResult.error)
+          }
+        } catch (emailError) {
+          console.error('[DUAL SIGNATURE] ❌ Exception sending executed contract email:', emailError)
+        }
+      } else {
+        console.error('[DUAL SIGNATURE] Missing quote/lead/company data - cannot send email')
+      }
     }
 
     // Note: The database trigger will handle updating quote status and lead status

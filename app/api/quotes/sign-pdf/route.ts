@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendExecutedContractToCustomer } from '@/lib/email/notifications'
 
 /**
  * POST /api/quotes/sign-pdf
@@ -126,19 +127,75 @@ export async function POST(request: NextRequest) {
 
     console.log('Signature created successfully:', signature.id)
 
-    // 4. The database trigger (handle_quote_acceptance) will automatically:
+    // 4. Check if both signatures are now complete
+    const { data: allSignatures, error: sigError } = await supabase
+      .from('quote_signatures')
+      .select('signer_type')
+      .eq('quote_id', quote_id)
+    
+    const hasCustomerSig = allSignatures?.some(s => s.signer_type === 'customer')
+    const hasCompanySig = allSignatures?.some(s => s.signer_type === 'company_rep')
+    
+    console.log('Signature status:', {
+      hasCustomerSig,
+      hasCompanySig,
+      bothComplete: hasCustomerSig && hasCompanySig
+    })
+
+    // 5. If both signatures are complete, send executed contract email to customer
+    if (hasCustomerSig && hasCompanySig) {
+      console.log('[DUAL SIGNATURE] Both signatures complete - sending executed contract email')
+      
+      // Fetch company and lead data for email
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', quote.company_id)
+        .single()
+      
+      if (companyError) {
+        console.error('[DUAL SIGNATURE] Failed to fetch company:', companyError)
+      }
+      
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', quote.lead_id)
+        .single()
+      
+      if (leadError) {
+        console.error('[DUAL SIGNATURE] Failed to fetch lead:', leadError)
+      }
+      
+      if (company && lead) {
+        // Attach lead data to quote for email template
+        const quoteWithLead = { ...quote, lead }
+        
+        console.log('[DUAL SIGNATURE] Sending to:', lead.email)
+        console.log('[DUAL SIGNATURE] Quote:', quote.quote_number, 'Company:', company.name)
+        
+        try {
+          const emailResult = await sendExecutedContractToCustomer(quoteWithLead, company)
+          if (emailResult.success) {
+            console.log('[DUAL SIGNATURE] ✅ Executed contract email sent successfully:', emailResult.data)
+          } else {
+            console.error('[DUAL SIGNATURE] ❌ Failed to send email:', emailResult.error)
+          }
+        } catch (emailError) {
+          // Log error but don't fail the signature submission
+          console.error('[DUAL SIGNATURE] ❌ Exception sending executed contract email:', emailError)
+        }
+      } else {
+        console.error('[DUAL SIGNATURE] Missing company or lead data - cannot send email')
+      }
+    } else {
+      console.log('[DUAL SIGNATURE] Not all signatures complete yet:', { hasCustomerSig, hasCompanySig })
+    }
+
+    // The database trigger (handle_quote_acceptance) will automatically:
     // - Update quote status based on which signatures exist
     // - Update lead status to 'production' if both signatures complete
     // - Decline other quotes for the same lead
-    // We don't manually update the quote status here anymore
-
-    // 5. TODO: Generate signed PDF and save to storage
-    // For now, we'll skip PDF generation and just return success
-    // In next phase, we'll use a PDF library to:
-    // - Generate PDF from quote data
-    // - Embed signature image
-    // - Upload to Supabase Storage
-    // - Link file_id to quote
 
     return NextResponse.json({
       success: true,

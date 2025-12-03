@@ -16,6 +16,7 @@ export async function GET(
     const { id: quoteId } = await params
     const { searchParams } = new URL(request.url)
     const shareToken = searchParams.get('token')
+    const internalKey = request.headers.get('x-internal-key')
 
     // Create Supabase client with SERVICE ROLE key (bypasses RLS)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -30,8 +31,24 @@ export async function GET(
 
     let quote: any
 
+    // Internal API call from server (e.g., email service)
+    if (internalKey === process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const { data: quoteData, error: quoteError } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('id', quoteId)
+        .is('deleted_at', null)
+        .single()
+
+      if (quoteError || !quoteData) {
+        console.error('PDF quote fetch error:', quoteError)
+        return new NextResponse('Quote not found', { status: 404 })
+      }
+
+      quote = quoteData
+    }
     // If no token, check if user is authenticated
-    if (!shareToken) {
+    else if (!shareToken) {
       const serverClient = await createServerClient()
       const { data: { user } } = await serverClient.auth.getUser()
       
@@ -145,16 +162,36 @@ export async function GET(
       hasSignature: signaturesResult.data?.length || 0
     })
 
-    // TODO: Generate actual PDF using a library like @react-pdf/renderer or pdfkit
-    // For now, return a simple HTML-to-PDF placeholder response
-    
+    // Generate HTML content
     const htmlContent = generateQuotePDF(quoteWithRelations, companyLogoBase64)
 
-    return new NextResponse(htmlContent, {
+    // Convert HTML to PDF using Puppeteer
+    const puppeteer = await import('puppeteer')
+    const browser = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    })
+    
+    const page = await browser.newPage()
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' })
+    
+    const pdfBuffer = await page.pdf({
+      format: 'Letter',
+      printBackground: true,
+      margin: {
+        top: '0.5in',
+        right: '0.5in',
+        bottom: '0.5in',
+        left: '0.5in'
+      }
+    })
+    
+    await browser.close()
+
+    return new NextResponse(pdfBuffer, {
       headers: {
-        'Content-Type': 'text/html',
-        // For actual PDF, use: 'Content-Type': 'application/pdf'
-        // 'Content-Disposition': `inline; filename="Quote-${quote.quote_number}.pdf"`
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="Quote-${quote.quote_number}.pdf"`,
       },
     })
   } catch (error: any) {

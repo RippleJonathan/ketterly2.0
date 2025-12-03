@@ -2,7 +2,52 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, X, RotateCcw } from 'lucide-react'
+import { SignaturePad } from '@/components/ui/signature-pad'
+
+interface LineItem {
+  id: string
+  description: string
+  category: string
+  quantity: number
+  unit: string
+  unit_price: number
+  line_total: number
+}
+
+interface Lead {
+  full_name: string
+  email: string
+  phone: string
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+}
+
+interface Company {
+  id: string
+  name: string
+  logo_url: string | null
+  primary_color: string
+  contact_email: string | null
+  contact_phone: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  zip: string | null
+  contract_terms: string | null
+  replacement_warranty_years?: number
+  repair_warranty_years?: number
+}
+
+interface Signature {
+  signer_type: 'customer' | 'company_rep'
+  signer_name: string
+  signer_title: string | null
+  signature_data: string
+  signed_at: string
+}
 
 interface QuoteData {
   id: string
@@ -17,43 +62,17 @@ interface QuoteData {
   total_amount: number
   payment_terms: string | null
   option_label: string | null
-  quote_line_items: Array<{
-    id: string
-    description: string
-    category: string
-    quantity: number
-    unit: string
-    unit_price: number
-    line_total: number
-  }>
-  leads: {
-    full_name: string
-    email: string
-    phone: string
-    address: string | null
-    city: string | null
-    state: string | null
-    zip: string | null
-  }
-  companies: {
-    name: string
-    logo_url: string | null
-    primary_color: string
-    contact_email: string | null
-    contact_phone: string | null
-    address: string | null
-    city: string | null
-    state: string | null
-    zip: string | null
-    contract_terms: string | null
-  }
-  quote_signatures: Array<{
-    signer_type: 'customer' | 'company_rep'
-    signer_name: string
-    signer_title: string | null
-    signature_data: string
-    signed_at: string
-  }>
+  valid_until: string | null
+  // API returns these property names
+  line_items?: LineItem[]
+  lead?: Lead
+  company?: Company
+  signature?: Signature[]
+  // Legacy property names (for backwards compatibility)
+  quote_line_items?: LineItem[]
+  leads?: Lead
+  companies?: Company
+  quote_signatures?: Signature[]
 }
 
 export default function PublicQuotePage() {
@@ -63,6 +82,15 @@ export default function PublicQuotePage() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // E-sign modal state
+  const [showSignModal, setShowSignModal] = useState(false)
+  const [signerName, setSignerName] = useState('')
+  const [signerEmail, setSignerEmail] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
+  const [signing, setSigning] = useState(false)
+  const [signError, setSignError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -85,8 +113,9 @@ export default function PublicQuotePage() {
 
         setQuote(data)
 
-        // Fetch logo if available
-        if (data.companies?.logo_url) {
+        // Fetch logo if available (API returns 'company' not 'companies')
+        const companyData = data.company || data.companies
+        if (companyData?.logo_url) {
           try {
             const logoResponse = await fetch(`/api/quotes/${data.id}/logo?token=${token}`)
             if (logoResponse.ok) {
@@ -138,11 +167,14 @@ export default function PublicQuotePage() {
     )
   }
 
-  const company = quote.companies
-  const lead = quote.leads
-  const lineItems = quote.quote_line_items || []
-  const customerSignature = quote.quote_signatures?.find(s => s.signer_type === 'customer')
-  const companySignature = quote.quote_signatures?.find(s => s.signer_type === 'company_rep')
+  // Normalize data - API returns 'line_items', 'lead', 'company', 'signature'
+  // but we also support legacy names for backwards compatibility
+  const company = quote.company || quote.companies
+  const lead = quote.lead || quote.leads
+  const lineItems = quote.line_items || quote.quote_line_items || []
+  const signatures = quote.signature || quote.quote_signatures || []
+  const customerSignature = signatures.find(s => s.signer_type === 'customer')
+  const companySignature = signatures.find(s => s.signer_type === 'company_rep')
 
   // Replace placeholders in contract terms
   let contractTerms = company?.contract_terms || ''
@@ -151,6 +183,8 @@ export default function PublicQuotePage() {
       .replace(/\[Company Name\]/g, company.name || '[Company Name]')
       .replace(/\[Company Address\]/g, company.address || '[Company Address]')
       .replace(/\[Company Email\]/g, company.contact_email || '[Company Email]')
+      .replace(/\[Replacement Warranty\]/g, company.replacement_warranty_years?.toString() || '10')
+      .replace(/\[Repair Warranty\]/g, company.repair_warranty_years?.toString() || '1')
   }
 
   // Default color if company data not available
@@ -367,13 +401,229 @@ export default function PublicQuotePage() {
                 </p>
                 <button
                   onClick={() => {
-                    alert('E-sign functionality coming soon!')
+                    // Pre-fill email from lead data if available
+                    if (lead?.email && !signerEmail) {
+                      setSignerEmail(lead.email)
+                    }
+                    if (lead?.full_name && !signerName) {
+                      setSignerName(lead.full_name)
+                    }
+                    setShowSignModal(true)
                   }}
                   className="px-8 py-3 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
                   style={{ backgroundColor: primaryColor }}
                 >
                   Sign & Accept Quote
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* E-Sign Modal */}
+          {showSignModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+              <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl">
+                {/* Modal Header */}
+                <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-gray-900">Sign & Accept Quote</h3>
+                  <button
+                    onClick={() => {
+                      setShowSignModal(false)
+                      setSignatureDataUrl(null)
+                      setSignError(null)
+                    }}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-6">
+                  {/* Quote Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="text-sm text-gray-600 mb-1">Quote #{quote.quote_number}</div>
+                    <div className="text-2xl font-bold" style={{ color: primaryColor }}>
+                      ${quote.total_amount.toFixed(2)}
+                    </div>
+                    {quote.option_label && (
+                      <div className="text-sm text-gray-500 mt-1">{quote.option_label}</div>
+                    )}
+                  </div>
+
+                  {/* Signer Information */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Your Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Full Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={signerName}
+                          onChange={(e) => setSignerName(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email Address <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={signerEmail}
+                          onChange={(e) => setSignerEmail(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="you@example.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Signature Pad */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Your Signature</h4>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-white">
+                      <SignaturePad
+                        width={500}
+                        height={150}
+                        onSave={(dataUrl) => setSignatureDataUrl(dataUrl)}
+                        onCancel={() => setSignatureDataUrl(null)}
+                      />
+                    </div>
+                    {signatureDataUrl && (
+                      <div className="mt-2 flex items-center text-sm text-green-600">
+                        <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Signature captured
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Terms Acceptance */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        I have read and agree to the terms and conditions outlined in this quote. 
+                        By signing, I authorize {company?.name || 'the company'} to proceed with the work as described 
+                        and agree to the payment terms specified.
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Error Message */}
+                  {signError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                      {signError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowSignModal(false)
+                      setSignatureDataUrl(null)
+                      setSignError(null)
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setSignError(null)
+                      
+                      // Validate inputs
+                      if (!signerName.trim()) {
+                        setSignError('Please enter your full name')
+                        return
+                      }
+                      if (!signerEmail.trim()) {
+                        setSignError('Please enter your email address')
+                        return
+                      }
+                      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signerEmail)) {
+                        setSignError('Please enter a valid email address')
+                        return
+                      }
+                      if (!signatureDataUrl) {
+                        setSignError('Please draw your signature and click "Save Signature"')
+                        return
+                      }
+                      if (!acceptedTerms) {
+                        setSignError('You must accept the terms and conditions to proceed')
+                        return
+                      }
+
+                      try {
+                        setSigning(true)
+                        
+                        const response = await fetch('/api/quotes/sign-pdf', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            quote_id: quote.id,
+                            share_token: token,
+                            signer_name: signerName.trim(),
+                            signer_email: signerEmail.trim(),
+                            signature_data: signatureDataUrl,
+                            accepted_terms: true,
+                            signer_type: 'customer',
+                            signer_user_agent: navigator.userAgent,
+                          }),
+                        })
+
+                        const result = await response.json()
+                        
+                        if (!response.ok) {
+                          setSignError(result.error || 'Failed to submit signature')
+                          setSigning(false)
+                          return
+                        }
+
+                        // Refresh quote data to show signature
+                        const refreshResponse = await fetch(`/api/public/quote/${token}`)
+                        if (refreshResponse.ok) {
+                          const { data } = await refreshResponse.json()
+                          if (data) setQuote(data)
+                        }
+
+                        setSigning(false)
+                        setShowSignModal(false)
+                        setSignatureDataUrl(null)
+                        setAcceptedTerms(false)
+                        
+                      } catch (err: any) {
+                        console.error('Signature submission error:', err)
+                        setSignError(err?.message || 'An error occurred while submitting your signature')
+                        setSigning(false)
+                      }
+                    }}
+                    disabled={signing}
+                    className="px-6 py-2 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    {signing ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Submitting...
+                      </span>
+                    ) : (
+                      'Submit Signature'
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}

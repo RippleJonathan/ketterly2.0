@@ -24,6 +24,7 @@ interface User {
   id: string
   email: string
   full_name: string
+  phone?: string | null
 }
 
 interface Company {
@@ -133,11 +134,13 @@ async function getTeamEmails(companyId: string): Promise<string[]> {
 
 /**
  * Send quote to customer
+ * @param includePdf - If true, generates and attaches the quote PDF
  */
 export async function sendQuoteToCustomer(
   quote: any,
   company: Company,
-  sender: User
+  sender: User,
+  includePdf: boolean = false
 ) {
   const settings = await getNotificationSettings(company.id)
   
@@ -164,14 +167,48 @@ export async function sendQuoteToCustomer(
     validUntil: format(new Date(quote.valid_until), 'MMMM dd, yyyy'),
     viewQuoteUrl: quoteUrl,
     senderName: sender.full_name,
+    senderPhone: sender.phone || company.contact_phone || undefined,
   })
 
+  let attachments = undefined
+  if (includePdf) {
+    // Fetch the PDF using the same template as the download button
+    const pdfUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/quotes/${quote.id}/generate-pdf`
+    console.log('Fetching PDF for email attachment:', pdfUrl)
+    try {
+      const pdfResponse = await fetch(pdfUrl, {
+        headers: {
+          'x-internal-key': process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+        }
+      })
+      console.log('PDF fetch response status:', pdfResponse.status, pdfResponse.statusText)
+      if (pdfResponse.ok) {
+        const pdfBuffer = await pdfResponse.arrayBuffer()
+        console.log('PDF buffer size:', pdfBuffer.byteLength, 'bytes')
+        attachments = [{
+          filename: `Quote-${quote.quote_number}.pdf`,
+          content: Buffer.from(pdfBuffer),
+        }]
+        console.log('PDF attachment created successfully')
+      } else {
+        console.error('PDF fetch failed:', pdfResponse.status, await pdfResponse.text())
+      }
+    } catch (error) {
+      console.error('Failed to fetch PDF for attachment:', error)
+      // Continue without attachment rather than failing the email
+    }
+  } else {
+    console.log('includePdf is false, skipping PDF attachment')
+  }
+
+  console.log('Sending quote email to:', customerEmail, 'with attachments:', attachments ? 'YES' : 'NO')
   return await sendEmail({
-    from: `${sender.full_name} via ${company.name} <noreply@ketterly.com>`,
+    from: `${sender.full_name} via ${company.name} <notifications@ketterly.com>`,
     to: customerEmail,
     replyTo: sender.email,
     subject: `Your Roofing Estimate - ${quote.title}`,
     html,
+    attachments,
   })
 }
 
@@ -304,5 +341,168 @@ export async function sendPaymentConfirmation(
     replyTo: company.contact_email || undefined,
     subject: `Payment Received - Thank You!`,
     html,
+  })
+}
+
+/**
+ * Send fully executed contract to customer (both signatures complete)
+ */
+export async function sendExecutedContractToCustomer(
+  quote: any,
+  company: Company
+) {
+  const settings = await getNotificationSettings(company.id)
+  
+  if (!settings?.quote_sent_to_customer) {
+    console.log('Quote email notifications are disabled for this company')
+    return { success: false, reason: 'disabled' }
+  }
+
+  const customerEmail = quote.lead?.email || quote.customer?.email
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email found' }
+  }
+
+  // Generate PDF using the same template as the download button
+  // Use the new generate-pdf endpoint that uses @react-pdf/renderer
+  const pdfUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/quotes/${quote.id}/generate-pdf`
+  console.log('[Executed Contract] Fetching PDF (React PDF template):', pdfUrl)
+  
+  let pdfAttachment = undefined
+  try {
+    const pdfResponse = await fetch(pdfUrl, {
+      headers: {
+        'x-internal-key': process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      }
+    })
+    console.log('[Executed Contract] PDF fetch status:', pdfResponse.status, pdfResponse.statusText)
+    if (pdfResponse.ok) {
+      const pdfBuffer = await pdfResponse.arrayBuffer()
+      console.log('[Executed Contract] PDF buffer size:', pdfBuffer.byteLength, 'bytes')
+      pdfAttachment = {
+        filename: `Signed-Contract-${quote.quote_number}.pdf`,
+        content: Buffer.from(pdfBuffer),
+      }
+      console.log('[Executed Contract] PDF attachment created successfully')
+    } else {
+      const errorText = await pdfResponse.text()
+      console.error('[Executed Contract] PDF fetch failed:', pdfResponse.status, errorText)
+      return { success: false, error: `Failed to generate PDF: ${pdfResponse.status}` }
+    }
+  } catch (error) {
+    console.error('[Executed Contract] Failed to fetch PDF for attachment:', error)
+    return { success: false, error: 'Failed to generate PDF attachment' }
+  }
+  
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      ${company.logo_url ? `<img src="${company.logo_url}" alt="${company.name}" style="max-width: 150px; margin-bottom: 20px;">` : ''}
+      
+      <h1 style="color: ${company.primary_color || '#2563eb'}; margin-bottom: 10px;">Your Signed Contract is Ready!</h1>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        Dear ${quote.lead?.full_name || quote.customer?.full_name || 'Customer'},
+      </p>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        Great news! Your contract for <strong>${quote.title || quote.option_label}</strong> (Quote #${quote.quote_number}) has been fully executed by both parties.
+      </p>
+      
+      <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; margin: 24px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #166534; font-weight: 600;">✓ Contract Amount: ${formatCurrency(quote.total_amount)}</p>
+        <p style="margin: 8px 0 0 0; color: #166534;">Both you and our company representative have signed the agreement.</p>
+      </div>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        Attached to this email, you'll find the fully executed contract PDF for your records. Please keep this for your files.
+      </p>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        We're excited to get started on your project! If you have any questions, please don't hesitate to reach out.
+      </p>
+      
+      <p style="color: #374151; line-height: 1.6; margin-top: 32px;">
+        Best regards,<br>
+        <strong>${company.name}</strong><br>
+        ${company.contact_phone || ''}<br>
+        ${company.contact_email || ''}
+      </p>
+    </div>
+  `
+
+  console.log('[Executed Contract] Sending email to:', customerEmail)
+  return await sendEmail({
+    from: `${company.name} <notifications@ketterly.com>`,
+    to: customerEmail,
+    replyTo: company.contact_email || undefined,
+    subject: `✓ Signed Contract - ${quote.title || quote.quote_number}`,
+    html,
+    attachments: pdfAttachment ? [pdfAttachment] : undefined,
+  })
+}
+
+/**
+ * Send a document file to customer email
+ */
+export async function sendDocumentToCustomer(
+  document: any,
+  lead: any,
+  company: Company,
+  sender: User,
+  fileBuffer: ArrayBuffer
+) {
+  const customerEmail = lead?.email
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email found' }
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      ${company.logo_url ? `<img src="${company.logo_url}" alt="${company.name}" style="max-width: 150px; margin-bottom: 20px;">` : ''}
+      
+      <h1 style="color: ${company.primary_color || '#2563eb'}; margin-bottom: 10px;">Document Shared With You</h1>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        Hello ${lead.full_name || 'Customer'},
+      </p>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        ${sender.full_name} from ${company.name} has shared a document with you:
+      </p>
+      
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 16px; margin: 24px 0; border-radius: 8px;">
+        <p style="margin: 0; font-weight: 600; color: #111827;">${document.title}</p>
+        ${document.description ? `<p style="margin: 8px 0 0 0; color: #6b7280; font-size: 14px;">${document.description}</p>` : ''}
+      </div>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        The document is attached to this email for your review.
+      </p>
+      
+      <p style="color: #374151; line-height: 1.6;">
+        If you have any questions, please feel free to reply to this email.
+      </p>
+      
+      <p style="color: #374151; line-height: 1.6; margin-top: 32px;">
+        Best regards,<br>
+        <strong>${sender.full_name}</strong><br>
+        ${company.name}<br>
+        ${company.contact_phone || ''}<br>
+        ${sender.email}
+      </p>
+    </div>
+  `
+
+  console.log('Sending document email to:', customerEmail, 'file:', document.file_name)
+  return await sendEmail({
+    from: `${sender.full_name} via ${company.name} <notifications@ketterly.com>`,
+    to: customerEmail,
+    replyTo: sender.email,
+    subject: `Document from ${company.name} - ${document.title}`,
+    html,
+    attachments: [{
+      filename: document.file_name,
+      content: Buffer.from(fileBuffer),
+    }],
   })
 }

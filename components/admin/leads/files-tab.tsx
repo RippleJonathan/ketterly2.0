@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { DocumentType, DOCUMENT_TYPE_LABELS, SIGNATURE_STATUS_LABELS } from '@/lib/types/documents'
-import { Upload, FileText, MoreVertical, Download, Share2, Trash2, Eye, CheckCircle2, Clock, XCircle, FileIcon, ChevronDown, ChevronUp } from 'lucide-react'
+import { Upload, FileText, MoreVertical, Download, Share2, Trash2, Eye, CheckCircle2, Clock, XCircle, FileIcon, ChevronDown, ChevronUp, Mail } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { formatBytes } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -52,6 +52,7 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
 
   const [selectedType, setSelectedType] = useState<DocumentType | 'all'>('all')
   const [isUploadExpanded, setIsUploadExpanded] = useState(false)
+  const [emailingSigned, setEmailingSigned] = useState<{ [key: string]: boolean }>({})
 
   // Filter quotes that have both signatures (fully executed contracts)
   const signedQuotes = quotes?.filter(q => q.status === 'accepted') || []
@@ -85,6 +86,30 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
     } catch (error) {
       console.error('Download PDF error:', error)
       toast.error('Failed to download PDF')
+    }
+  }
+
+  // Handler to email signed contract to customer
+  const handleEmailSignedContract = async (quoteId: string) => {
+    try {
+      setEmailingSigned(prev => ({ ...prev, [quoteId]: true }))
+      
+      const response = await fetch(`/api/quotes/${quoteId}/send-signed`, {
+        method: 'POST',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send email')
+      }
+
+      toast.success('Signed contract sent successfully!')
+    } catch (error: any) {
+      console.error('Email signed contract error:', error)
+      toast.error(error.message || 'Failed to send email')
+    } finally {
+      setEmailingSigned(prev => ({ ...prev, [quoteId]: false }))
     }
   }
 
@@ -142,15 +167,26 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadPDF(quote.id)}
-                    disabled={isGenerating}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    {isGenerating ? 'Generating...' : 'Download PDF'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadPDF(quote.id)}
+                      disabled={isGenerating}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {isGenerating ? 'Generating...' : 'Download PDF'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEmailSignedContract(quote.id)}
+                      disabled={emailingSigned[quote.id]}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      {emailingSigned[quote.id] ? 'Sending...' : 'Email PDF'}
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -339,6 +375,7 @@ function DocumentUploadForm({ leadId }: { leadId: string }) {
 function DocumentsTable({ documents, leadId }: { documents: any[], leadId: string }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<any>(null)
+  const [emailingDocument, setEmailingDocument] = useState<{ [key: string]: boolean }>({})
   const deleteDocument = useDeleteDocument()
 
   const handleDeleteClick = (document: any) => {
@@ -378,6 +415,29 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
       toast.success('Download started')
     } catch (error) {
       toast.error('Failed to download document')
+    }
+  }
+
+  const handleEmailDocument = async (documentId: string) => {
+    try {
+      setEmailingDocument(prev => ({ ...prev, [documentId]: true }))
+      
+      const response = await fetch(`/api/documents/${documentId}/send-email`, {
+        method: 'POST',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send email')
+      }
+
+      toast.success('Document sent successfully!')
+    } catch (error: any) {
+      console.error('Email document error:', error)
+      toast.error(error.message || 'Failed to send email')
+    } finally {
+      setEmailingDocument(prev => ({ ...prev, [documentId]: false }))
     }
   }
 
@@ -481,6 +541,13 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
                       <DropdownMenuItem onClick={() => handleDownload(document)}>
                         <Download className="h-4 w-4 mr-2" />
                         Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleEmailDocument(document.id)}
+                        disabled={emailingDocument[document.id]}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        {emailingDocument[document.id] ? 'Sending...' : 'Email to Customer'}
                       </DropdownMenuItem>
                       {document.visible_to_customer && (
                         <DropdownMenuItem>

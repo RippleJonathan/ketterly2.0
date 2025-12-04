@@ -168,3 +168,59 @@ export function useRemoveMeasurementAccessory(leadId: string) {
     },
   })
 }
+
+/**
+ * Hook to auto-measure roof using Google Solar API
+ */
+export function useAutoMeasure(leadId: string) {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ 
+      latitude, 
+      longitude 
+    }: { 
+      latitude: number
+      longitude: number 
+    }) => {
+      if (!company?.id) throw new Error('Company not found')
+
+      const response = await fetch('/api/measurements/auto-measure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId,
+          companyId: company.id,
+          latitude,
+          longitude,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to analyze roof data')
+      }
+
+      return await response.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['measurements', leadId] })
+      queryClient.invalidateQueries({ queryKey: ['measurement-history', leadId] })
+      
+      if (data.message) {
+        toast.success(data.message, {
+          description: `Complexity: ${data.data.roof_complexity} • Segments: ${data.data.segment_count}`,
+        })
+      } else {
+        toast.success('Roof measured successfully')
+      }
+    },
+    onError: (error: Error) => {
+      console.error('Auto-measure failed:', error)
+      toast.error('Failed to analyze satellite data', {
+        description: error.message,
+      })
+    },
+  })
+}

@@ -155,7 +155,18 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         {tab === 'details' && <DetailsTab lead={lead} />}
         {tab === 'checklist' && <ChecklistTab leadId={id} currentStage={lead.status} />}
         {tab === 'measurements' && <MeasurementsTab leadId={id} />}
-        {tab === 'estimates' && <EstimatesTab leadId={id} leadName={lead.full_name} />}
+        {tab === 'estimates' && (
+          <EstimatesTab 
+            leadId={id} 
+            leadName={lead.full_name}
+            leadAddress={lead.address}
+            leadCity={lead.city}
+            leadState={lead.state}
+            leadZip={lead.zip}
+            latitude={lead.latitude}
+            longitude={lead.longitude}
+          />
+        )}
         {tab === 'work-orders' && <PlaceholderTab title="Work Orders" description="Schedule and track work orders" />}
         {tab === 'photos' && <PhotosTab leadId={id} leadName={lead.full_name} />}
         {tab === 'notes' && <ActivityTab leadId={id} />}

@@ -43,14 +43,33 @@ import {
 } from '@/components/ui/dialog'
 import { QuoteForm } from './quote-form'
 import { CompanySignatureDialog } from '@/components/admin/quotes/company-signature-dialog'
+import { AutoMeasureButton } from './auto-measure-button'
+import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
 
 interface EstimatesTabProps {
   leadId: string
   leadName: string
+  leadAddress?: string
+  leadCity?: string
+  leadState?: string
+  leadZip?: string
+  latitude?: number | null
+  longitude?: number | null
 }
 
-export function EstimatesTab({ leadId, leadName }: EstimatesTabProps) {
+export function EstimatesTab({ 
+  leadId, 
+  leadName, 
+  leadAddress,
+  leadCity,
+  leadState,
+  leadZip,
+  latitude,
+  longitude 
+}: EstimatesTabProps) {
   const { data: quotes, isLoading } = useQuotes({ leadId })
+  const { data: measurementsResponse } = useLeadMeasurements(leadId)
+  const measurements = measurementsResponse?.data
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
@@ -98,6 +117,8 @@ export function EstimatesTab({ leadId, leadName }: EstimatesTabProps) {
   }
 
   if (!quotes || quotes.length === 0) {
+    const fullAddress = [leadAddress, leadCity, leadState, leadZip].filter(Boolean).join(', ')
+    
     return (
       <>
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -106,6 +127,28 @@ export function EstimatesTab({ leadId, leadName }: EstimatesTabProps) {
           <p className="text-gray-500 mb-6">
             Create a quote to send to {leadName}
           </p>
+
+          {/* Auto-measure section */}
+          <div className="max-w-md mx-auto mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-3">Quick Start: Auto-Measure Roof</h4>
+            <AutoMeasureButton
+              leadId={leadId}
+              latitude={latitude}
+              longitude={longitude}
+              address={fullAddress}
+              size="default"
+              className="w-full"
+            />
+            {measurements && (
+              <div className="mt-3 text-sm text-left space-y-1">
+                <p className="text-green-600 font-medium">✓ Roof measurements available</p>
+                <p className="text-gray-600">
+                  {measurements.actual_squares} squares • {measurements.roof_pitch || 'Unknown pitch'}
+                </p>
+              </div>
+            )}
+          </div>
+
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Estimate
@@ -126,17 +169,32 @@ export function EstimatesTab({ leadId, leadName }: EstimatesTabProps) {
     <>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
             <h2 className="text-2xl font-semibold text-gray-900">Estimates</h2>
             <p className="text-gray-600 mt-1">
               {quotes.length} {quotes.length === 1 ? 'estimate' : 'estimates'} for {leadName}
             </p>
+            {measurements && (
+              <div className="mt-2 text-sm text-gray-600">
+                Roof: {measurements.actual_squares} squares • {measurements.roof_pitch || 'Unknown pitch'} • {measurements.roof_complexity || 'Unknown complexity'}
+              </div>
+            )}
           </div>
-          <Button onClick={() => setIsFormOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Estimate
-          </Button>
+          <div className="flex gap-3">
+            <AutoMeasureButton
+              leadId={leadId}
+              latitude={latitude}
+              longitude={longitude}
+              address={[leadAddress, leadCity, leadState, leadZip].filter(Boolean).join(', ')}
+              size="sm"
+              variant="outline"
+            />
+            <Button onClick={() => setIsFormOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Estimate
+            </Button>
+          </div>
         </div>
 
         {/* Quotes List */}

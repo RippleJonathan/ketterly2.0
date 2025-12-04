@@ -12,11 +12,12 @@ The Auto-Measure feature provides one-click roof measurement from satellite data
 
 ### What It Does
 
-1. **Fetches satellite data** from Google Solar API for a given address
-2. **Calculates roof area** in squares (100 sq ft = 1 square)
-3. **Determines primary pitch** from the largest roof segment
-4. **Assesses complexity** based on number of roof segments
-5. **Saves measurements** to the database for quote generation
+1. **Automatically geocodes address** if coordinates not available
+2. **Fetches satellite data** from Google Solar API for the location
+3. **Calculates roof area** in squares (100 sq ft = 1 square)
+4. **Determines primary pitch** from the largest roof segment
+5. **Assesses complexity** based on number of roof segments
+6. **Saves measurements** to the database for quote generation
 
 ---
 
@@ -28,9 +29,13 @@ The Auto-Measure feature provides one-click roof measurement from satellite data
 - **Styling**: Tailwind CSS with shadcn/ui components
 
 ### Backend
-- **API Route**: `/api/measurements/auto-measure` (POST)
+- **API Routes**: 
+  - `/api/geocode` (POST) - Geocodes addresses to lat/lng
+  - `/api/measurements/auto-measure` (POST) - Measures roofs from coordinates
 - **Database**: Supabase PostgreSQL with `lead_measurements` table
-- **External API**: Google Solar API (`buildingInsights` endpoint)
+- **External APIs**: 
+  - Google Geocoding API (address → coordinates)
+  - Google Solar API (`buildingInsights` endpoint)
 
 ### Database Schema
 - **Table**: `lead_measurements`
@@ -46,13 +51,41 @@ The Auto-Measure feature provides one-click roof measurement from satellite data
 
 ## Implementation Details
 
-### 1. Database Migration
+### 1. Geocoding API Route
+
+**File**: `app/api/geocode/route.ts`
+
+**Endpoint**: `POST /api/geocode`
+
+**Request Body**:
+```json
+{
+  "address": "123 Main St, Austin, TX 78701"
+}
+```
+
+**Response**:
+```json
+{
+  "latitude": 30.2672,
+  "longitude": -97.7431,
+  "formattedAddress": "123 Main St, Austin, TX 78701, USA"
+}
+```
+
+**Logic**:
+1. Validates address input
+2. Calls Google Geocoding API
+3. Extracts lat/lng from first result
+4. Returns formatted address for verification
+
+### 2. Database Migration
 
 **File**: `supabase/migrations/20241203000003_add_google_solar_fields.sql`
 
 Adds Google Solar API fields to the existing `lead_measurements` table without modifying core columns.
 
-### 2. API Route
+### 3. Auto-Measure API Route
 
 **File**: `app/api/measurements/auto-measure/route.ts`
 
@@ -63,8 +96,9 @@ Adds Google Solar API fields to the existing `lead_measurements` table without m
 {
   "leadId": "uuid",
   "companyId": "uuid",
-  "latitude": 30.2672,
-  "longitude": -97.7431
+  "address": "123 Main St, Austin, TX 78701",
+  "latitude": 30.2672,  // Optional if address provided
+  "longitude": -97.7431  // Optional if address provided
 }
 ```
 
@@ -87,16 +121,17 @@ Adds Google Solar API fields to the existing `lead_measurements` table without m
 ```
 
 **Logic**:
-1. Validates coordinates and API key
-2. Calls Google Solar API with HIGH quality requirement
-3. Extracts `areaMeters2` from `wholeRoofStats`
-4. Converts to squares: `(areaMeters2 * 10.764) / 100`
-5. Finds largest roof segment for primary pitch
-6. Converts degrees to rise/run: `rise = 12 * tan(degrees)`
-7. Calculates complexity: <6 segments = simple, 6-12 = moderate, >12 = complex
-8. Saves or updates measurement in database
+1. Geocodes address if coordinates not provided
+2. Validates coordinates and API key
+3. Calls Google Solar API with HIGH quality requirement
+4. Extracts `areaMeters2` from `wholeRoofStats`
+5. Converts to squares: `(areaMeters2 * 10.764) / 100`
+6. Finds largest roof segment for primary pitch
+7. Converts degrees to rise/run: `rise = 12 * tan(degrees)`
+8. Calculates complexity: <6 segments = simple, 6-12 = moderate, >12 = complex
+9. Saves or updates measurement in database
 
-### 3. React Query Hook
+### 4. React Query Hook
 
 **File**: `lib/hooks/use-measurements.ts`
 
@@ -105,7 +140,12 @@ Adds Google Solar API fields to the existing `lead_measurements` table without m
 ```typescript
 const autoMeasure = useAutoMeasure(leadId)
 
-// Usage
+// Usage with address (automatic geocoding)
+autoMeasure.mutateAsync({ 
+  address: "123 Main St, Austin, TX 78701"
+})
+
+// Usage with coordinates (skip geocoding)
 autoMeasure.mutateAsync({ 
   latitude: 30.2672, 
   longitude: -97.7431 
@@ -113,11 +153,12 @@ autoMeasure.mutateAsync({
 ```
 
 **Features**:
+- Automatic geocoding if only address provided
 - Automatic cache invalidation on success
 - Toast notifications with details
 - Error handling with user-friendly messages
 
-### 4. React Component
+### 5. React Component
 
 **File**: `components/admin/leads/auto-measure-button.tsx`
 
@@ -138,13 +179,14 @@ autoMeasure.mutateAsync({
 ```
 
 **Features**:
-- Loading state: "Analyzing Satellite Data..."
-- Disabled state when coordinates missing
+- Automatic geocoding: Works with just address or coordinates
+- Loading states: "Geocoding Address..." → "Analyzing Satellite Data..."
+- Disabled state when no address or coordinates provided
 - Success display: Shows squares, pitch, complexity, segments
 - Satellite image date display
-- Helper text for geocoding requirement
+- Helper text when address needed
 
-### 5. UI Integration
+### 6. UI Integration
 
 **Locations**:
 1. **Estimates Tab** (`components/admin/leads/estimates-tab.tsx`)
@@ -173,13 +215,16 @@ GOOGLE_MAPS_API_KEY=your_api_key_here
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 2. Create or select a project
-3. Enable the **Solar API**: https://console.cloud.google.com/apis/library/solar.googleapis.com
-4. Create credentials → API Key
-5. Restrict the API key (recommended):
+3. Enable the **Geocoding API**: https://console.cloud.google.com/apis/library/geocoding-backend.googleapis.com
+4. Enable the **Solar API**: https://console.cloud.google.com/apis/library/solar.googleapis.com
+5. Create credentials → API Key
+6. Restrict the API key (recommended):
    - Application restrictions: HTTP referrers (for frontend) or None (for server-side)
-   - API restrictions: Solar API
+   - API restrictions: Geocoding API + Solar API
 
-**Pricing**: Google Solar API has a free tier with generous quotas. Check current pricing at https://developers.google.com/maps/documentation/solar/usage-and-billing
+**Pricing**: Both APIs have free tiers with generous quotas. Check current pricing:
+- Geocoding: https://developers.google.com/maps/documentation/geocoding/usage-and-billing
+- Solar: https://developers.google.com/maps/documentation/solar/usage-and-billing
 
 ---
 
@@ -188,11 +233,10 @@ GOOGLE_MAPS_API_KEY=your_api_key_here
 ### Typical Flow
 
 1. **Create Lead** with address
-2. **Geocode Address** (if not already done) to get lat/lng
-3. **Navigate to Estimates Tab**
-4. **Click "Auto-Measure Roof"** button
-5. **Wait 2-3 seconds** for satellite analysis
-6. **Review Results**:
+2. **Navigate to Estimates Tab**
+3. **Click "Auto-Measure Roof"** button
+4. **Wait 2-4 seconds** for geocoding + satellite analysis
+5. **Review Results**:
    - Squares (actual and with waste)
    - Roof pitch
    - Complexity rating
@@ -210,14 +254,64 @@ If Google doesn't have coverage:
 
 ## Calculation Details
 
-### Area Conversion
+### Area Conversion with Pitch Adjustment
 ```
-1. Get area in meters² from Google: areaMeters2
-2. Convert to square feet: areaSquareFeet = areaMeters2 * 10.764
-3. Convert to squares: actualSquares = areaSquareFeet / 100
-4. Add waste: totalSquares = actualSquares * (1 + wastePercentage/100)
-   - Default waste: 10%
+1. For each roof segment from Google Solar API:
+   - Get flat area in meters²: areaMeters2
+   - Get pitch in degrees: pitchDegrees
+   - Calculate pitch multiplier: 1 / cos(pitchDegrees × π / 180)
+   - Calculate sloped area: flatArea × pitchMultiplier
+
+2. Sum all segment sloped areas: totalSlopedMeters2
+
+3. Check buildingStats vs wholeRoofStats:
+   - wholeRoofStats = area assigned to detected segments
+   - buildingStats = entire building (may include unassigned areas)
+   - If buildingStats > wholeRoofStats, scale up by ratio
+   - This captures areas not assigned to specific segments
+
+4. Convert to square feet: areaSquareFeet = totalSlopedMeters2 × 10.764
+
+5. Convert to squares: satelliteSquares = areaSquareFeet / 100
+
+6. Add overhang allowance: actualSquares = satelliteSquares × 1.07
+   - Default: 7% overhang allowance
+
+Examples of pitch multipliers:
+- 4/12 pitch (18.4°) → 1.054x multiplier (5.4% more area)
+- 6/12 pitch (26.6°) → 1.118x multiplier (11.8% more area)  
+- 8/12 pitch (33.7°) → 1.202x multiplier (20.2% more area)
+- 12/12 pitch (45°) → 1.414x multiplier (41.4% more area)
 ```
+
+### Important Limitations
+
+**Google Solar API measures roof surface area for solar panel placement**, which differs from roofing measurements:
+
+1. **Segment Detection Limitations** - Google assigns roof areas to segments based on orientation and pitch. Some areas may not be assigned to any segment:
+   - Small roof sections between segments
+   - Complex transitions and valleys
+   - Areas with inconsistent pitch detection
+   - Our code uses `buildingStats` to capture total building area and scales up when needed
+
+2. **Overhangs/Eaves Not Included** - Google measures to the roof edge, not the drip edge. Typical overhangs add 1-2 squares for residential homes. We automatically add 7% to compensate.
+
+3. **Some Areas May Be Missed**:
+   - Detached garages or separate structures
+   - Small porches or covered entryways  
+   - Complex dormers or bay windows
+   - Areas obscured by trees or shadows
+
+4. **Quality-Dependent Coverage** - Lower quality data (MEDIUM/LOW) may miss small segments
+
+**Expected Accuracy**: Satellite measurements typically underestimate by **10-15%** compared to on-site measurements. This is normal and expected.
+
+**Recommendations**:
+- Use satellite measurements as a starting point
+- Add 10-15% buffer for overhangs and missed areas
+- Verify with on-site measurement for final quotes
+- Use the Measurements tab to add manual adjustments
+- Perfect for quick estimates, use EagleView for precision
 
 ### Pitch Conversion
 ```
@@ -248,7 +342,8 @@ Based on number of roof segments (roofSegmentStats.length):
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| "Missing required fields" | Incomplete request data | Ensure leadId, companyId, lat, lng provided |
+| "Missing required fields" | Incomplete request data | Provide either address or coordinates |
+| "Could not geocode address" | Invalid/unrecognized address | Verify address format and location |
 | "Invalid coordinates" | Lat/lng out of range | Validate coordinates before sending |
 | "Google Maps API key not configured" | Missing env variable | Add `GOOGLE_MAPS_API_KEY` to `.env.local` |
 | "No satellite data available" | Address outside Google's coverage | Use manual measurements |
@@ -259,7 +354,8 @@ Based on number of roof segments (roofSegmentStats.length):
 The component shows helpful messages:
 - ✅ Success: "Roof analyzed: 25.5 squares, 6/12 pitch, simple complexity"
 - ❌ Error: "Failed to analyze satellite data: [specific reason]"
-- ⚠️ Warning: "Geocode the address first to enable auto-measure"
+- ⚠️ Warning: "Add an address to enable auto-measure"
+- 🔄 Loading: "Geocoding Address..." → "Analyzing Satellite Data..."
 
 ---
 
@@ -288,10 +384,11 @@ The component shows helpful messages:
 
 ### Manual Testing Checklist
 
-- [ ] Click button with valid address → Success
-- [ ] Click button without address → Disabled with helper text
-- [ ] Click button without coordinates → Helper text shown
-- [ ] API key missing → Error toast with clear message
+- [ ] Click button with just address → Automatic geocoding + success
+- [ ] Click button with coordinates → Direct measurement + success
+- [ ] Click button without address or coordinates → Disabled with helper text
+- [ ] Geocoding API key missing → Error toast with clear message
+- [ ] Invalid address → Error toast "Could not geocode address"
 - [ ] Invalid coordinates → Error toast
 - [ ] Address outside coverage → Error toast "No satellite data"
 - [ ] Successful measurement → Toast + results display
@@ -299,19 +396,20 @@ The component shows helpful messages:
 - [ ] Measurements saved to database
 - [ ] Measurements visible in Measurements tab
 - [ ] Quote creation can use saved measurements
+- [ ] Loading states show correct messages (geocoding → analyzing)
 
 ### Test Addresses
 
 **US Addresses with Good Coverage**:
 ```
 1. 1600 Pennsylvania Avenue NW, Washington, DC 20500
-   Lat: 38.8977, Lng: -77.0365
+   (White House - simple flat roof)
 
 2. 1 Infinite Loop, Cupertino, CA 95014
-   Lat: 37.3318, Lng: -122.0312
+   (Apple Park - complex modern roof)
 
 3. 350 5th Ave, New York, NY 10118
-   Lat: 40.7484, Lng: -73.9857
+   (Empire State Building - complex commercial roof)
 ```
 
 ---
@@ -319,15 +417,16 @@ The component shows helpful messages:
 ## Related Files
 
 ### Core Implementation
-- `supabase/migrations/20241203000003_add_google_solar_fields.sql`
-- `app/api/measurements/auto-measure/route.ts`
-- `lib/hooks/use-measurements.ts`
-- `components/admin/leads/auto-measure-button.tsx`
+- `app/api/geocode/route.ts` - Geocoding API endpoint
+- `app/api/measurements/auto-measure/route.ts` - Auto-measure API with geocoding
+- `supabase/migrations/20241203000003_add_google_solar_fields.sql` - Database schema
+- `lib/hooks/use-measurements.ts` - React Query hooks
+- `components/admin/leads/auto-measure-button.tsx` - UI component
 
 ### Integration Points
-- `components/admin/leads/estimates-tab.tsx`
-- `app/(admin)/admin/leads/[id]/page.tsx`
-- `lib/api/measurements.ts`
+- `components/admin/leads/estimates-tab.tsx` - Main integration point
+- `app/(admin)/admin/leads/[id]/page.tsx` - Passes data to EstimatesTab
+- `lib/api/measurements.ts` - Measurement API functions
 
 ### Dependencies
 - `@tanstack/react-query` - Caching and state management
@@ -377,6 +476,6 @@ The component shows helpful messages:
 
 ---
 
-**Last Updated**: December 3, 2024  
-**Version**: 1.0.0  
-**Status**: ✅ Complete and Ready for Testing
+**Last Updated**: December 4, 2024  
+**Version**: 1.1.0  
+**Status**: ✅ Complete with Automatic Geocoding

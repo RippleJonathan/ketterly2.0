@@ -154,7 +154,14 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
       <div className="pb-6">
         {tab === 'details' && <DetailsTab lead={lead} />}
         {tab === 'checklist' && <ChecklistTab leadId={id} currentStage={lead.status} />}
-        {tab === 'measurements' && <MeasurementsTab leadId={id} />}
+        {tab === 'measurements' && (
+          <MeasurementsTab 
+            leadId={id}
+            address={`${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`}
+            latitude={lead.latitude}
+            longitude={lead.longitude}
+          />
+        )}
         {tab === 'estimates' && (
           <EstimatesTab 
             leadId={id} 

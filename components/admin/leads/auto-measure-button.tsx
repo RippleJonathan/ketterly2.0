@@ -2,6 +2,7 @@
  * AutoMeasureButton Component
  * 
  * Triggers Google Solar API to automatically measure roof from satellite imagery
+ * Automatically geocodes address if coordinates not available
  * Displays loading state and success metrics
  */
 
@@ -9,9 +10,11 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Satellite, Loader2 } from 'lucide-react'
-import { useAutoMeasure } from '@/lib/hooks/use-measurements'
+import { Satellite, Loader2, Eye, Edit } from 'lucide-react'
+import { useAutoMeasure, useUpdateMeasurements } from '@/lib/hooks/use-measurements'
 import { Badge } from '@/components/ui/badge'
+import { RoofVisualizationDialog } from './roof-visualization-dialog'
+import { toast } from 'sonner'
 
 interface AutoMeasureButtonProps {
   leadId: string
@@ -35,15 +38,21 @@ export function AutoMeasureButton({
   className,
 }: AutoMeasureButtonProps) {
   const autoMeasure = useAutoMeasure(leadId)
+  const updateMeasurement = useUpdateMeasurements(leadId)
   const [lastResult, setLastResult] = useState<any>(null)
+  const [showVisualization, setShowVisualization] = useState(false)
 
   const handleAutoMeasure = async () => {
-    if (!latitude || !longitude) {
+    if (!address && (!latitude || !longitude)) {
       return
     }
 
     try {
-      const result = await autoMeasure.mutateAsync({ latitude, longitude })
+      const result = await autoMeasure.mutateAsync({ 
+        address,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
+      })
       setLastResult(result.data)
       onSuccess?.()
     } catch (error) {
@@ -51,36 +60,75 @@ export function AutoMeasureButton({
     }
   }
 
-  const isDisabled = !latitude || !longitude || autoMeasure.isPending
+  const handleManualOverride = async (adjustedSquares: number) => {
+    if (!lastResult?.id) return
+
+    try {
+      await updateMeasurement.mutateAsync({
+        measurementId: lastResult.id,
+        data: {
+          actual_squares: adjustedSquares,
+          total_squares: adjustedSquares * 1.10, // Recalculate with 10% waste
+        }
+      })
+      
+      // Update local state
+      setLastResult({
+        ...lastResult,
+        actual_squares: adjustedSquares,
+        total_squares: adjustedSquares * 1.10,
+      })
+      
+      toast.success('Measurement updated', {
+        description: `Adjusted to ${adjustedSquares} squares (manual override)`,
+      })
+      
+      onSuccess?.()
+    } catch (error) {
+      toast.error('Failed to update measurement')
+    }
+  }
+
+  const isDisabled = (!address && (!latitude || !longitude)) || autoMeasure.isPending
 
   return (
     <div className="space-y-3">
-      <Button
-        onClick={handleAutoMeasure}
-        disabled={isDisabled}
-        size={size}
-        variant={variant}
-        className={className}
-      >
-        {autoMeasure.isPending ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Analyzing Satellite Data...
-          </>
-        ) : (
-          <>
-            <Satellite className="h-4 w-4 mr-2" />
-            Auto-Measure Roof
-          </>
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          onClick={handleAutoMeasure}
+          disabled={isDisabled}
+          size={size}
+          variant={variant}
+          className={className}
+        >
+          {autoMeasure.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {latitude && longitude ? 'Analyzing Satellite Data...' : 'Geocoding Address...'}
+            </>
+          ) : (
+            <>
+              <Satellite className="h-4 w-4 mr-2" />
+              Auto-Measure Roof
+            </>
+          )}
+        </Button>
 
-      {!latitude || !longitude ? (
+        {lastResult?.visualization && (
+          <Button
+            onClick={() => setShowVisualization(true)}
+            size={size}
+            variant="outline"
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            View Detection
+          </Button>
+        )}
+      </div>
+
+      {!address && (!latitude || !longitude) ? (
         <p className="text-xs text-muted-foreground">
-          {address ? 
-            'Geocode the address first to enable auto-measure' : 
-            'Add an address to enable auto-measure'
-          }
+          Add an address to enable auto-measure
         </p>
       ) : null}
 
@@ -88,9 +136,16 @@ export function AutoMeasureButton({
         <div className="bg-muted/50 rounded-lg p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Satellite Analysis</span>
-            <Badge variant="secondary" className="text-xs">
-              {lastResult.roof_complexity}
-            </Badge>
+            <div className="flex gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {lastResult.roof_complexity}
+              </Badge>
+              {lastResult.used_building_stats && (
+                <Badge variant="default" className="text-xs">
+                  Full Coverage
+                </Badge>
+              )}
+            </div>
           </div>
           
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -118,6 +173,16 @@ export function AutoMeasureButton({
             </p>
           )}
         </div>
+      )}
+
+      {/* Visualization Dialog */}
+      {lastResult?.visualization && (
+        <RoofVisualizationDialog
+          open={showVisualization}
+          onOpenChange={setShowVisualization}
+          roofData={lastResult.visualization}
+          onManualOverride={handleManualOverride}
+        />
       )}
     </div>
   )

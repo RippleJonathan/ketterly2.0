@@ -43,7 +43,6 @@ import {
 } from '@/components/ui/dialog'
 import { QuoteForm } from './quote-form'
 import { CompanySignatureDialog } from '@/components/admin/quotes/company-signature-dialog'
-import { AutoMeasureButton } from './auto-measure-button'
 import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
 
 interface EstimatesTabProps {
@@ -128,26 +127,24 @@ export function EstimatesTab({
             Create a quote to send to {leadName}
           </p>
 
-          {/* Auto-measure section */}
-          <div className="max-w-md mx-auto mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-3">Quick Start: Auto-Measure Roof</h4>
-            <AutoMeasureButton
-              leadId={leadId}
-              latitude={latitude}
-              longitude={longitude}
-              address={fullAddress}
-              size="default"
-              className="w-full"
-            />
-            {measurements && (
-              <div className="mt-3 text-sm text-left space-y-1">
-                <p className="text-green-600 font-medium">✓ Roof measurements available</p>
+          {/* Measurement info */}
+          {measurements && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="text-sm space-y-1">
+                <p className="text-green-700 font-medium">✓ Roof measurements available</p>
                 <p className="text-gray-600">
                   {measurements.actual_squares} squares • {measurements.roof_pitch || 'Unknown pitch'}
                 </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+          {!measurements && (
+            <div className="max-w-md mx-auto mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-700">
+                💡 Go to the <strong>Measurements</strong> tab to auto-measure the roof first
+              </p>
+            </div>
+          )}
 
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -182,14 +179,6 @@ export function EstimatesTab({
             )}
           </div>
           <div className="flex gap-3">
-            <AutoMeasureButton
-              leadId={leadId}
-              latitude={latitude}
-              longitude={longitude}
-              address={[leadAddress, leadCity, leadState, leadZip].filter(Boolean).join(', ')}
-              size="sm"
-              variant="outline"
-            />
             <Button onClick={() => setIsFormOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Estimate

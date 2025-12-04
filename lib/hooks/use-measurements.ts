@@ -77,7 +77,7 @@ export function useUpdateMeasurements(leadId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['measurements', leadId] })
       queryClient.invalidateQueries({ queryKey: ['measurement-history', leadId] })
-      toast.success('Measurements updated successfully')
+      // Toast handled by caller for manual overrides
     },
     onError: (error: Error) => {
       console.error('Error updating measurements:', error)
@@ -171,6 +171,7 @@ export function useRemoveMeasurementAccessory(leadId: string) {
 
 /**
  * Hook to auto-measure roof using Google Solar API
+ * Automatically geocodes address if coordinates not provided
  */
 export function useAutoMeasure(leadId: string) {
   const { data: company } = useCurrentCompany()
@@ -178,13 +179,20 @@ export function useAutoMeasure(leadId: string) {
 
   return useMutation({
     mutationFn: async ({ 
+      address,
       latitude, 
       longitude 
     }: { 
-      latitude: number
-      longitude: number 
+      address?: string
+      latitude?: number
+      longitude?: number 
     }) => {
       if (!company?.id) throw new Error('Company not found')
+
+      // Require either address or coordinates
+      if (!address && (latitude === undefined || longitude === undefined)) {
+        throw new Error('Either address or coordinates must be provided')
+      }
 
       const response = await fetch('/api/measurements/auto-measure', {
         method: 'POST',
@@ -192,6 +200,7 @@ export function useAutoMeasure(leadId: string) {
         body: JSON.stringify({
           leadId,
           companyId: company.id,
+          address,
           latitude,
           longitude,
         }),
@@ -209,8 +218,12 @@ export function useAutoMeasure(leadId: string) {
       queryClient.invalidateQueries({ queryKey: ['measurement-history', leadId] })
       
       if (data.message) {
+        const quality = data.data.data_quality || 'UNKNOWN'
+        const qualityLabel = quality === 'HIGH' ? '🟢 High' : quality === 'MEDIUM' ? '🟡 Medium' : '🟠 Low'
+        
         toast.success(data.message, {
-          description: `Complexity: ${data.data.roof_complexity} • Segments: ${data.data.segment_count}`,
+          description: `Data Quality: ${qualityLabel} • Complexity: ${data.data.roof_complexity} • Segments: ${data.data.segment_count}`,
+          duration: 6000,
         })
       } else {
         toast.success('Roof measured successfully')

@@ -9,11 +9,18 @@ export interface LeadMeasurement {
   id: string
   company_id: string
   lead_id: string
+  flat_squares: number | null  // Base measurement without pitch multiplier
   actual_squares: number | null
   waste_percentage: number
   total_squares: number | null
   two_story_squares: number | null
   low_slope_squares: number | null
+  steep_7_12_squares: number | null
+  steep_8_12_squares: number | null
+  steep_9_12_squares: number | null
+  steep_10_12_squares: number | null
+  steep_11_12_squares: number | null
+  steep_12_plus_squares: number | null
   ridge_feet: number | null
   valley_feet: number | null
   eave_feet: number | null
@@ -27,6 +34,7 @@ export interface LeadMeasurement {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  roof_data_raw: any | null  // Satellite visualization data from Google Solar API
   measurer?: {
     id: string
     full_name: string
@@ -52,10 +60,17 @@ export interface MeasurementAccessory {
 }
 
 export interface MeasurementFormData {
+  flat_squares: number | null  // Base measurement without pitch multiplier
   actual_squares: number | null
   waste_percentage: number
   two_story_squares: number | null
   low_slope_squares: number | null
+  steep_7_12_squares: number | null
+  steep_8_12_squares: number | null
+  steep_9_12_squares: number | null
+  steep_10_12_squares: number | null
+  steep_11_12_squares: number | null
+  steep_12_plus_squares: number | null
   ridge_feet: number | null
   valley_feet: number | null
   eave_feet: number | null
@@ -64,6 +79,7 @@ export interface MeasurementFormData {
   layers_to_remove: number
   pitch_ratio: string | null
   notes: string | null
+  roof_data_raw?: any | null  // Satellite visualization data
 }
 
 /**

@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2 } from 'lucide-react'
+import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, Camera } from 'lucide-react'
 import { formatBytes } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -52,6 +52,7 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const [editCaption, setEditCaption] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const photos = photosResponse?.data || []
   const filteredPhotos = filterCategory === 'all'
@@ -62,6 +63,16 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
     if (e.target.files) {
       setSelectedFiles(Array.from(e.target.files))
     }
+  }
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(Array.from(e.target.files))
+    }
+  }
+
+  const openCamera = () => {
+    cameraInputRef.current?.click()
   }
 
   const handleUpload = async () => {
@@ -146,14 +157,35 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="photo-files">Select Photos</Label>
-            <Input
-              ref={fileInputRef}
-              id="photo-files"
+            <div className="flex gap-2 mt-1">
+              <Input
+                ref={fileInputRef}
+                id="photo-files"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                className="flex-1"
+              />
+              {/* Mobile Camera Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openCamera}
+                className="shrink-0"
+                title="Take Photo"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Hidden camera input for mobile devices */}
+            <input
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
-              multiple
-              onChange={handleFileSelect}
-              className="mt-1"
+              capture="environment"
+              onChange={handleCameraCapture}
+              className="hidden"
             />
             {selectedFiles.length > 0 && (
               <p className="text-sm text-gray-500 mt-1">

@@ -220,7 +220,7 @@ export function useBulkAddMaterialsToTemplate() {
   return useMutation({
     mutationFn: ({ templateId, materials }: {
       templateId: string
-      materials: Array<{ material_id: string; per_square: number; description?: string }>
+      materials: Array<{ material_id: string; description?: string }>
     }) => bulkAddMaterialsToTemplate(templateId, materials),
     onSuccess: (_, { templateId }) => {
       queryClient.invalidateQueries({ queryKey: ['template-materials', templateId] })

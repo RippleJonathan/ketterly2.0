@@ -9,6 +9,7 @@ import { EstimatesTab } from '@/components/admin/leads/estimates-tab'
 import { FilesTab } from '@/components/admin/leads/files-tab'
 import { PhotosTab } from '@/components/admin/leads/photos-tab'
 import { MeasurementsTab } from '@/components/admin/leads/measurements-tab'
+import { OrdersTab } from '@/components/admin/leads/orders-tab'
 import Link from 'next/link'
 import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image } from 'lucide-react'
 import {
@@ -84,7 +85,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: 'checklist', label: 'Checklist', icon: CheckSquare },
     { id: 'measurements', label: 'Measurements', icon: Ruler },
     { id: 'estimates', label: 'Estimates', icon: DollarSign },
-    { id: 'work-orders', label: 'Work Orders', icon: ClipboardList },
+    { id: 'work-orders', label: 'Orders', icon: ClipboardList },
     { id: 'photos', label: 'Photos', icon: Image },
     { id: 'notes', label: 'Notes & Activity', icon: StickyNote },
     { id: 'documents', label: 'Documents', icon: FileText },
@@ -174,7 +175,12 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
             longitude={lead.longitude}
           />
         )}
-        {tab === 'work-orders' && <PlaceholderTab title="Work Orders" description="Schedule and track work orders" />}
+        {tab === 'work-orders' && (
+          <OrdersTab 
+            leadId={id} 
+            leadAddress={`${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`}
+          />
+        )}
         {tab === 'photos' && <PhotosTab leadId={id} leadName={lead.full_name} />}
         {tab === 'notes' && <ActivityTab leadId={id} />}
         {tab === 'documents' && <FilesTab leadId={id} leadName={lead.full_name} />}

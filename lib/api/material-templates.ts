@@ -21,7 +21,10 @@ export async function getTemplates(
     const supabase = createClient()
     let query = supabase
       .from('material_templates')
-      .select('*')
+      .select(`
+        *,
+        template_materials_count:template_materials(count)
+      `)
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .order('name', { ascending: true })
@@ -42,7 +45,14 @@ export async function getTemplates(
     const { data, error, count } = await query
 
     if (error) throw error
-    return { data: data || [], error: null, count: count || undefined }
+    
+    // Transform the count from the aggregation
+    const transformedData = data?.map(template => ({
+      ...template,
+      template_materials_count: template.template_materials_count?.[0]?.count || 0,
+    })) || []
+
+    return { data: transformedData, error: null, count: count || undefined }
   } catch (error: any) {
     console.error('Failed to fetch templates:', error)
     return createErrorResponse(error)

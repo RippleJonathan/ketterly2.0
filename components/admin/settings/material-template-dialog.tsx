@@ -12,7 +12,11 @@ import {
   useBulkAddMaterialsToTemplate,
   useRemoveMaterialFromTemplate 
 } from '@/lib/hooks/use-materials'
-import { Material } from '@/lib/types/materials'
+import { 
+  Material, 
+  MeasurementType, 
+  getMeasurementTypeLabel 
+} from '@/lib/types/materials'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,7 +37,6 @@ type TemplateFormData = z.infer<typeof templateSchema>
 
 interface SelectedMaterial {
   material: Material
-  per_square: number
   description: string
 }
 
@@ -125,7 +128,6 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
           templateId,
           materials: selectedMaterials.map(sm => ({
             material_id: sm.material.id,
-            per_square: sm.per_square,
             description: sm.description,
           })),
         })
@@ -152,7 +154,6 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
       ...selectedMaterials,
       {
         material,
-        per_square: material.default_per_square || 1,
         description: material.name,
       },
     ])
@@ -163,7 +164,11 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
     setSelectedMaterials(selectedMaterials.filter(sm => sm.material.id !== materialId))
   }
 
-  const updateSelectedMaterial = (materialId: string, field: 'per_square' | 'description', value: number | string) => {
+  const updateSelectedMaterial = (
+    materialId: string, 
+    field: 'description', 
+    value: string
+  ) => {
     setSelectedMaterials(selectedMaterials.map(sm =>
       sm.material.id === materialId
         ? { ...sm, [field]: value }
@@ -177,6 +182,24 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
       id: templateMaterialId,
       templateId: template.id,
     })
+  }
+
+  const addMaterialToTemplate = async () => {
+    if (!selectedMaterialId || !template) return
+
+    const material = materials.find(m => m.id === selectedMaterialId)
+    if (!material) return
+
+    // Add material to template via API
+    await bulkAddMaterials.mutateAsync({
+      templateId: template.id,
+      materials: [{
+        material_id: material.id,
+        description: material.name,
+      }],
+    })
+
+    setSelectedMaterialId('')
   }
 
   return (
@@ -303,24 +326,41 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
                               {sm.material.manufacturer && `• ${sm.material.manufacturer}`}
                             </span>
                           </div>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Quantity Per Square *</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={sm.per_square}
-                                onChange={(e) => updateSelectedMaterial(sm.material.id, 'per_square', parseFloat(e.target.value) || 0)}
-                                placeholder="3.0"
-                              />
+                          <div className="space-y-2">
+                            {/* Display material's measurement settings (read-only) */}
+                            <div className="grid grid-cols-2 gap-3 p-2 bg-muted/50 rounded text-sm">
+                              <div>
+                                <span className="text-muted-foreground text-xs">Measurement Type:</span>
+                                <p className="font-medium">
+                                  {sm.material.measurement_type === 'square' ? 'Per Square' :
+                                   sm.material.measurement_type === 'hip_ridge' ? 'Hip + Ridge' :
+                                   sm.material.measurement_type === 'perimeter' ? 'Perimeter (Rake + Eave)' :
+                                   sm.material.measurement_type === 'each' ? 'Fixed Quantity' :
+                                   sm.material.measurement_type || 'Per Square'}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground text-xs">Conversion:</span>
+                                <p className="font-medium">
+                                  {sm.material.default_per_unit || sm.material.default_per_square || 'N/A'} {sm.material.unit}
+                                  {sm.material.measurement_type === 'square' ? '/sq' :
+                                   sm.material.measurement_type === 'each' ? ' each' :
+                                   ' per LF'}
+                                </p>
+                              </div>
                             </div>
+                            
+                            {/* Only editable field: description */}
                             <div className="space-y-1">
-                              <Label className="text-xs">Description (optional)</Label>
+                              <Label className="text-xs">Notes / Description (optional)</Label>
                               <Input
                                 value={sm.description}
                                 onChange={(e) => updateSelectedMaterial(sm.material.id, 'description', e.target.value)}
-                                placeholder="Additional notes..."
+                                placeholder="Additional notes for this template..."
                               />
+                              <p className="text-xs text-muted-foreground">
+                                To change measurement type or conversion, edit the material in Materials settings
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -343,11 +383,48 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
           {/* Current Template Materials (Editing) */}
           {isEditing && template && (
             <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold">Template Materials</h3>
-                <p className="text-sm text-muted-foreground">
-                  Materials are managed separately. Close this dialog to add/edit materials.
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Template Materials</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Add materials from your catalog to this template
+                  </p>
+                </div>
+              </div>
+
+              {/* Material Selector for Editing */}
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Select value={selectedMaterialId} onValueChange={setSelectedMaterialId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a material to add..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {materials
+                        .filter(m => !templateMaterials.some(tm => tm.material_id === m.id))
+                        .map(material => (
+                          <SelectItem key={material.id} value={material.id}>
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4" />
+                              <span>{material.name}</span>
+                              <Badge variant="outline" className="ml-2">
+                                {material.category}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addMaterialToTemplate}
+                  disabled={!selectedMaterialId || bulkAddMaterials.isPending}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
               </div>
 
               {templateMaterials.length === 0 ? (
@@ -365,9 +442,18 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{tm.material?.name}</span>
                           <Badge variant="outline">{tm.material?.category}</Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {tm.measurement_type === 'square' ? 'Per Square' :
+                             tm.measurement_type === 'hip_ridge' ? 'Hip+Ridge' :
+                             tm.measurement_type === 'perimeter' ? 'Perimeter' :
+                             tm.measurement_type || 'square'}
+                          </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {tm.per_square} {tm.material?.unit} per square
+                          {tm.material?.default_per_unit || tm.material?.default_per_square || 'N/A'} {tm.material?.unit}
+                          {tm.material?.measurement_type === 'square' ? ' per square' :
+                           tm.material?.measurement_type === 'each' ? ' (fixed)' :
+                           ' per LF'}
                           {tm.description && ` • ${tm.description}`}
                         </p>
                       </div>

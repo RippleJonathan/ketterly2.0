@@ -53,9 +53,8 @@ export interface MeasurementAccessory {
     id: string
     name: string
     category: string
-    subcategory: string | null
-    unit_type: string
-    unit_price: number | null
+    unit: string
+    current_cost: number | null
   }
 }
 
@@ -100,7 +99,6 @@ export async function getLeadMeasurements(leadId: string, companyId: string) {
         ),
         accessories:measurement_accessories(
           id,
-          measurement_id,
           material_id,
           quantity,
           notes,
@@ -108,9 +106,8 @@ export async function getLeadMeasurements(leadId: string, companyId: string) {
             id,
             name,
             category,
-            subcategory,
-            unit_type,
-            unit_price
+            unit,
+            current_cost
           )
         )
       `)
@@ -148,21 +145,6 @@ export async function getMeasurementHistory(leadId: string, companyId: string) {
           id,
           full_name,
           email
-        ),
-        accessories:measurement_accessories(
-          id,
-          measurement_id,
-          material_id,
-          quantity,
-          notes,
-          material:materials(
-            id,
-            name,
-            category,
-            subcategory,
-            unit_type,
-            unit_price
-          )
         )
       `)
       .eq('lead_id', leadId)
@@ -316,9 +298,8 @@ export async function addMeasurementAccessory(
           id,
           name,
           category,
-          subcategory,
-          unit_type,
-          unit_price
+          unit,
+          current_cost
         )
       `)
       .single()
@@ -355,9 +336,8 @@ export async function updateMeasurementAccessory(
           id,
           name,
           category,
-          subcategory,
-          unit_type,
-          unit_price
+          unit,
+          current_cost
         )
       `)
       .single()

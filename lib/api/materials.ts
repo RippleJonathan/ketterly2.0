@@ -311,17 +311,17 @@ export async function removeMaterialFromTemplate(
 
 /**
  * Bulk add materials to template
+ * Note: Templates inherit measurement_type and per_unit from materials (single source of truth)
  */
 export async function bulkAddMaterialsToTemplate(
   templateId: string,
-  materials: Array<{ material_id: string; per_square: number; description?: string }>
+  materials: Array<{ material_id: string; description?: string }>
 ): Promise<ApiResponse<TemplateMaterial[]>> {
   try {
     const supabase = createClient()
     const itemsToInsert = materials.map((m, index) => ({
       template_id: templateId,
       material_id: m.material_id,
-      per_square: m.per_square,
       description: m.description,
       sort_order: index
     }))

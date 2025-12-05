@@ -25,7 +25,14 @@ import {
 } from '@/components/ui/select'
 import { useCreateMaterial, useUpdateMaterial } from '@/lib/hooks/use-materials'
 import { useSuppliers } from '@/lib/hooks/use-suppliers'
-import { Material, MaterialCategory, MaterialUnit } from '@/lib/types/materials'
+import { 
+  Material, 
+  MaterialCategory, 
+  MaterialUnit,
+  MeasurementType,
+  getMeasurementTypeLabel,
+  getMeasurementUnitDescription
+} from '@/lib/types/materials'
 
 const materialFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -53,8 +60,19 @@ const materialFormSchema = z.object({
     'sheet',
     'bag',
   ]),
+  measurement_type: z.enum([
+    'square',
+    'hip_ridge',
+    'perimeter',
+    'ridge',
+    'valley',
+    'rake',
+    'eave',
+    'each',
+  ]).default('square'),
   current_cost: z.coerce.number().min(0).optional(),
-  default_per_square: z.coerce.number().min(0).optional(),
+  default_per_unit: z.coerce.number().min(0).optional(),
+  default_per_square: z.coerce.number().min(0).optional(), // Backward compat
   default_supplier_id: z.string().uuid().optional().nullable(),
   notes: z.string().optional(),
 })
@@ -82,7 +100,9 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
       product_line: '',
       sku: '',
       unit: 'bundle',
+      measurement_type: 'square',
       current_cost: undefined,
+      default_per_unit: undefined,
       default_per_square: undefined,
       default_supplier_id: null,
       notes: '',
@@ -99,7 +119,9 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
         product_line: material.product_line || '',
         sku: material.sku || '',
         unit: material.unit as MaterialUnit,
+        measurement_type: (material.measurement_type as MeasurementType) || 'square',
         current_cost: material.current_cost || undefined,
+        default_per_unit: material.default_per_unit || material.default_per_square || undefined,
         default_per_square: material.default_per_square || undefined,
         default_supplier_id: material.default_supplier_id || null,
         notes: material.notes || '',
@@ -112,7 +134,9 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
         product_line: '',
         sku: '',
         unit: 'bundle',
+        measurement_type: 'square',
         current_cost: undefined,
+        default_per_unit: undefined,
         default_per_square: undefined,
         default_supplier_id: null,
         notes: '',
@@ -129,8 +153,10 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
         product_line: data.product_line || null,
         sku: data.sku || null,
         unit: data.unit,
+        measurement_type: data.measurement_type,
         current_cost: data.current_cost || null,
-        default_per_square: data.default_per_square || null,
+        default_per_unit: data.default_per_unit || null,
+        default_per_square: data.default_per_unit || null, // For backward compat
         default_supplier_id: data.default_supplier_id || null,
         notes: data.notes || null,
       }
@@ -169,6 +195,17 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
     { value: 'each', label: 'Each' },
     { value: 'sheet', label: 'Sheet' },
     { value: 'bag', label: 'Bag' },
+  ]
+
+  const measurementTypes: { value: MeasurementType; label: string; description: string }[] = [
+    { value: 'square', label: 'Per Square', description: 'Qty × squares (e.g., 3 bundles × 25 squares)' },
+    { value: 'hip_ridge', label: 'Per Hip + Ridge', description: 'Linear feet ÷ coverage (e.g., 100 LF ÷ 33 LF/bundle)' },
+    { value: 'perimeter', label: 'Per Perimeter', description: 'Rake + Eave linear feet ÷ coverage' },
+    { value: 'ridge', label: 'Per Ridge', description: 'Ridge linear feet ÷ coverage' },
+    { value: 'valley', label: 'Per Valley', description: 'Valley linear feet ÷ coverage' },
+    { value: 'rake', label: 'Per Rake', description: 'Rake linear feet ÷ coverage' },
+    { value: 'eave', label: 'Per Eave', description: 'Eave linear feet ÷ coverage' },
+    { value: 'each', label: 'Fixed Quantity', description: 'Always same qty (e.g., 1 drip edge coil)' },
   ]
 
   return (
@@ -300,18 +337,47 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
               </div>
 
               <div>
-                <Label htmlFor="default_per_square">Default Per Square</Label>
-                <Input
-                  id="default_per_square"
-                  type="number"
-                  step="0.01"
-                  {...form.register('default_per_square')}
-                  placeholder="3.0"
-                />
+                <Label htmlFor="measurement_type">Measurement Type *</Label>
+                <Select
+                  value={form.watch('measurement_type')}
+                  onValueChange={(value) => form.setValue('measurement_type', value as MeasurementType)}
+                >
+                  <SelectTrigger id="measurement_type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="square">Per Square (100 sq ft)</SelectItem>
+                    <SelectItem value="hip_ridge">Per Hip + Ridge (linear feet)</SelectItem>
+                    <SelectItem value="perimeter">Per Perimeter / Rake + Eave (LF)</SelectItem>
+                    <SelectItem value="ridge">Per Ridge Only (linear feet)</SelectItem>
+                    <SelectItem value="valley">Per Valley (linear feet)</SelectItem>
+                    <SelectItem value="rake">Per Rake (linear feet)</SelectItem>
+                    <SelectItem value="eave">Per Eave (linear feet)</SelectItem>
+                    <SelectItem value="each">Fixed Quantity (each)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Default quantity needed per roofing square
+                  {getMeasurementTypeLabel(form.watch('measurement_type'))}
                 </p>
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="default_per_unit">Default Quantity Per Unit</Label>
+              <Input
+                id="default_per_unit"
+                type="number"
+                step="0.01"
+                {...form.register('default_per_unit')}
+                placeholder={form.watch('measurement_type') === 'square' ? '3.0' : '33.0'}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.watch('measurement_type') === 'square' 
+                  ? 'Units needed per square (e.g., 3 bundles per square, or 0.05 if 1 box covers 20 squares)' 
+                  : form.watch('measurement_type') === 'each'
+                  ? 'Fixed quantity (e.g., 1 for always 1 unit)'
+                  : 'Linear feet per unit (e.g., 4 feet per piece of ridge vent, 33 feet per roll)'}
+              </p>
             </div>
           </div>
 

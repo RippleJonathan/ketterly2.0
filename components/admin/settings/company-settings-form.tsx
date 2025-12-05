@@ -73,6 +73,7 @@ export function CompanySettingsForm() {
     replacement_warranty_years: 10,
     repair_warranty_years: 1,
     contract_terms: '',
+    tax_rate: 0,
   })
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export function CompanySettingsForm() {
         replacement_warranty_years: company.replacement_warranty_years || 10,
         repair_warranty_years: company.repair_warranty_years || 1,
         contract_terms: company.contract_terms || '',
+        tax_rate: company.tax_rate || 0,
       })
     }
   }, [company])
@@ -379,6 +381,23 @@ export function CompanySettingsForm() {
                     value={formData.repair_warranty_years}
                     onChange={(e) => setFormData({ ...formData, repair_warranty_years: parseInt(e.target.value) || 1 })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tax_rate">Sales Tax Rate (%)</Label>
+                  <Input
+                    id="tax_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="20"
+                    value={(formData.tax_rate * 100).toFixed(2)}
+                    onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) / 100 || 0 })}
+                    placeholder="8.25"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter as percentage (e.g., 8.25 for 8.25%). Used for material order calculations.
+                  </p>
                 </div>
               </div>
             </CardContent>

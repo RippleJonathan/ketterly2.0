@@ -564,8 +564,8 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
                     <div>
                       <p className="font-medium text-gray-900">{accessory.material.name}</p>
                       <p className="text-sm text-gray-500">
-                        {accessory.quantity} {accessory.material.unit_type}
-                        {accessory.quantity !== 1 && accessory.material.unit_type !== 'each' ? 's' : ''}
+                        {accessory.quantity} {accessory.material.unit}
+                        {accessory.quantity !== 1 && accessory.material.unit !== 'each' ? 's' : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

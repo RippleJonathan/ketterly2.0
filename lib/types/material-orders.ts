@@ -36,6 +36,11 @@ export interface MaterialOrder {
   total_estimated: number
   total_actual: number
   
+  // Tax
+  tax_rate: number
+  tax_amount: number
+  total_with_tax: number
+  
   // Notes
   notes: string | null
   delivery_notes: string | null

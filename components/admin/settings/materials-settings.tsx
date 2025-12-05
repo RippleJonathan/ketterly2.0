@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useMaterials, useDeleteMaterial } from '@/lib/hooks/use-materials'
-import { Material } from '@/lib/types/materials'
+import { Material, getMeasurementTypeLabel } from '@/lib/types/materials'
 import { MaterialDialog } from './material-dialog'
 
 export function MaterialsSettings() {
@@ -192,10 +192,23 @@ export function MaterialsSettings() {
                     {formatCurrency(material.current_cost)}
                   </span>
                 </div>
-                {material.default_per_square !== null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Measurement:</span>
+                  <span className="font-medium text-xs">
+                    {material.measurement_type === 'square' ? 'Per Square' :
+                     material.measurement_type === 'hip_ridge' ? 'Hip+Ridge' :
+                     material.measurement_type === 'perimeter' ? 'Perimeter' :
+                     material.measurement_type || 'N/A'}
+                  </span>
+                </div>
+                {(material.default_per_unit !== null || material.default_per_square !== null) && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Per Square:</span>
-                    <span className="font-medium">{material.default_per_square}</span>
+                    <span className="text-muted-foreground">Qty/Unit:</span>
+                    <span className="font-medium">
+                      {material.default_per_unit || material.default_per_square}
+                      {material.measurement_type === 'square' ? '/sq' : 
+                       material.measurement_type === 'each' ? ' ea' : ' LF'}
+                    </span>
                   </div>
                 )}
                 {material.sku && (

@@ -151,25 +151,27 @@ export function MaterialTemplatesSettings() {
               {/* Items Preview */}
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">
-                  {template.items.length} item{template.items.length !== 1 ? 's' : ''}:
+                  {template.template_materials_count || 0} material{template.template_materials_count !== 1 ? 's' : ''}
                 </p>
-                <div className="space-y-1">
-                  {template.items.slice(0, 3).map((item, idx) => (
-                    <div key={idx} className="text-xs flex items-center justify-between">
-                      <span className="text-muted-foreground truncate flex-1">
-                        {item.item}
-                      </span>
-                      <span className="text-xs font-mono ml-2">
-                        {item.per_square} {item.unit}/sq
-                      </span>
-                    </div>
-                  ))}
-                  {template.items.length > 3 && (
-                    <p className="text-xs text-muted-foreground">
-                      + {template.items.length - 3} more
-                    </p>
-                  )}
-                </div>
+                {template.items && template.items.length > 0 && (
+                  <div className="space-y-1">
+                    {template.items.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="text-xs flex items-center justify-between">
+                        <span className="text-muted-foreground truncate flex-1">
+                          {item.item}
+                        </span>
+                        <span className="text-xs font-mono ml-2">
+                          {item.per_square} {item.unit}/sq
+                        </span>
+                      </div>
+                    ))}
+                    {template.items.length > 3 && (
+                      <p className="text-xs text-muted-foreground">
+                        + {template.items.length - 3} more
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Actions */}

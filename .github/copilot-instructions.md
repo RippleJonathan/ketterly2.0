@@ -54,6 +54,13 @@
 - **Linting**: ESLint + Prettier
 - **Testing**: Vitest (unit), Playwright (E2E)
 - **Deployment**: Vercel
+- **Database Migrations**: Manual via Supabase Dashboard (NO Supabase CLI installed)
+
+### Important Notes
+- **Supabase CLI NOT Installed**: Never use `npx supabase` commands - they are not set up in this environment
+- **Database Migrations**: User runs migrations manually through Supabase Dashboard SQL Editor
+- **Migration Files**: Available in `supabase/migrations/` directory - user will copy/paste into dashboard
+- **Alternative**: Use `run-migration.js` Node script with `exec_sql` RPC function when available
 
 ---
 

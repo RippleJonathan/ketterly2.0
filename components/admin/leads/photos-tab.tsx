@@ -20,6 +20,7 @@ import {
 import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, Camera } from 'lucide-react'
 import { formatBytes } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
+import { toast } from 'sonner'
 
 interface PhotosTabProps {
   leadId: string
@@ -65,9 +66,36 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
     }
   }
 
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files))
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files)
+      
+      // Show loading toast
+      const toastId = toast.loading(`Uploading ${files.length} photo(s)...`)
+      
+      try {
+        // Auto-upload camera photos immediately
+        for (const file of files) {
+          await uploadPhoto.mutateAsync({
+            file,
+            category: uploadCategory,
+            caption: uploadCaption || undefined,
+          })
+        }
+        
+        // Success feedback
+        toast.success(`${files.length} photo(s) uploaded successfully!`, { id: toastId })
+      } catch (error) {
+        toast.error('Failed to upload photo(s)', { id: toastId })
+      }
+
+      // Reset camera input
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = ''
+      }
+      
+      // Clear caption after upload
+      setUploadCaption('')
     }
   }
 

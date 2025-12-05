@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 import { ApiResponse, createErrorResponse } from '@/lib/types/api'
 import { 
   Supplier, 
@@ -15,6 +15,7 @@ export async function getSuppliers(
   filters?: SupplierFilters
 ): Promise<ApiResponse<Supplier[]>> {
   try {
+    const supabase = createClient()
     let query = supabase
       .from('suppliers')
       .select('*')
@@ -53,6 +54,7 @@ export async function getSupplier(
   supplierId: string
 ): Promise<ApiResponse<Supplier>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('suppliers')
       .select('*')
@@ -77,6 +79,7 @@ export async function createSupplier(
   supplier: SupplierInsert
 ): Promise<ApiResponse<Supplier>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('suppliers')
       .insert({ ...supplier, company_id: companyId })
@@ -100,6 +103,7 @@ export async function updateSupplier(
   updates: SupplierUpdate
 ): Promise<ApiResponse<Supplier>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('suppliers')
       .update(updates)
@@ -124,6 +128,7 @@ export async function deleteSupplier(
   supplierId: string
 ): Promise<ApiResponse<void>> {
   try {
+    const supabase = createClient()
     const { error } = await supabase
       .from('suppliers')
       .update({ deleted_at: new Date().toISOString() })
@@ -146,6 +151,7 @@ export async function deactivateSupplier(
   supplierId: string
 ): Promise<ApiResponse<Supplier>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('suppliers')
       .update({ is_active: false })

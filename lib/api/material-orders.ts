@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 import { ApiResponse, createErrorResponse } from '@/lib/types/api'
 import {
   MaterialOrder,
@@ -22,6 +22,7 @@ export async function getMaterialOrders(
   filters?: MaterialOrderFilters
 ): Promise<ApiResponse<MaterialOrder[]>> {
   try {
+    const supabase = createClient()
     let query = supabase
       .from('material_orders')
       .select(`
@@ -69,6 +70,7 @@ export async function getMaterialOrder(
   orderId: string
 ): Promise<ApiResponse<MaterialOrder>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_orders')
       .select(`
@@ -98,6 +100,7 @@ export async function createMaterialOrder(
   order: MaterialOrderInsert
 ): Promise<ApiResponse<MaterialOrder>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_orders')
       .insert({ ...order, company_id: companyId })
@@ -124,6 +127,7 @@ export async function createFromTemplate(
   items: MaterialOrderItemInsert[]
 ): Promise<ApiResponse<MaterialOrder>> {
   try {
+    const supabase = createClient()
     // Create the order
     const { data: order, error: orderError } = await supabase
       .from('material_orders')
@@ -168,6 +172,7 @@ export async function updateMaterialOrder(
   updates: MaterialOrderUpdate
 ): Promise<ApiResponse<MaterialOrder>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_orders')
       .update(updates)
@@ -194,6 +199,7 @@ export async function updateOrderStatus(
   actualDeliveryDate?: string
 ): Promise<ApiResponse<MaterialOrder>> {
   try {
+    const supabase = createClient()
     const updates: MaterialOrderUpdate = { status }
     
     if (status === 'delivered' && actualDeliveryDate) {
@@ -214,6 +220,7 @@ export async function addOrderItem(
   item: MaterialOrderItemInsert
 ): Promise<ApiResponse<MaterialOrderItem>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_order_items')
       .insert(item)
@@ -236,6 +243,7 @@ export async function updateOrderItem(
   updates: MaterialOrderItemUpdate
 ): Promise<ApiResponse<MaterialOrderItem>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_order_items')
       .update(updates)
@@ -258,6 +266,7 @@ export async function deleteOrderItem(
   itemId: string
 ): Promise<ApiResponse<void>> {
   try {
+    const supabase = createClient()
     const { error } = await supabase
       .from('material_order_items')
       .delete()
@@ -280,6 +289,7 @@ export async function updateActualCosts(
   itemCosts: { itemId: string; actualUnitCost: number }[]
 ): Promise<ApiResponse<MaterialOrder>> {
   try {
+    const supabase = createClient()
     // Update each item's actual cost
     for (const { itemId, actualUnitCost } of itemCosts) {
       const { error } = await supabase
@@ -308,6 +318,7 @@ export async function uploadInvoice(
   invoice: OrderInvoiceInsert
 ): Promise<ApiResponse<OrderInvoice>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('order_invoices')
       .insert({ ...invoice, company_id: companyId, order_id: orderId })
@@ -331,6 +342,7 @@ export async function updateInvoice(
   updates: OrderInvoiceUpdate
 ): Promise<ApiResponse<OrderInvoice>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('order_invoices')
       .update(updates)
@@ -355,6 +367,7 @@ export async function deleteInvoice(
   invoiceId: string
 ): Promise<ApiResponse<void>> {
   try {
+    const supabase = createClient()
     const { error } = await supabase
       .from('order_invoices')
       .delete()

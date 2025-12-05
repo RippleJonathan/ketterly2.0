@@ -1,188 +1,340 @@
-/**
- * API functions for materials library
- */
-
 import { createClient } from '@/lib/supabase/client'
-
-export interface Material {
-  id: string
-  company_id: string
-  name: string
-  category: string
-  subcategory: string | null
-  unit_price: number | null
-  unit_type: string
-  manufacturer: string | null
-  model_number: string | null
-  color: string | null
-  description: string | null
-  sku: string | null
-  current_stock: number | null
-  reorder_point: number | null
-  is_active: boolean
-  is_taxable: boolean
-  created_at: string
-  updated_at: string
-  deleted_at: string | null
-}
-
-export interface MaterialFormData {
-  name: string
-  category: string
-  subcategory?: string | null
-  unit_price?: number | null
-  unit_type?: string
-  manufacturer?: string | null
-  model_number?: string | null
-  color?: string | null
-  description?: string | null
-  sku?: string | null
-  is_active?: boolean
-  is_taxable?: boolean
-}
-
-/**
- * Search materials by name (for autocomplete)
- */
-export async function searchMaterials(companyId: string, query: string, category?: string) {
-  const supabase = createClient()
-
-  try {
-    let queryBuilder = supabase
-      .from('materials')
-      .select('*')
-      .eq('company_id', companyId)
-      .eq('is_active', true)
-      .is('deleted_at', null)
-      .ilike('name', `%${query}%`)
-      .order('name')
-      .limit(10)
-
-    if (category) {
-      queryBuilder = queryBuilder.eq('category', category)
-    }
-
-    const { data, error } = await queryBuilder
-
-    if (error) {
-      console.error('Error searching materials:', error)
-      return { data: null, error }
-    }
-
-    return { data, error: null }
-  } catch (error) {
-    console.error('Error searching materials:', error)
-    return { data: null, error: error as Error }
-  }
-}
+import { ApiResponse, createErrorResponse } from '@/lib/types/api'
+import {
+  Material,
+  MaterialInsert,
+  MaterialUpdate,
+  MaterialFilters,
+  MaterialSearchResult,
+  TemplateMaterial,
+  TemplateMaterialInsert,
+  TemplateMaterialUpdate
+} from '@/lib/types/materials'
 
 /**
  * Get all materials for a company
  */
-export async function getMaterials(companyId: string, category?: string) {
-  const supabase = createClient()
-
+export async function getMaterials(
+  companyId: string,
+  filters?: MaterialFilters
+): Promise<ApiResponse<Material[]>> {
   try {
-    let queryBuilder = supabase
+    const supabase = createClient()
+    let query = supabase
       .from('materials')
       .select('*')
       .eq('company_id', companyId)
       .is('deleted_at', null)
-      .order('category')
-      .order('name')
+      .order('name', { ascending: true })
 
-    if (category) {
-      queryBuilder = queryBuilder.eq('category', category)
+    // Apply filters
+    if (filters?.category) {
+      query = query.eq('category', filters.category)
     }
 
-    const { data, error } = await queryBuilder
-
-    if (error) {
-      console.error('Error fetching materials:', error)
-      return { data: null, error }
+    if (filters?.is_active !== undefined) {
+      query = query.eq('is_active', filters.is_active)
     }
 
+    if (filters?.supplier_id) {
+      query = query.eq('default_supplier_id', filters.supplier_id)
+    }
+
+    if (filters?.search) {
+      query = query.or(`name.ilike.%${filters.search}%,manufacturer.ilike.%${filters.search}%,product_line.ilike.%${filters.search}%`)
+    }
+
+    const { data, error, count } = await query
+
+    if (error) throw error
+    return { data: data || [], error: null, count: count || undefined }
+  } catch (error: any) {
+    console.error('Failed to fetch materials:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Get a single material by ID
+ */
+export async function getMaterial(
+  companyId: string,
+  materialId: string
+): Promise<ApiResponse<Material>> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('materials')
+      .select('*')
+      .eq('id', materialId)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .single()
+
+    if (error) throw error
     return { data, error: null }
-  } catch (error) {
-    console.error('Error fetching materials:', error)
-    return { data: null, error: error as Error }
+  } catch (error: any) {
+    console.error('Failed to fetch material:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Search materials for autocomplete/selector
+ */
+export async function searchMaterials(
+  companyId: string,
+  query: string,
+  limit: number = 20
+): Promise<ApiResponse<MaterialSearchResult[]>> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('materials')
+      .select('id, name, category, manufacturer, unit, current_cost, default_per_square')
+      .eq('company_id', companyId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .or(`name.ilike.%${query}%,manufacturer.ilike.%${query}%,product_line.ilike.%${query}%`)
+      .order('name', { ascending: true })
+      .limit(limit)
+
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error: any) {
+    console.error('Failed to search materials:', error)
+    return createErrorResponse(error)
   }
 }
 
 /**
  * Create a new material
  */
-export async function createMaterial(companyId: string, material: MaterialFormData) {
-  const supabase = createClient()
-
+export async function createMaterial(
+  companyId: string,
+  material: MaterialInsert
+): Promise<ApiResponse<Material>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('materials')
-      .insert({
+      .insert({ 
+        ...material, 
         company_id: companyId,
-        ...material,
+        last_price_update: material.current_cost ? new Date().toISOString() : null
       })
       .select()
       .single()
 
-    if (error) {
-      console.error('Error creating material:', error)
-      return { data: null, error }
-    }
-
+    if (error) throw error
     return { data, error: null }
-  } catch (error) {
-    console.error('Error creating material:', error)
-    return { data: null, error: error as Error }
+  } catch (error: any) {
+    console.error('Failed to create material:', error)
+    return createErrorResponse(error)
   }
 }
 
 /**
  * Update a material
  */
-export async function updateMaterial(materialId: string, updates: Partial<MaterialFormData>) {
-  const supabase = createClient()
-
+export async function updateMaterial(
+  companyId: string,
+  materialId: string,
+  updates: MaterialUpdate
+): Promise<ApiResponse<Material>> {
   try {
+    const supabase = createClient()
+    // If cost is being updated, update last_price_update timestamp
+    const updatesWithTimestamp = updates.current_cost !== undefined
+      ? { ...updates, last_price_update: new Date().toISOString() }
+      : updates
+
     const { data, error } = await supabase
       .from('materials')
-      .update(updates)
+      .update(updatesWithTimestamp)
       .eq('id', materialId)
+      .eq('company_id', companyId)
       .select()
       .single()
 
-    if (error) {
-      console.error('Error updating material:', error)
-      return { data: null, error }
-    }
-
+    if (error) throw error
     return { data, error: null }
-  } catch (error) {
-    console.error('Error updating material:', error)
-    return { data: null, error: error as Error }
+  } catch (error: any) {
+    console.error('Failed to update material:', error)
+    return createErrorResponse(error)
   }
 }
 
 /**
- * Delete a material (soft delete)
+ * Soft delete a material
  */
-export async function deleteMaterial(materialId: string) {
-  const supabase = createClient()
-
+export async function deleteMaterial(
+  companyId: string,
+  materialId: string
+): Promise<ApiResponse<void>> {
   try {
+    const supabase = createClient()
     const { error } = await supabase
       .from('materials')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', materialId)
+      .eq('company_id', companyId)
 
-    if (error) {
-      console.error('Error deleting material:', error)
-      return { error }
-    }
+    if (error) throw error
+    return { data: undefined, error: null }
+  } catch (error: any) {
+    console.error('Failed to delete material:', error)
+    return createErrorResponse(error)
+  }
+}
 
-    return { error: null }
-  } catch (error) {
-    console.error('Error deleting material:', error)
-    return { error: error as Error }
+/**
+ * Deactivate a material (soft disable)
+ */
+export async function deactivateMaterial(
+  companyId: string,
+  materialId: string
+): Promise<ApiResponse<Material>> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('materials')
+      .update({ is_active: false })
+      .eq('id', materialId)
+      .eq('company_id', companyId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error: any) {
+    console.error('Failed to deactivate material:', error)
+    return createErrorResponse(error)
+  }
+}
+
+// ==============================================
+// TEMPLATE MATERIALS (Junction Table Operations)
+// ==============================================
+
+/**
+ * Get all materials for a template
+ */
+export async function getTemplateMaterials(
+  templateId: string
+): Promise<ApiResponse<TemplateMaterial[]>> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('template_materials')
+      .select(`
+        *,
+        material:materials(*)
+      `)
+      .eq('template_id', templateId)
+      .order('sort_order', { ascending: true })
+
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error: any) {
+    console.error('Failed to fetch template materials:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Add material to template
+ */
+export async function addMaterialToTemplate(
+  templateMaterial: TemplateMaterialInsert
+): Promise<ApiResponse<TemplateMaterial>> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('template_materials')
+      .insert(templateMaterial)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error: any) {
+    console.error('Failed to add material to template:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Update material assignment in template
+ */
+export async function updateTemplateMaterial(
+  templateMaterialId: string,
+  updates: TemplateMaterialUpdate
+): Promise<ApiResponse<TemplateMaterial>> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('template_materials')
+      .update(updates)
+      .eq('id', templateMaterialId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error: any) {
+    console.error('Failed to update template material:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Remove material from template
+ */
+export async function removeMaterialFromTemplate(
+  templateMaterialId: string
+): Promise<ApiResponse<void>> {
+  try {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('template_materials')
+      .delete()
+      .eq('id', templateMaterialId)
+
+    if (error) throw error
+    return { data: undefined, error: null }
+  } catch (error: any) {
+    console.error('Failed to remove material from template:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Bulk add materials to template
+ */
+export async function bulkAddMaterialsToTemplate(
+  templateId: string,
+  materials: Array<{ material_id: string; per_square: number; description?: string }>
+): Promise<ApiResponse<TemplateMaterial[]>> {
+  try {
+    const supabase = createClient()
+    const itemsToInsert = materials.map((m, index) => ({
+      template_id: templateId,
+      material_id: m.material_id,
+      per_square: m.per_square,
+      description: m.description,
+      sort_order: index
+    }))
+
+    const { data, error } = await supabase
+      .from('template_materials')
+      .insert(itemsToInsert)
+      .select()
+
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error: any) {
+    console.error('Failed to bulk add materials to template:', error)
+    return createErrorResponse(error)
   }
 }

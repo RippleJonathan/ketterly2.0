@@ -1,100 +1,233 @@
-/**
- * React Query hooks for materials library
- */
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
-  searchMaterials,
   getMaterials,
+  getMaterial,
+  searchMaterials,
   createMaterial,
   updateMaterial,
   deleteMaterial,
-  type MaterialFormData,
+  deactivateMaterial,
+  getTemplateMaterials,
+  addMaterialToTemplate,
+  updateTemplateMaterial,
+  removeMaterialFromTemplate,
+  bulkAddMaterialsToTemplate
 } from '@/lib/api/materials'
+import {
+  MaterialFilters,
+  MaterialInsert,
+  MaterialUpdate,
+  TemplateMaterialInsert,
+  TemplateMaterialUpdate
+} from '@/lib/types/materials'
 import { useCurrentCompany } from './use-current-company'
-import { toast } from 'sonner'
 
 /**
- * Hook to search materials (for autocomplete)
+ * Get all materials with optional filters
  */
-export function useSearchMaterials(query: string, category?: string) {
+export function useMaterials(filters?: MaterialFilters) {
   const { data: company } = useCurrentCompany()
 
   return useQuery({
-    queryKey: ['materials-search', company?.id, query, category],
-    queryFn: () => searchMaterials(company!.id, query, category),
-    enabled: !!company?.id && query.length >= 2,
-  })
-}
-
-/**
- * Hook to get all materials
- */
-export function useMaterials(category?: string) {
-  const { data: company } = useCurrentCompany()
-
-  return useQuery({
-    queryKey: ['materials', company?.id, category],
-    queryFn: () => getMaterials(company!.id, category),
+    queryKey: ['materials', company?.id, filters],
+    queryFn: () => getMaterials(company!.id, filters),
     enabled: !!company?.id,
   })
 }
 
 /**
- * Hook to create material
+ * Get a single material by ID
+ */
+export function useMaterial(materialId: string) {
+  const { data: company } = useCurrentCompany()
+
+  return useQuery({
+    queryKey: ['materials', company?.id, materialId],
+    queryFn: () => getMaterial(company!.id, materialId),
+    enabled: !!company?.id && !!materialId,
+  })
+}
+
+/**
+ * Search materials for autocomplete
+ */
+export function useSearchMaterials(query: string, enabled: boolean = true) {
+  const { data: company } = useCurrentCompany()
+
+  return useQuery({
+    queryKey: ['materials', 'search', company?.id, query],
+    queryFn: () => searchMaterials(company!.id, query),
+    enabled: !!company?.id && enabled && query.length >= 2,
+  })
+}
+
+/**
+ * Create a new material
  */
 export function useCreateMaterial() {
   const { data: company } = useCurrentCompany()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: MaterialFormData) => createMaterial(company!.id, data),
+    mutationFn: (material: MaterialInsert) => createMaterial(company!.id, material),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] })
+      queryClient.invalidateQueries({ queryKey: ['materials', company?.id] })
       toast.success('Material created successfully')
     },
     onError: (error: Error) => {
-      console.error('Error creating material:', error)
       toast.error(`Failed to create material: ${error.message}`)
     },
   })
 }
 
 /**
- * Hook to update material
+ * Update a material
  */
 export function useUpdateMaterial() {
+  const { data: company } = useCurrentCompany()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ materialId, data }: { materialId: string; data: Partial<MaterialFormData> }) =>
-      updateMaterial(materialId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] })
+    mutationFn: ({ materialId, updates }: { materialId: string; updates: MaterialUpdate }) =>
+      updateMaterial(company!.id, materialId, updates),
+    onSuccess: (_, { materialId }) => {
+      queryClient.invalidateQueries({ queryKey: ['materials', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['materials', company?.id, materialId] })
       toast.success('Material updated successfully')
     },
     onError: (error: Error) => {
-      console.error('Error updating material:', error)
       toast.error(`Failed to update material: ${error.message}`)
     },
   })
 }
 
 /**
- * Hook to delete material
+ * Delete a material
  */
 export function useDeleteMaterial() {
+  const { data: company } = useCurrentCompany()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (materialId: string) => deleteMaterial(materialId),
+    mutationFn: (materialId: string) => deleteMaterial(company!.id, materialId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] })
+      queryClient.invalidateQueries({ queryKey: ['materials', company?.id] })
       toast.success('Material deleted successfully')
     },
     onError: (error: Error) => {
-      console.error('Error deleting material:', error)
       toast.error(`Failed to delete material: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Deactivate a material
+ */
+export function useDeactivateMaterial() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (materialId: string) => deactivateMaterial(company!.id, materialId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['materials', company?.id] })
+      toast.success('Material deactivated successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to deactivate material: ${error.message}`)
+    },
+  })
+}
+
+// ==============================================
+// TEMPLATE MATERIALS HOOKS
+// ==============================================
+
+/**
+ * Get all materials for a template
+ */
+export function useTemplateMaterials(templateId: string) {
+  return useQuery({
+    queryKey: ['template-materials', templateId],
+    queryFn: () => getTemplateMaterials(templateId),
+    enabled: !!templateId,
+  })
+}
+
+/**
+ * Add material to template
+ */
+export function useAddMaterialToTemplate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: TemplateMaterialInsert) => addMaterialToTemplate(data),
+    onSuccess: (_, { template_id }) => {
+      queryClient.invalidateQueries({ queryKey: ['template-materials', template_id] })
+      toast.success('Material added to template')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to add material: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Update material in template
+ */
+export function useUpdateTemplateMaterial() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, updates, templateId }: { id: string; updates: TemplateMaterialUpdate; templateId: string }) =>
+      updateTemplateMaterial(id, updates),
+    onSuccess: (_, { templateId }) => {
+      queryClient.invalidateQueries({ queryKey: ['template-materials', templateId] })
+      toast.success('Template material updated')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Remove material from template
+ */
+export function useRemoveMaterialFromTemplate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, templateId }: { id: string; templateId: string }) =>
+      removeMaterialFromTemplate(id),
+    onSuccess: (_, { templateId }) => {
+      queryClient.invalidateQueries({ queryKey: ['template-materials', templateId] })
+      toast.success('Material removed from template')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to remove material: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Bulk add materials to template
+ */
+export function useBulkAddMaterialsToTemplate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ templateId, materials }: {
+      templateId: string
+      materials: Array<{ material_id: string; per_square: number; description?: string }>
+    }) => bulkAddMaterialsToTemplate(templateId, materials),
+    onSuccess: (_, { templateId }) => {
+      queryClient.invalidateQueries({ queryKey: ['template-materials', templateId] })
+      toast.success('Materials added to template')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to add materials: ${error.message}`)
     },
   })
 }

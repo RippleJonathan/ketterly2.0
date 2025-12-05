@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 import { ApiResponse, createErrorResponse } from '@/lib/types/api'
 import {
   MaterialTemplate,
@@ -18,6 +18,7 @@ export async function getTemplates(
   filters?: MaterialTemplateFilters
 ): Promise<ApiResponse<MaterialTemplate[]>> {
   try {
+    const supabase = createClient()
     let query = supabase
       .from('material_templates')
       .select('*')
@@ -56,6 +57,7 @@ export async function getTemplate(
   templateId: string
 ): Promise<ApiResponse<MaterialTemplate>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_templates')
       .select('*')
@@ -80,6 +82,7 @@ export async function createTemplate(
   template: MaterialTemplateInsert
 ): Promise<ApiResponse<MaterialTemplate>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_templates')
       .insert({ ...template, company_id: companyId })
@@ -93,7 +96,6 @@ export async function createTemplate(
     return createErrorResponse(error)
   }
 }
-
 /**
  * Update a material template
  */
@@ -103,6 +105,7 @@ export async function updateTemplate(
   updates: MaterialTemplateUpdate
 ): Promise<ApiResponse<MaterialTemplate>> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('material_templates')
       .update(updates)
@@ -127,6 +130,7 @@ export async function deleteTemplate(
   templateId: string
 ): Promise<ApiResponse<void>> {
   try {
+    const supabase = createClient()
     const { error } = await supabase
       .from('material_templates')
       .update({ deleted_at: new Date().toISOString() })
@@ -150,6 +154,7 @@ export async function duplicateTemplate(
   newName: string
 ): Promise<ApiResponse<MaterialTemplate>> {
   try {
+    const supabase = createClient()
     // Fetch original template
     const { data: original, error: fetchError } = await supabase
       .from('material_templates')

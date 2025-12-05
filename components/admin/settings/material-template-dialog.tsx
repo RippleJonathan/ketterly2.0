@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Trash2, GripVertical } from 'lucide-react'
-import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 
 const templateItemSchema = z.object({
   item: z.string().min(1, 'Item name is required'),
@@ -38,7 +38,7 @@ interface MaterialTemplateDialogProps {
 }
 
 export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTemplateDialogProps) {
-  const { data: user } = useCurrentUser()
+  const { data: company } = useCurrentCompany()
   const createTemplate = useCreateTemplate()
   const updateTemplate = useUpdateTemplate()
 
@@ -111,8 +111,7 @@ export function MaterialTemplateDialog({ isOpen, onClose, template }: MaterialTe
     } else {
       await createTemplate.mutateAsync({
         ...data,
-        company_id: user?.company_id || '',
-        created_by: user?.id,
+        company_id: company?.id || '',
       })
     }
 

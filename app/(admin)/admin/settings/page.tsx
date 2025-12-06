@@ -5,7 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CompanySettingsForm } from '@/components/admin/settings/company-settings-form'
 import { MaterialTemplatesSettings } from '@/components/admin/settings/material-templates-settings'
 import { MaterialsSettings } from '@/components/admin/settings/materials-settings'
-import { Building2, ClipboardList, Package } from 'lucide-react'
+import { SuppliersSettings } from '@/components/admin/settings/suppliers-settings'
+import { Building2, ClipboardList, Package, Truck } from 'lucide-react'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('company')
@@ -33,6 +34,10 @@ export default function SettingsPage() {
             <ClipboardList className="h-4 w-4" />
             Templates
           </TabsTrigger>
+          <TabsTrigger value="suppliers" className="flex items-center gap-2">
+            <Truck className="h-4 w-4" />
+            Suppliers
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="space-y-4">
@@ -45,6 +50,10 @@ export default function SettingsPage() {
 
         <TabsContent value="templates" className="space-y-4">
           <MaterialTemplatesSettings />
+        </TabsContent>
+
+        <TabsContent value="suppliers" className="space-y-4">
+          <SuppliersSettings />
         </TabsContent>
       </Tabs>
     </div>

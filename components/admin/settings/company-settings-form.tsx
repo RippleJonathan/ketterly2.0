@@ -391,8 +391,11 @@ export function CompanySettingsForm() {
                     step="0.01"
                     min="0"
                     max="20"
-                    value={(formData.tax_rate * 100).toFixed(2)}
-                    onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) / 100 || 0 })}
+                    value={formData.tax_rate * 100}
+                    onChange={(e) => {
+                      const percentValue = parseFloat(e.target.value) || 0
+                      setFormData({ ...formData, tax_rate: percentValue / 100 })
+                    }}
                     placeholder="8.25"
                   />
                   <p className="text-xs text-muted-foreground">

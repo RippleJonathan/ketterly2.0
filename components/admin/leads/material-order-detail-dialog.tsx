@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MaterialOrder } from '@/lib/types/material-orders'
 import {
   updateMaterialOrderItem,
@@ -27,9 +27,18 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { Trash2, Edit2, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 
 interface MaterialOrderDetailDialogProps {
   order: MaterialOrder | null
@@ -44,12 +53,15 @@ export function MaterialOrderDetailDialog({
   onClose,
   onUpdate,
 }: MaterialOrderDetailDialogProps) {
+  const { data: company } = useCurrentCompany()
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editedQuantity, setEditedQuantity] = useState<number>(0)
   const [editedUnitCost, setEditedUnitCost] = useState<number>(0)
   const [isEditingAll, setIsEditingAll] = useState(false)
   const [editedItems, setEditedItems] = useState<Record<string, { quantity: number; unitCost: number }>>({})
   const [showAddItem, setShowAddItem] = useState(false)
+  const [materials, setMaterials] = useState<any[]>([])
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string>('')
   const [newItem, setNewItem] = useState({
     description: '',
     quantity: 0,
@@ -57,6 +69,27 @@ export function MaterialOrderDetailDialog({
     estimated_unit_cost: 0,
     notes: '',
   })
+
+  // Fetch materials for the dropdown
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      if (!company?.id) return
+      
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('materials')
+        .select('*')
+        .eq('company_id', company.id)
+        .is('deleted_at', null)
+        .order('name')
+      
+      if (!error && data) {
+        setMaterials(data)
+      }
+    }
+    
+    fetchMaterials()
+  }, [company?.id])
 
   if (!order) return null
 
@@ -399,6 +432,38 @@ export function MaterialOrderDetailDialog({
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="material-select">Select Material (Optional)</Label>
+                  <Select
+                    value={selectedMaterialId}
+                    onValueChange={(value) => {
+                      setSelectedMaterialId(value)
+                      if (value) {
+                        const material = materials.find(m => m.id === value)
+                        if (material) {
+                          setNewItem({
+                            description: material.name,
+                            quantity: 0,
+                            unit: material.unit || 'EA',
+                            estimated_unit_cost: material.current_cost || 0,
+                            notes: '',
+                          })
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose from materials database..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {materials.map((material) => (
+                        <SelectItem key={material.id} value={material.id}>
+                          {material.name} ({material.unit}) - {formatCurrency(material.current_cost || 0)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="new-description">Description</Label>
                   <Input

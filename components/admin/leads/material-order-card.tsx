@@ -66,6 +66,15 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const status = statusConfig[order.status]
   const StatusIcon = status.icon
 
+  // Debug: Log tax data
+  console.log('MaterialOrderCard tax data:', {
+    order_number: order.order_number,
+    tax_rate: order.tax_rate,
+    tax_amount: order.tax_amount,
+    total_with_tax: order.total_with_tax,
+    total_estimated: order.total_estimated
+  })
+
   const variance = order.total_actual > 0 
     ? order.total_actual - order.total_estimated 
     : null

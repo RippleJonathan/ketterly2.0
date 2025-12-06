@@ -64,6 +64,18 @@ export async function getMaterialOrders(
     const { data, error, count } = await query
 
     if (error) throw error
+    
+    // Debug: Log first order's tax data
+    if (data && data.length > 0) {
+      console.log('First order tax data from DB:', {
+        order_number: data[0].order_number,
+        tax_rate: data[0].tax_rate,
+        tax_amount: data[0].tax_amount,
+        total_with_tax: data[0].total_with_tax,
+        total_estimated: data[0].total_estimated
+      })
+    }
+    
     return { data: data || [], error: null, count: count || undefined }
   } catch (error: any) {
     console.error('Failed to fetch material orders:', error)
@@ -667,7 +679,15 @@ export async function importTemplateToOrder(
     const tax_amount = total_estimated * taxRate
     const total_with_tax = total_estimated + tax_amount
 
-    await supabase
+    console.log('Updating order with tax:', {
+      order_id: order.id,
+      total_estimated,
+      taxRate,
+      tax_amount,
+      total_with_tax
+    })
+
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('material_orders')
       .update({ 
         total_estimated,
@@ -675,6 +695,14 @@ export async function importTemplateToOrder(
         total_with_tax
       })
       .eq('id', order.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('Failed to update order with tax:', updateError)
+    } else {
+      console.log('Order updated with tax:', updatedOrder)
+    }
 
     return {
       data: {

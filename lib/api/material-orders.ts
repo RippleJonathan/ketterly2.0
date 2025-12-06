@@ -663,10 +663,17 @@ export async function importTemplateToOrder(
       0
     )
 
-    // 6. Update order with total
+    // 6. Calculate tax and update order with totals
+    const tax_amount = total_estimated * taxRate
+    const total_with_tax = total_estimated + tax_amount
+
     await supabase
       .from('material_orders')
-      .update({ total_estimated })
+      .update({ 
+        total_estimated,
+        tax_amount,
+        total_with_tax
+      })
       .eq('id', order.id)
 
     return {

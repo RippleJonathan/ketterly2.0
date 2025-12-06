@@ -79,6 +79,7 @@ export function CompanySettingsForm() {
   useEffect(() => {
     if (company) {
       console.log('Loading company data:', company)
+      console.log('Company tax_rate from DB:', company.tax_rate)
       setFormData({
         name: company.name || '',
         address: company.address || '',
@@ -105,6 +106,7 @@ export function CompanySettingsForm() {
       const supabase = createClient()
       
       console.log('Saving company data:', formData)
+      console.log('Tax rate being saved:', formData.tax_rate)
       
       const { data, error } = await supabase
         .from('companies')
@@ -115,6 +117,7 @@ export function CompanySettingsForm() {
       if (error) throw error
       
       console.log('Saved successfully:', data)
+      console.log('Tax rate in saved data:', data[0]?.tax_rate)
 
       // Invalidate the company cache to refetch fresh data
       await queryClient.invalidateQueries({ queryKey: ['current-company'] })

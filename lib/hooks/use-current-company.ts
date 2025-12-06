@@ -39,7 +39,10 @@ export function useCurrentCompany() {
             subscription_tier,
             subscription_status,
             onboarding_completed,
-            contract_terms
+            contract_terms,
+            replacement_warranty_years,
+            repair_warranty_years,
+            tax_rate
           )
         `)
         .eq('id', user.id)

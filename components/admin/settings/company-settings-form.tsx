@@ -9,9 +9,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { Loader2, Upload, X } from 'lucide-react'
+import { Loader2, Upload, X, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
+import { recalculateTaxForAllOrders } from '@/lib/api/recalculate-taxes'
 
 const DEFAULT_CONTRACT_TERMS = `With this contract, [Company Name] sets forth the agreement between [Company Name] and the Customer (hereinafter "Customer") to establish the working terms for work to be completed at the service address. In addition to the working terms, this contract also establishes the agreed upon payment schedule between [Company Name] and Customer.
 
@@ -60,6 +61,7 @@ export function CompanySettingsForm() {
   const queryClient = useQueryClient()
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isRecalculating, setIsRecalculating] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -128,6 +130,34 @@ export function CompanySettingsForm() {
       toast.error('Failed to update settings')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleRecalculateTaxes = async () => {
+    if (!company) return
+    
+    if (!confirm('This will update all existing material orders with the current tax rate. Continue?')) {
+      return
+    }
+
+    setIsRecalculating(true)
+    try {
+      const result = await recalculateTaxForAllOrders(company.id)
+      
+      if (result.error) {
+        toast.error('Failed to recalculate taxes')
+        return
+      }
+
+      toast.success(`Successfully updated ${result.data?.updated || 0} orders with new tax rate`)
+      
+      // Invalidate orders cache
+      await queryClient.invalidateQueries({ queryKey: ['material-orders'] })
+    } catch (error) {
+      console.error('Failed to recalculate taxes:', error)
+      toast.error('Failed to recalculate taxes')
+    } finally {
+      setIsRecalculating(false)
     }
   }
 
@@ -401,9 +431,26 @@ export function CompanySettingsForm() {
                     }}
                     placeholder="8.25"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Enter as percentage (e.g., 8.25 for 8.25%). Used for material order calculations.
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Enter as percentage (e.g., 8.25 for 8.25%). Used for material order calculations.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRecalculateTaxes}
+                      disabled={isRecalculating || formData.tax_rate === 0}
+                      className="shrink-0"
+                    >
+                      {isRecalculating ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                      )}
+                      Update Orders
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

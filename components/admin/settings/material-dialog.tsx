@@ -29,6 +29,7 @@ import {
   Material, 
   MaterialCategory, 
   MaterialUnit,
+  MaterialItemType,
   MeasurementType,
   getMeasurementTypeLabel,
   getMeasurementUnitDescription
@@ -59,7 +60,14 @@ const materialFormSchema = z.object({
     'each',
     'sheet',
     'bag',
+    'hour',
   ]),
+  item_type: z.enum([
+    'material',
+    'labor',
+    'estimate',
+    'both',
+  ]).default('material'),
   measurement_type: z.enum([
     'square',
     'hip_ridge',
@@ -100,6 +108,7 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
       product_line: '',
       sku: '',
       unit: 'bundle',
+      item_type: 'material',
       measurement_type: 'square',
       current_cost: undefined,
       default_per_unit: undefined,
@@ -119,6 +128,7 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
         product_line: material.product_line || '',
         sku: material.sku || '',
         unit: material.unit as MaterialUnit,
+        item_type: (material.item_type as MaterialItemType) || 'material',
         measurement_type: (material.measurement_type as MeasurementType) || 'square',
         current_cost: material.current_cost || undefined,
         default_per_unit: material.default_per_unit || material.default_per_square || undefined,
@@ -134,6 +144,7 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
         product_line: '',
         sku: '',
         unit: 'bundle',
+        item_type: 'material',
         measurement_type: 'square',
         current_cost: undefined,
         default_per_unit: undefined,
@@ -153,6 +164,7 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
         product_line: data.product_line || null,
         sku: data.sku || null,
         unit: data.unit,
+        item_type: data.item_type,
         measurement_type: data.measurement_type,
         current_cost: data.current_cost || null,
         default_per_unit: data.default_per_unit || null,
@@ -195,6 +207,7 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
     { value: 'each', label: 'Each' },
     { value: 'sheet', label: 'Sheet' },
     { value: 'bag', label: 'Bag' },
+    { value: 'hour', label: 'Hour' },
   ]
 
   const measurementTypes: { value: MeasurementType; label: string; description: string }[] = [
@@ -285,6 +298,32 @@ export function MaterialDialog({ open, onOpenChange, material }: MaterialDialogP
                   </p>
                 )}
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="item_type">Item Type *</Label>
+              <Select
+                value={form.watch('item_type')}
+                onValueChange={(value) => form.setValue('item_type', value as MaterialItemType)}
+              >
+                <SelectTrigger id="item_type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="material">Material</SelectItem>
+                  <SelectItem value="labor">Labor</SelectItem>
+                  <SelectItem value="estimate">Estimate</SelectItem>
+                  <SelectItem value="both">Both (All Contexts)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Material: Material orders only • Labor: Work orders only • Estimate: Quotes only • Both: All contexts
+              </p>
+              {form.formState.errors.item_type && (
+                <p className="text-sm text-destructive mt-1">
+                  {form.formState.errors.item_type.message}
+                </p>
+              )}
             </div>
           </div>
 

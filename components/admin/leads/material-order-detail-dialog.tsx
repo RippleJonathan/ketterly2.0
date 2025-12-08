@@ -35,10 +35,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils/formatting'
-import { Trash2, Edit2, Save, X } from 'lucide-react'
+import { Trash2, Edit2, Save, X, Download, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { generatePurchaseOrderPDF } from '@/lib/utils/pdf-generator'
 
 interface MaterialOrderDetailDialogProps {
   order: MaterialOrder | null
@@ -62,6 +63,17 @@ export function MaterialOrderDetailDialog({
   const [showAddItem, setShowAddItem] = useState(false)
   const [materials, setMaterials] = useState<any[]>([])
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>('')
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [emailHistory, setEmailHistory] = useState<any[]>([])
+  const [editedDetails, setEditedDetails] = useState({
+    supplier_id: order?.supplier_id || '',
+    order_date: order?.order_date || '',
+    expected_delivery_date: order?.expected_delivery_date || '',
+    notes: order?.notes || '',
+  })
   const [newItem, setNewItem] = useState({
     description: '',
     quantity: 0,
@@ -90,6 +102,61 @@ export function MaterialOrderDetailDialog({
     
     fetchMaterials()
   }, [company?.id])
+
+  // Fetch suppliers for the dropdown
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      if (!company?.id) return
+      
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .eq('company_id', company.id)
+        .in('type', ['material_supplier', 'both'])
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .order('name')
+      
+      if (!error && data) {
+        setSuppliers(data)
+      }
+    }
+
+    fetchSuppliers()
+  }, [company?.id])
+
+  // Update edited details when order changes
+  useEffect(() => {
+    if (order) {
+      setEditedDetails({
+        supplier_id: order.supplier_id || '',
+        order_date: order.order_date || '',
+        expected_delivery_date: order.expected_delivery_date || '',
+        notes: order.notes || '',
+      })
+    }
+  }, [order])
+
+  // Fetch email history
+  useEffect(() => {
+    const fetchEmailHistory = async () => {
+      if (!order?.id) return
+      
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('material_order_emails')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('sent_at', { ascending: false })
+      
+      if (!error && data) {
+        setEmailHistory(data)
+      }
+    }
+
+    fetchEmailHistory()
+  }, [order?.id, isSendingEmail])
 
   if (!order) return null
 
@@ -218,6 +285,100 @@ export function MaterialOrderDetailDialog({
     onUpdate?.()
   }
 
+  const handleSaveOrderDetails = async () => {
+    const supabase = createClient()
+    
+    const { error } = await supabase
+      .from('material_orders')
+      .update({
+        supplier_id: editedDetails.supplier_id || null,
+        order_date: editedDetails.order_date || null,
+        expected_delivery_date: editedDetails.expected_delivery_date || null,
+        notes: editedDetails.notes || null,
+      })
+      .eq('id', order.id)
+
+    if (error) {
+      toast.error('Failed to update order details')
+      return
+    }
+
+    toast.success('Order details updated')
+    setIsEditingDetails(false)
+    onUpdate?.()
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!company) {
+      toast.error('Company information not loaded')
+      return
+    }
+
+    setIsGeneratingPDF(true)
+    try {
+      await generatePurchaseOrderPDF({
+        order,
+        company: {
+          name: company.name,
+          logo_url: company.logo_url,
+          address: company.address,
+          city: company.city,
+          state: company.state,
+          zip: company.zip,
+          contact_phone: company.contact_phone,
+          contact_email: company.contact_email,
+        },
+      })
+      toast.success('PDF downloaded successfully')
+    } catch (error) {
+      console.error('PDF generation error:', error)
+      toast.error('Failed to generate PDF')
+    } finally {
+      setIsGeneratingPDF(false)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    if (!order.supplier?.email) {
+      toast.error('No supplier email found. Please add a supplier with an email address.')
+      return
+    }
+
+    if (!company) {
+      toast.error('Company information not loaded')
+      return
+    }
+
+    setIsSendingEmail(true)
+    try {
+      const response = await fetch('/api/material-orders/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          recipientEmail: order.supplier.email,
+          recipientName: order.supplier.contact_name || order.supplier.name,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email')
+      }
+
+      toast.success(`Email sent to ${order.supplier.email}`)
+      onUpdate?.()
+    } catch (error: any) {
+      console.error('Email send error:', error)
+      toast.error(`Failed to send email: ${error.message}`)
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
@@ -238,6 +399,24 @@ export function MaterialOrderDetailDialog({
             <div className="flex items-center gap-2">
               {!isEditingAll ? (
                 <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPDF}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendEmail}
+                    disabled={isSendingEmail || !order.supplier?.email}
+                  >
+                    <Mail className="h-4 w-4 mr-1" />
+                    {isSendingEmail ? 'Sending...' : 'Email PO'}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -277,6 +456,144 @@ export function MaterialOrderDetailDialog({
             </div>
           </div>
         </DialogHeader>
+
+        {/* Order Details Section */}
+        <div className="border-b pb-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Order Details</h3>
+            {!isEditingDetails && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingDetails(true)}
+              >
+                <Edit2 className="h-3 w-3 mr-1" />
+                Edit
+              </Button>
+            )}
+          </div>
+          
+          {isEditingDetails ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplier">Supplier</Label>
+                <Select 
+                  value={editedDetails.supplier_id || undefined} 
+                  onValueChange={(value) => setEditedDetails({ ...editedDetails, supplier_id: value || '' })}
+                >
+                  <SelectTrigger id="edit-supplier">
+                    <SelectValue placeholder="Select supplier (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((supplier) => (
+                      <SelectItem key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-order-date">Order Date</Label>
+                <Input
+                  id="edit-order-date"
+                  type="date"
+                  value={editedDetails.order_date}
+                  onChange={(e) => setEditedDetails({ ...editedDetails, order_date: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-expected-delivery">Expected Delivery</Label>
+                <Input
+                  id="edit-expected-delivery"
+                  type="date"
+                  value={editedDetails.expected_delivery_date}
+                  onChange={(e) => setEditedDetails({ ...editedDetails, expected_delivery_date: e.target.value })}
+                  min={editedDetails.order_date || undefined}
+                />
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Input
+                  id="edit-notes"
+                  placeholder="Add notes..."
+                  value={editedDetails.notes}
+                  onChange={(e) => setEditedDetails({ ...editedDetails, notes: e.target.value })}
+                />
+              </div>
+
+              <div className="col-span-2 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingDetails(false)
+                    setEditedDetails({
+                      supplier_id: order.supplier_id || '',
+                      order_date: order.order_date || '',
+                      expected_delivery_date: order.expected_delivery_date || '',
+                      notes: order.notes || '',
+                    })
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleSaveOrderDetails}>
+                  Save Details
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Supplier:</span>{' '}
+                <span className="font-medium">{order.supplier?.name || 'Not set'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Order Date:</span>{' '}
+                <span className="font-medium">{order.order_date || 'Not set'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Expected Delivery:</span>{' '}
+                <span className="font-medium">{order.expected_delivery_date || 'Not set'}</span>
+              </div>
+              {order.notes && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Notes:</span>{' '}
+                  <span className="font-medium">{order.notes}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Email History */}
+        {emailHistory.length > 0 && (
+          <div className="border-b pb-4 mb-4">
+            <h3 className="text-sm font-semibold mb-3">Email History</h3>
+            <div className="space-y-2">
+              {emailHistory.map((email) => (
+                <div key={email.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium">{email.recipient_email}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(email.sent_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant={email.status === 'sent' ? 'default' : email.status === 'failed' ? 'destructive' : 'secondary'}>
+                    {email.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <ScrollArea className="max-h-[60vh]">
           <Table>

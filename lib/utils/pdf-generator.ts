@@ -4,7 +4,11 @@
 import { createElement } from 'react'
 import { pdf } from '@react-pdf/renderer'
 import { QuoteWithRelations } from '@/lib/types/quotes'
+import { MaterialOrder } from '@/lib/types/material-orders'
+import { WorkOrder } from '@/lib/types/work-orders'
 import { createClient } from '@/lib/supabase/client'
+import { PurchaseOrderPDF } from '@/components/admin/pdf/purchase-order-pdf'
+import { WorkOrderPDF } from '@/components/admin/pdf/work-order-pdf'
 
 interface GeneratePDFOptions {
   quote: QuoteWithRelations
@@ -135,5 +139,155 @@ export async function deleteQuotePDF(
   } catch (error) {
     console.error('Failed to delete PDF:', error)
     return { error: 'Failed to delete PDF' }
+  }
+}
+
+// ===== PURCHASE ORDER PDF GENERATION =====
+
+interface GeneratePurchaseOrderPDFOptions {
+  order: MaterialOrder
+  company: {
+    name: string
+    logo_url?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    contact_phone?: string | null
+    contact_email?: string | null
+  }
+}
+
+/**
+ * Generate and download a purchase order PDF
+ */
+export async function generatePurchaseOrderPDF(options: GeneratePurchaseOrderPDFOptions): Promise<void> {
+  try {
+    // Create the PDF document
+    const doc = createElement(PurchaseOrderPDF, {
+      order: options.order,
+      company: options.company,
+    })
+    
+    // Generate the blob
+    const blob = await pdf(doc).toBlob()
+    
+    // Create download link
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `PO-${options.order.order_number}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Error generating purchase order PDF:', error)
+    throw error
+  }
+}
+
+/**
+ * Generate purchase order PDF as blob (for email attachments)
+ */
+export async function generatePurchaseOrderBlob(options: GeneratePurchaseOrderPDFOptions): Promise<Blob> {
+  try {
+    const doc = createElement(PurchaseOrderPDF, {
+      order: options.order,
+      company: options.company,
+    })
+    
+    return await pdf(doc).toBlob()
+  } catch (error) {
+    console.error('Error generating purchase order blob:', error)
+    throw error
+  }
+}
+
+/**
+ * Generate purchase order PDF as data URL (for preview)
+ */
+export async function generatePurchaseOrderDataURL(options: GeneratePurchaseOrderPDFOptions): Promise<string> {
+  try {
+    const blob = await generatePurchaseOrderBlob(options)
+    return URL.createObjectURL(blob)
+  } catch (error) {
+    console.error('Error generating purchase order data URL:', error)
+    throw error
+  }
+}
+
+// ===== WORK ORDER PDF GENERATION =====
+
+interface GenerateWorkOrderPDFOptions {
+  workOrder: WorkOrder
+  company: {
+    name: string
+    logo_url?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    contact_phone?: string | null
+    contact_email?: string | null
+  }
+}
+
+/**
+ * Generate and download a work order PDF
+ */
+export async function generateWorkOrderPDF(options: GenerateWorkOrderPDFOptions): Promise<void> {
+  try {
+    // Create the PDF document
+    const doc = createElement(WorkOrderPDF, {
+      workOrder: options.workOrder,
+      company: options.company,
+    })
+    
+    // Generate the blob
+    const blob = await pdf(doc).toBlob()
+    
+    // Create download link
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `WO-${options.workOrder.work_order_number || options.workOrder.id.slice(0, 8)}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Error generating work order PDF:', error)
+    throw error
+  }
+}
+
+/**
+ * Generate work order PDF as blob (for email attachments)
+ */
+export async function generateWorkOrderBlob(options: GenerateWorkOrderPDFOptions): Promise<Blob> {
+  try {
+    const doc = createElement(WorkOrderPDF, {
+      workOrder: options.workOrder,
+      company: options.company,
+    })
+    
+    return await pdf(doc).toBlob()
+  } catch (error) {
+    console.error('Error generating work order blob:', error)
+    throw error
+  }
+}
+
+/**
+ * Generate work order PDF as data URL (for preview)
+ */
+export async function generateWorkOrderDataURL(options: GenerateWorkOrderPDFOptions): Promise<string> {
+  try {
+    const blob = await generateWorkOrderBlob(options)
+    return URL.createObjectURL(blob)
+  } catch (error) {
+    console.error('Error generating work order data URL:', error)
+    throw error
   }
 }

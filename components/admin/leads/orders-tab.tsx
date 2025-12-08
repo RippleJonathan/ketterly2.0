@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Package, ClipboardList } from 'lucide-react'
 import { MaterialOrdersList } from './material-orders-list'
+import { WorkOrdersList } from '@/components/admin/leads/work-orders-list'
 
 interface OrdersTabProps {
   leadId: string
@@ -32,13 +33,7 @@ export function OrdersTab({ leadId, leadAddress }: OrdersTabProps) {
         </TabsContent>
 
         <TabsContent value="work-orders" className="mt-6">
-          <div className="text-center py-12 border-2 border-dashed rounded-lg">
-            <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Work Orders Coming Soon</h3>
-            <p className="text-muted-foreground">
-              Subcontractor work orders will be available in a future update
-            </p>
-          </div>
+          <WorkOrdersList leadId={leadId} leadAddress={leadAddress} />
         </TabsContent>
       </Tabs>
     </div>

@@ -448,11 +448,15 @@ export async function importTemplateToOrder(
     companyId: string
     leadId: string
     createdBy?: string
+    supplier_id?: string | null
+    order_date?: string | null
+    expected_delivery_date?: string | null
+    notes?: string | null
   }
 ): Promise<ApiResponse<ImportTemplateToOrderResult>> {
   try {
     const supabase = createClient()
-    const { template_id, measurements, estimated_costs, companyId, leadId, createdBy } = params
+    const { template_id, measurements, estimated_costs, companyId, leadId, createdBy, supplier_id, order_date, expected_delivery_date, notes } = params
     const warnings: string[] = []
 
     // 1. Fetch template with materials
@@ -585,7 +589,11 @@ export async function importTemplateToOrder(
         template_name: templateData.name,
         status: 'draft',
         created_by: createdBy,
-        tax_rate: taxRate
+        tax_rate: taxRate,
+        supplier_id: supplier_id || null,
+        order_date: order_date || null,
+        expected_delivery_date: expected_delivery_date || null,
+        notes: notes || null
       })
       .select()
       .single()

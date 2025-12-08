@@ -68,7 +68,6 @@ export function AutoMeasureButton({
         measurementId: lastResult.id,
         data: {
           actual_squares: adjustedSquares,
-          total_squares: adjustedSquares * 1.10, // Recalculate with 10% waste
         }
       })
       
@@ -76,7 +75,6 @@ export function AutoMeasureButton({
       setLastResult({
         ...lastResult,
         actual_squares: adjustedSquares,
-        total_squares: adjustedSquares * 1.10,
       })
       
       toast.success('Measurement updated', {

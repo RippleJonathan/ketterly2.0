@@ -23,6 +23,7 @@ import { MaterialDialog } from './material-dialog'
 export function MaterialsSettings() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedItemType, setSelectedItemType] = useState<string>('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -30,6 +31,7 @@ export function MaterialsSettings() {
 
   const { data: materialsResponse, isLoading } = useMaterials({
     category: selectedCategory as any,
+    item_type: selectedItemType as any,
     search: searchQuery || undefined,
   })
   const deleteMaterial = useDeleteMaterial()
@@ -112,6 +114,11 @@ export function MaterialsSettings() {
             className="pl-10"
           />
         </div>
+      </div>
+
+      {/* Category Filter */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Category</label>
         <div className="flex gap-2 flex-wrap">
           <Button
             variant={selectedCategory === '' ? 'default' : 'outline'}
@@ -130,6 +137,48 @@ export function MaterialsSettings() {
               {category}
             </Button>
           ))}
+        </div>
+      </div>
+
+      {/* Item Type Filter */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Item Type</label>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={selectedItemType === '' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedItemType('')}
+          >
+            All Types
+          </Button>
+          <Button
+            variant={selectedItemType === 'material' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedItemType('material')}
+          >
+            Material
+          </Button>
+          <Button
+            variant={selectedItemType === 'labor' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedItemType('labor')}
+          >
+            Labor
+          </Button>
+          <Button
+            variant={selectedItemType === 'estimate' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedItemType('estimate')}
+          >
+            Estimate
+          </Button>
+          <Button
+            variant={selectedItemType === 'both' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedItemType('both')}
+          >
+            Both
+          </Button>
         </div>
       </div>
 

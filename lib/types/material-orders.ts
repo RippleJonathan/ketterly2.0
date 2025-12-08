@@ -45,6 +45,20 @@ export interface MaterialOrder {
   notes: string | null
   delivery_notes: string | null
   
+  // Delivery method
+  is_pickup: boolean
+  
+  // Payment tracking
+  is_paid: boolean
+  payment_date: string | null
+  payment_amount: number | null
+  payment_method: string | null
+  payment_notes: string | null
+  
+  // Email tracking
+  last_emailed_at: string | null
+  email_count: number
+  
   // Metadata
   created_by: string | null
   created_at: string

@@ -32,6 +32,10 @@ export async function getMaterials(
       query = query.eq('category', filters.category)
     }
 
+    if (filters?.item_type) {
+      query = query.eq('item_type', filters.item_type)
+    }
+
     if (filters?.is_active !== undefined) {
       query = query.eq('is_active', filters.is_active)
     }

@@ -23,6 +23,9 @@ export type MaterialUnit =
   | 'each'
   | 'sheet'
   | 'bag'
+  | 'hour'
+
+export type MaterialItemType = 'material' | 'labor' | 'estimate' | 'both'
 
 export type MeasurementType = 
   | 'square'        // Per roofing square (100 sq ft)
@@ -44,6 +47,9 @@ export interface Material {
   manufacturer: string | null
   product_line: string | null
   sku: string | null
+  
+  // Item type (for filtering)
+  item_type: MaterialItemType
   
   // Pricing & units
   unit: MaterialUnit
@@ -74,6 +80,7 @@ export interface MaterialInsert {
   manufacturer?: string | null
   product_line?: string | null
   sku?: string | null
+  item_type?: MaterialItemType
   unit: MaterialUnit
   current_cost?: number | null
   default_supplier_id?: string | null
@@ -90,6 +97,7 @@ export interface MaterialUpdate {
   manufacturer?: string | null
   product_line?: string | null
   sku?: string | null
+  item_type?: MaterialItemType
   unit?: MaterialUnit
   current_cost?: number | null
   last_price_update?: string | null
@@ -103,6 +111,7 @@ export interface MaterialUpdate {
 
 export interface MaterialFilters {
   category?: MaterialCategory
+  item_type?: MaterialItemType
   is_active?: boolean
   supplier_id?: string
   search?: string

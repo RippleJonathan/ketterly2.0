@@ -136,7 +136,7 @@ export function EditWorkOrderDialog({
     const loadWorkOrder = async () => {
       if (!workOrder) return
 
-      // Fetch measurements for the lead
+      // Fetch measurements for the lead (get most recent)
       if (workOrder.lead_id && company?.id) {
         console.log('Fetching measurements for lead:', workOrder.lead_id)
         const { data: measurementData, error: measurementError } = await supabase
@@ -145,7 +145,9 @@ export function EditWorkOrderDialog({
           .eq('lead_id', workOrder.lead_id)
           .eq('company_id', company.id)
           .is('deleted_at', null)
-          .maybeSingle()
+          .order('measured_at', { ascending: false })
+          .limit(1)
+          .single()
         
         if (measurementError) {
           console.error('Error fetching measurements:', measurementError)

@@ -69,6 +69,7 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
         .select('*, supplier:suppliers(*), items:material_order_items(*)')
         .eq('company_id', company.id)
         .eq('lead_id', leadId)
+        .eq('order_type', 'material') // Only load actual material orders, not work orders
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
 

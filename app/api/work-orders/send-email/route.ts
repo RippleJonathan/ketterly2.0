@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
         `)
         .in('id', materialOrderIds)
         .eq('company_id', companyId)
+        .eq('order_type', 'material')
 
       if (!materialOrdersError && materialOrders) {
         // Generate PDFs for each material order
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
           `)
           .in('id', materialOrderIds)
           .eq('company_id', companyId)
+          .eq('order_type', 'material')
         
         if (!selectedOrdersError && selectedOrders) {
           ordersForList = selectedOrders
@@ -160,6 +162,7 @@ export async function POST(request: NextRequest) {
           `)
           .eq('lead_id', workOrder.lead_id)
           .eq('company_id', companyId)
+          .eq('order_type', 'material')
           .is('deleted_at', null)
 
         if (!allMaterialOrdersError && allMaterialOrders) {

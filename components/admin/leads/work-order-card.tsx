@@ -589,17 +589,7 @@ function WorkOrderDetails({ workOrder, onClose }: { workOrder: WorkOrder; onClos
               <span className="font-medium">{formatCurrency(workOrder.other_costs)}</span>
             </div>
           )}
-          <div className="flex justify-between border-t pt-1 mt-2">
-            <span className="font-medium">Subtotal</span>
-            <span className="font-medium">{formatCurrency(workOrder.subtotal)}</span>
-          </div>
-          {workOrder.tax_amount > 0 && (
-            <div className="flex justify-between">
-              <span className="text-sm">Tax ({(workOrder.tax_rate * 100).toFixed(2)}%)</span>
-              <span className="font-medium">{formatCurrency(workOrder.tax_amount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between border-t pt-1 mt-1 text-lg">
+          <div className="flex justify-between border-t pt-1 mt-2 text-lg">
             <span className="font-bold">Total</span>
             <span className="font-bold">{formatCurrency(workOrder.total_amount)}</span>
           </div>

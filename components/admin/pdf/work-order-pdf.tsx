@@ -352,6 +352,10 @@ export function WorkOrderPDF({ workOrder, company }: WorkOrderPDFProps) {
               <Text style={styles.totalValue}>{formatCurrency(workOrder.other_costs)}</Text>
             </View>
           )}
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Subtotal:</Text>
+            <Text style={styles.totalValue}>{formatCurrency(workOrder.subtotal)}</Text>
+          </View>
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Total:</Text>
             <Text style={styles.grandTotalValue}>{formatCurrency(workOrder.total_amount)}</Text>

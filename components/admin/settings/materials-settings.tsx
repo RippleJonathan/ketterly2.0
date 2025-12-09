@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, Edit, Trash2, PackageX } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, PackageX, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -19,6 +19,7 @@ import {
 import { useMaterials, useDeleteMaterial } from '@/lib/hooks/use-materials'
 import { Material, getMeasurementTypeLabel } from '@/lib/types/materials'
 import { MaterialDialog } from './material-dialog'
+import { ManageMaterialVariantsDialog } from './manage-material-variants-dialog'
 
 export function MaterialsSettings() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -28,6 +29,8 @@ export function MaterialsSettings() {
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
+  const [variantsDialogOpen, setVariantsDialogOpen] = useState(false)
+  const [variantsMaterial, setVariantsMaterial] = useState<Material | null>(null)
 
   const { data: materialsResponse, isLoading } = useMaterials({
     category: selectedCategory as any,
@@ -54,6 +57,11 @@ export function MaterialsSettings() {
   const handleDelete = (material: Material) => {
     setMaterialToDelete(material)
     setDeleteDialogOpen(true)
+  }
+
+  const handleManageVariants = (material: Material) => {
+    setVariantsMaterial(material)
+    setVariantsDialogOpen(true)
   }
 
   const confirmDelete = async () => {
@@ -273,7 +281,15 @@ export function MaterialsSettings() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  onClick={() => handleManageVariants(material)}
+                  title="Manage color, size, and finish options"
+                >
+                  <Palette className="h-3 w-3 mr-1" />
+                  Variants
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleEdit(material)}
                 >
                   <Edit className="h-3 w-3 mr-1" />
@@ -282,7 +298,6 @@ export function MaterialsSettings() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
                   onClick={() => handleDelete(material)}
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
@@ -300,6 +315,17 @@ export function MaterialsSettings() {
         onOpenChange={setDialogOpen}
         material={editingMaterial}
       />
+
+      {/* Variants Dialog */}
+      {variantsMaterial && (
+        <ManageMaterialVariantsDialog
+          open={variantsDialogOpen}
+          onOpenChange={setVariantsDialogOpen}
+          materialId={variantsMaterial.id}
+          materialName={variantsMaterial.name}
+          baseCost={variantsMaterial.current_cost || 0}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

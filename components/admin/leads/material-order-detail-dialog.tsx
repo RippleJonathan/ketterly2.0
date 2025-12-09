@@ -40,6 +40,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf-generator'
+import { MaterialVariantSelector } from '@/components/admin/shared/material-variant-selector'
 
 interface MaterialOrderDetailDialogProps {
   order: MaterialOrder | null
@@ -63,6 +64,7 @@ export function MaterialOrderDetailDialog({
   const [showAddItem, setShowAddItem] = useState(false)
   const [materials, setMaterials] = useState<any[]>([])
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>('')
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isEditingDetails, setIsEditingDetails] = useState(false)
@@ -381,8 +383,8 @@ export function MaterialOrderDetailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="flex items-center gap-2">
@@ -457,21 +459,24 @@ export function MaterialOrderDetailDialog({
           </div>
         </DialogHeader>
 
-        {/* Order Details Section */}
-        <div className="border-b pb-4 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">Order Details</h3>
-            {!isEditingDetails && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsEditingDetails(true)}
-              >
-                <Edit2 className="h-3 w-3 mr-1" />
-                Edit
-              </Button>
-            )}
-          </div>
+        {/* Scrollable content area - flex-1 to fill available space */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <ScrollArea className="flex-1">
+            {/* Order Details Section */}
+            <div className="border-b pb-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">Order Details</h3>
+                {!isEditingDetails && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditingDetails(true)}
+                  >
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
           
           {isEditingDetails ? (
             <div className="grid grid-cols-2 gap-4">
@@ -567,7 +572,7 @@ export function MaterialOrderDetailDialog({
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Email History */}
@@ -595,8 +600,7 @@ export function MaterialOrderDetailDialog({
           </div>
         )}
 
-        <ScrollArea className="max-h-[60vh]">
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Description</TableHead>
@@ -755,6 +759,7 @@ export function MaterialOrderDetailDialog({
                     value={selectedMaterialId}
                     onValueChange={(value) => {
                       setSelectedMaterialId(value)
+                      setSelectedVariantId(null) // Reset variant when material changes
                       if (value) {
                         const material = materials.find(m => m.id === value)
                         if (material) {
@@ -781,6 +786,23 @@ export function MaterialOrderDetailDialog({
                     </SelectContent>
                   </Select>
                 </div>
+                {selectedMaterialId && (
+                  <div className="col-span-2">
+                    <MaterialVariantSelector
+                      materialId={selectedMaterialId}
+                      materialName={materials.find(m => m.id === selectedMaterialId)?.name || ''}
+                      baseCost={materials.find(m => m.id === selectedMaterialId)?.current_cost || 0}
+                      selectedVariantId={selectedVariantId}
+                      onVariantChange={(variantId, effectivePrice) => {
+                        setSelectedVariantId(variantId)
+                        setNewItem(prev => ({
+                          ...prev,
+                          estimated_unit_cost: effectivePrice,
+                        }))
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="new-description">Description</Label>
                   <Input
@@ -861,9 +883,11 @@ export function MaterialOrderDetailDialog({
               </div>
             </div>
           )}
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
-        <div className="border-t pt-4">
+        {/* Footer with totals and actions - flex-shrink-0 to always stay visible */}
+        <div className="flex-shrink-0 border-t pt-4 space-y-4">
           <div className="flex justify-between items-start">
             <div className="text-sm text-muted-foreground">
               Total: {items.length} item{items.length !== 1 ? 's' : ''}
@@ -899,12 +923,12 @@ export function MaterialOrderDetailDialog({
               )}
             </div>
           </div>
-        </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

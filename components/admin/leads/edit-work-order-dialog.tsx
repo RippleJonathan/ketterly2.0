@@ -40,6 +40,7 @@ import { Trash2, Edit2, Save, X, Plus, Package, FileText, Search } from 'lucide-
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { MaterialVariantSelector } from '@/components/admin/shared/material-variant-selector'
 
 interface EditWorkOrderDialogProps {
   workOrder: WorkOrder | null
@@ -84,6 +85,10 @@ export function EditWorkOrderDialog({
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false)
   const [materialSearchQuery, setMaterialSearchQuery] = useState('')
   const [measurements, setMeasurements] = useState<RoofMeasurements | null>(null)
+  const [selectedMaterialForVariant, setSelectedMaterialForVariant] = useState<Material | null>(null)
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
+  const [selectedVariantPrice, setSelectedVariantPrice] = useState<number>(0)
+  const [showVariantSelector, setShowVariantSelector] = useState(false)
 
   const [editedDetails, setEditedDetails] = useState({
     subcontractor_id: '',
@@ -313,6 +318,18 @@ export function EditWorkOrderDialog({
   }
 
   const handleImportMaterial = (material: Material) => {
+    // Show variant selector dialog first
+    setSelectedMaterialForVariant(material)
+    setSelectedVariantId(null)
+    setSelectedVariantPrice(material.current_cost || 0)
+    setShowMaterialBrowser(false)
+    setShowVariantSelector(true)
+  }
+
+  const handleConfirmMaterialWithVariant = () => {
+    if (!selectedMaterialForVariant) return
+    
+    const material = selectedMaterialForVariant
     console.log('Importing material:', material.name, 'Measurements:', measurements)
     const tempId = `material-${Date.now()}`
     const itemType = material.category === 'shingles' || material.category === 'underlayment' || 
@@ -345,20 +362,24 @@ export function EditWorkOrderDialog({
     }
     
     const quantity = calculatedQuantity > 0 ? calculatedQuantity : 1
+    const unitPrice = selectedVariantPrice
+    
     const newItem: LineItemEdit = {
       tempId,
       item_type: itemType,
       description: `${material.name}${material.manufacturer ? ` - ${material.manufacturer}` : ''}`,
       quantity,
       unit: material.unit,
-      unit_price: material.current_cost || 0,
-      line_total: quantity * (material.current_cost || 0),
+      unit_price: unitPrice,
+      line_total: quantity * unitPrice,
       notes: [material.sku ? `SKU: ${material.sku}` : null, quantityNote].filter(Boolean).join(' | ') || null,
       sort_order: lineItems.length,
     }
 
     setLineItems([...lineItems, newItem])
-    setShowMaterialBrowser(false)
+    setShowVariantSelector(false)
+    setSelectedMaterialForVariant(null)
+    setSelectedVariantId(null)
     setMaterialSearchQuery('')
     toast.success(`Added ${material.name}${quantityNote ? ' with calculated quantity' : ''}`)
   }
@@ -596,15 +617,15 @@ export function EditWorkOrderDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Work Order - {workOrder.title}</DialogTitle>
           <DialogDescription>
             Edit work order details, line items, and totals
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="h-[calc(90vh-120px)] pr-4">
+        <ScrollArea className="flex-1 overflow-auto pr-4">
           <div className="space-y-6">
             {/* Work Order Details */}
             <div className="space-y-4">
@@ -1038,8 +1059,8 @@ export function EditWorkOrderDialog({
           </div>
         </ScrollArea>
 
-        {/* Footer Actions */}
-        <div className="flex justify-end gap-2 border-t pt-4">
+        {/* Footer Actions - flex-shrink-0 to always stay visible */}
+        <div className="flex-shrink-0 flex justify-end gap-2 border-t pt-4">
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
@@ -1151,6 +1172,53 @@ export function EditWorkOrderDialog({
               )}
             </div>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Variant Selector Dialog */}
+      <Dialog open={showVariantSelector} onOpenChange={(open) => {
+        setShowVariantSelector(open)
+        if (!open) {
+          setSelectedMaterialForVariant(null)
+          setSelectedVariantId(null)
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Variant</DialogTitle>
+            <DialogDescription>
+              Choose a variant for {selectedMaterialForVariant?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedMaterialForVariant && (
+              <MaterialVariantSelector
+                materialId={selectedMaterialForVariant.id}
+                materialName={selectedMaterialForVariant.name}
+                baseCost={selectedMaterialForVariant.current_cost || 0}
+                selectedVariantId={selectedVariantId}
+                onVariantChange={(variantId, effectivePrice) => {
+                  setSelectedVariantId(variantId)
+                  setSelectedVariantPrice(effectivePrice)
+                }}
+              />
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                setShowVariantSelector(false)
+                setSelectedMaterialForVariant(null)
+                setSelectedVariantId(null)
+                setShowMaterialBrowser(true)
+              }}
+            >
+              Back
+            </Button>
+            <Button onClick={handleConfirmMaterialWithVariant}>
+              Add to Work Order
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </Dialog>

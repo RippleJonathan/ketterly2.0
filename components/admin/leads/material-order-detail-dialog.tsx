@@ -575,30 +575,30 @@ export function MaterialOrderDetailDialog({
           </div>
         </div>
 
-        {/* Email History */}
-        {emailHistory.length > 0 && (
-          <div className="border-b pb-4 mb-4">
-            <h3 className="text-sm font-semibold mb-3">Email History</h3>
-            <div className="space-y-2">
-              {emailHistory.map((email) => (
-                <div key={email.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="font-medium">{email.recipient_email}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(email.sent_at).toLocaleString()}
+            {/* Email History */}
+            {emailHistory.length > 0 && (
+              <div className="border-b pb-4 mb-4">
+                <h3 className="text-sm font-semibold mb-3">Email History</h3>
+                <div className="space-y-2">
+                  {emailHistory.map((email) => (
+                    <div key={email.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">{email.recipient_email}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(email.sent_at).toLocaleString()}
+                          </div>
+                        </div>
                       </div>
+                      <Badge variant={email.status === 'sent' ? 'default' : email.status === 'failed' ? 'destructive' : 'secondary'}>
+                        {email.status}
+                      </Badge>
                     </div>
-                  </div>
-                  <Badge variant={email.status === 'sent' ? 'default' : email.status === 'failed' ? 'destructive' : 'secondary'}>
-                    {email.status}
-                  </Badge>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
             <Table>
               <TableHeader>

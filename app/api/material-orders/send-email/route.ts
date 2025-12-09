@@ -30,14 +30,17 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { orderId, recipientEmail, recipientName } = body
+    const { orderId, recipientEmails, recipientName, includeMaterialList } = body
 
-    if (!orderId || !recipientEmail) {
+    if (!orderId || !recipientEmails || !Array.isArray(recipientEmails) || recipientEmails.length === 0) {
       return NextResponse.json(
-        { error: 'Order ID and recipient email are required' },
+        { error: 'Order ID and at least one recipient email are required' },
         { status: 400 }
       )
     }
+
+    const primaryEmail = recipientEmails[0]
+    const ccEmails = recipientEmails.slice(1)
 
     // Fetch order with all details
     const { data: order, error: orderError } = await supabase
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
         company_id: companyId,
         order_id: orderId,
         supplier_id: order.supplier_id,
-        recipient_email: recipientEmail,
+        recipient_email: primaryEmail,
         recipient_name: recipientName || null,
         subject: `Purchase Order ${order.order_number} from ${company.name}`,
         status: 'sending',
@@ -104,12 +107,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Generate material list HTML if requested
+    let materialListHtml = ''
+    if (includeMaterialList && order.items && order.items.length > 0) {
+      materialListHtml = `
+        <div class="order-details">
+          <h3>Material List:</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+              <tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">
+                <th style="padding: 8px; text-align: left;">Item</th>
+                <th style="padding: 8px; text-align: left;">Variant</th>
+                <th style="padding: 8px; text-align: right;">Quantity</th>
+                <th style="padding: 8px; text-align: center;">Unit</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.items.map((item: any) => `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 8px;">${item.description}</td>
+                  <td style="padding: 8px;">${item.variant_name || '-'}</td>
+                  <td style="padding: 8px; text-align: right;">${item.quantity}</td>
+                  <td style="padding: 8px; text-align: center;">${item.unit}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+    }
+
     // Send email with Resend
     try {
       const { data: emailData, error: sendError } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'orders@ketterly.com',
         replyTo: company.contact_email || undefined,
-        to: recipientEmail,
+        to: primaryEmail,
+        cc: ccEmails.length > 0 ? ccEmails : undefined,
         subject: `Purchase Order ${order.order_number} from ${company.name}`,
         html: `
           <!DOCTYPE html>
@@ -143,6 +177,8 @@ export async function POST(request: NextRequest) {
                     <p><strong>Total Items:</strong> ${order.items?.length || 0}</p>
                     <p><strong>Total Amount:</strong> $${order.total_with_tax?.toFixed(2) || order.total_estimated?.toFixed(2)}</p>
                   </div>
+                  
+                  ${materialListHtml}
                   
                   ${order.notes ? `<p><strong>Notes:</strong><br/>${order.notes}</p>` : ''}
                   

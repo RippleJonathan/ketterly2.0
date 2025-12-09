@@ -26,6 +26,7 @@ import {
   Mail,
 } from 'lucide-react'
 import { MaterialOrderDetailDialog } from './material-order-detail-dialog'
+import { SendEmailDialog } from './send-email-dialog'
 import { toast } from 'sonner'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf-generator'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
@@ -70,6 +71,7 @@ const statusConfig = {
 
 export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const [showDetails, setShowDetails] = useState(false)
+  const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
@@ -149,12 +151,11 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
     }
   }
 
-  const handleSendEmail = async () => {
-    if (!order.supplier?.email) {
-      toast.error('No supplier email found. Please add a supplier with an email address.')
-      return
-    }
-
+  const handleSendEmail = async (emailData: {
+    recipientEmails: string[]
+    recipientName: string
+    includeMaterialList: boolean
+  }) => {
     if (!company) {
       toast.error('Company information not loaded')
       return
@@ -169,8 +170,9 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
         },
         body: JSON.stringify({
           orderId: order.id,
-          recipientEmail: order.supplier.email,
-          recipientName: order.supplier.contact_name || order.supplier.name,
+          recipientEmails: emailData.recipientEmails,
+          recipientName: emailData.recipientName,
+          includeMaterialList: emailData.includeMaterialList,
         }),
       })
 
@@ -180,11 +182,12 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
         throw new Error(data.error || 'Failed to send email')
       }
 
-      toast.success(`Email sent to ${order.supplier.email}`)
+      toast.success(`Email sent to ${emailData.recipientEmails.length} recipient(s)`)
       onUpdate?.()
     } catch (error: any) {
       console.error('Email send error:', error)
       toast.error(`Failed to send email: ${error.message}`)
+      throw error
     } finally {
       setIsSendingEmail(false)
     }
@@ -459,14 +462,10 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={handleSendEmail}
-                disabled={isSendingEmail || !order.supplier?.email}
+                onClick={() => setShowEmailDialog(true)}
+                disabled={isSendingEmail}
               >
-                {isSendingEmail ? (
-                  <></>
-                ) : (
-                  <Mail className="h-4 w-4 mr-1" />
-                )}
+                <Mail className="h-4 w-4 mr-1" />
                 {isSendingEmail ? 'Sending...' : 'Email PO'}
               </Button>
               {order.status === 'delivered' && order.total_actual === 0 && (
@@ -588,6 +587,14 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Send Email Dialog */}
+      <SendEmailDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        order={order}
+        onSend={handleSendEmail}
+      />
     </Card>
   )
 }

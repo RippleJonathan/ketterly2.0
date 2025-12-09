@@ -633,6 +633,7 @@ export async function importTemplateToOrder(
     const taxRate = companyData?.tax_rate || 0
 
     // 4. Create material order
+    const isWorkOrder = (params.order_type || 'material') === 'work'
     const { data: order, error: orderError } = await supabase
       .from('material_orders')
       .insert({
@@ -643,7 +644,7 @@ export async function importTemplateToOrder(
         template_name: templateData.name,
         status: 'draft',
         created_by: createdBy,
-        tax_rate: taxRate,
+        tax_rate: isWorkOrder ? 0 : taxRate, // Work orders don't have tax
         supplier_id: supplier_id || null,
         order_date: order_date || null,
         expected_delivery_date: expected_delivery_date || null,
@@ -738,13 +739,16 @@ export async function importTemplateToOrder(
     )
 
     // 6. Calculate tax and update order with totals
-    const tax_amount = total_estimated * taxRate
+    // Work orders don't include tax, only material orders do
+    const isWorkOrder = (params.order_type || 'material') === 'work'
+    const tax_amount = isWorkOrder ? 0 : total_estimated * taxRate
     const total_with_tax = total_estimated + tax_amount
 
     console.log('Updating order with tax:', {
       order_id: order.id,
+      order_type: params.order_type || 'material',
       total_estimated,
-      taxRate,
+      taxRate: isWorkOrder ? 0 : taxRate,
       tax_amount,
       total_with_tax
     })
@@ -911,14 +915,15 @@ export async function addMaterialOrderItem(
 async function recalculateOrderTotal(orderId: string): Promise<void> {
   const supabase = createClient()
   
-  // Get order to fetch tax_rate
+  // Get order to fetch tax_rate and order_type
   const { data: order } = await supabase
     .from('material_orders')
-    .select('tax_rate')
+    .select('tax_rate, order_type')
     .eq('id', orderId)
     .single()
 
   const taxRate = order?.tax_rate || 0
+  const isWorkOrder = order?.order_type === 'work'
 
   const { data: items } = await supabase
     .from('material_order_items')
@@ -937,7 +942,8 @@ async function recalculateOrderTotal(orderId: string): Promise<void> {
     0
   )
 
-  const tax_amount = total_estimated * taxRate
+  // Work orders should never have tax
+  const tax_amount = isWorkOrder ? 0 : total_estimated * taxRate
   const total_with_tax = total_estimated + tax_amount
 
   await supabase

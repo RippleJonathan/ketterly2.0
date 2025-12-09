@@ -25,7 +25,7 @@ export async function recalculateTaxForAllOrders(
     // Get all orders for this company
     const { data: orders, error: ordersError } = await supabase
       .from('material_orders')
-      .select('id, total_estimated')
+      .select('id, total_estimated, order_type')
       .eq('company_id', companyId)
       .is('deleted_at', null)
 
@@ -37,13 +37,16 @@ export async function recalculateTaxForAllOrders(
     // Update each order
     let updated = 0
     for (const order of orders) {
-      const tax_amount = order.total_estimated * taxRate
+      const isWorkOrder = order.order_type === 'work'
+      
+      // Work orders should never have tax
+      const tax_amount = isWorkOrder ? 0 : order.total_estimated * taxRate
       const total_with_tax = order.total_estimated + tax_amount
 
       const { error: updateError } = await supabase
         .from('material_orders')
         .update({
-          tax_rate: taxRate,
+          tax_rate: isWorkOrder ? 0 : taxRate,
           tax_amount,
           total_with_tax
         })

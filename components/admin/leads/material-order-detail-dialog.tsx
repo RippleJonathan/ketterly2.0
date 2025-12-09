@@ -1,493 +1,399 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
-import { MaterialOrder } from '@/lib/types/material-orders'
-import {
-  updateMaterialOrderItem,
-  deleteMaterialOrderItem,
-  addMaterialOrderItem,
-} from '@/lib/api/material-orders'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { MaterialOrder, MaterialOrderItem } from '@/lib/types/material-orders'
+import { Supplier } from '@/lib/types/suppliers'
+import { Material } from '@/lib/types/materials'
+import { MaterialVariant, getVariantPrice } from '@/lib/types/material-variants'
 import { formatCurrency } from '@/lib/utils/formatting'
-import { Trash2, Edit2, Save, X, Download, Mail } from 'lucide-react'
-import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
+import { Calendar, Package, User, FileText, Truck, Edit2, Trash2, Plus, Save, X, Edit3 } from 'lucide-react'
+import { format } from 'date-fns'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
-import { generatePurchaseOrderPDF } from '@/lib/utils/pdf-generator'
-import { MaterialVariantSelector } from '@/components/admin/shared/material-variant-selector'
+import { updateMaterialOrder, addMaterialOrderItem, updateMaterialOrderItem, deleteMaterialOrderItem } from '@/lib/api/material-orders'
+import { getSuppliers } from '@/lib/api/suppliers'
+import { getMaterials } from '@/lib/api/materials'
+import { getMaterialVariants } from '@/lib/api/material-variants'
+import { toast } from 'sonner'
 
 interface MaterialOrderDetailDialogProps {
   order: MaterialOrder | null
-  isOpen: boolean
-  onClose: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onUpdate?: () => void
 }
 
 export function MaterialOrderDetailDialog({
   order,
-  isOpen,
-  onClose,
+  open,
+  onOpenChange,
   onUpdate,
 }: MaterialOrderDetailDialogProps) {
   const { data: company } = useCurrentCompany()
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  const [editedQuantity, setEditedQuantity] = useState<number>(0)
-  const [editedUnitCost, setEditedUnitCost] = useState<number>(0)
-  const [isEditingAll, setIsEditingAll] = useState(false)
-  const [editedItems, setEditedItems] = useState<Record<string, { quantity: number; unitCost: number }>>({})
-  const [showAddItem, setShowAddItem] = useState(false)
-  const [materials, setMaterials] = useState<any[]>([])
-  const [selectedMaterialId, setSelectedMaterialId] = useState<string>('')
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
-  const [isSendingEmail, setIsSendingEmail] = useState(false)
-  const [isEditingDetails, setIsEditingDetails] = useState(false)
-  const [suppliers, setSuppliers] = useState<any[]>([])
-  const [emailHistory, setEmailHistory] = useState<any[]>([])
-  const [editedDetails, setEditedDetails] = useState({
-    supplier_id: order?.supplier_id || '',
-    order_date: order?.order_date || '',
-    expected_delivery_date: order?.expected_delivery_date || '',
-    notes: order?.notes || '',
-  })
+  const [addingNewItem, setAddingNewItem] = useState(false)
+  const [editAllMode, setEditAllMode] = useState(false)
+  
+  // Form states
+  const [supplierId, setSupplierId] = useState<string | null>(null)
+  const [orderDate, setOrderDate] = useState('')
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('')
+  const [notes, setNotes] = useState('')
+  
+  // Data states
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([])
+  
+  // Variant states
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
+  const [materialVariants, setMaterialVariants] = useState<MaterialVariant[]>([])
+  const [selectedVariant, setSelectedVariant] = useState<MaterialVariant | null>(null)
+  const [editingVariants, setEditingVariants] = useState<MaterialVariant[]>([])
+  const [editingVariant, setEditingVariant] = useState<MaterialVariant | null>(null)
+  
+  // Edit All mode state - track all item edits
+  const [editAllItems, setEditAllItems] = useState<Record<string, Partial<MaterialOrderItem>>>({})
+  
+  // New item form
   const [newItem, setNewItem] = useState({
     description: '',
-    quantity: 0,
-    unit: 'EA',
+    quantity: 1,
+    unit: 'ea',
     estimated_unit_cost: 0,
-    notes: '',
   })
-
-  // Fetch materials for the dropdown
-  useEffect(() => {
-    const fetchMaterials = async () => {
-      if (!company?.id) return
-      
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('materials')
-        .select('*')
-        .eq('company_id', company.id)
-        .is('deleted_at', null)
-        .order('name')
-      
-      if (!error && data) {
-        setMaterials(data)
-      }
-    }
-    
-    fetchMaterials()
-  }, [company?.id])
-
-  // Fetch suppliers for the dropdown
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      if (!company?.id) return
-      
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('suppliers')
-        .select('*')
-        .eq('company_id', company.id)
-        .in('type', ['material_supplier', 'both'])
-        .eq('is_active', true)
-        .is('deleted_at', null)
-        .order('name')
-      
-      if (!error && data) {
-        setSuppliers(data)
-      }
-    }
-
-    fetchSuppliers()
-  }, [company?.id])
-
-  // Update edited details when order changes
-  useEffect(() => {
-    if (order) {
-      setEditedDetails({
-        supplier_id: order.supplier_id || '',
-        order_date: order.order_date || '',
-        expected_delivery_date: order.expected_delivery_date || '',
-        notes: order.notes || '',
-      })
-    }
-  }, [order])
-
-  // Fetch email history
-  useEffect(() => {
-    const fetchEmailHistory = async () => {
-      if (!order?.id) return
-      
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('material_order_emails')
-        .select('*')
-        .eq('order_id', order.id)
-        .order('sent_at', { ascending: false })
-      
-      if (!error && data) {
-        setEmailHistory(data)
-      }
-    }
-
-    fetchEmailHistory()
-  }, [order?.id, isSendingEmail])
+  
+  // Editing item form
+  const [editItem, setEditItem] = useState({
+    description: '',
+    quantity: 1,
+    unit: 'ea',
+    estimated_unit_cost: 0,
+  })
 
   if (!order) return null
 
-  const items = order.items || []
+  const isWorkOrder = order.order_type === 'work'
 
-  const handleEditItem = (item: any) => {
-    setEditingItemId(item.id)
-    setEditedQuantity(item.quantity)
-    setEditedUnitCost(item.estimated_unit_cost || 0)
-  }
-
-  const handleSaveItem = async (itemId: string) => {
-    const result = await updateMaterialOrderItem(itemId, {
-      quantity: editedQuantity,
-      estimated_unit_cost: editedUnitCost,
-    })
-
-    if (result.error) {
-      toast.error('Failed to update item')
-      return
+  // Load suppliers and materials when company is available
+  useEffect(() => {
+    if (!company?.id || !open) return
+    
+    const loadData = async () => {
+      // Load suppliers filtered by type
+      const supplierType = isWorkOrder ? 'subcontractor' : 'material_supplier'
+      const { data: suppliersData } = await getSuppliers(company.id, { 
+        type: supplierType,
+        is_active: true 
+      })
+      if (suppliersData) setSuppliers(suppliersData)
+      
+      // Load materials for all orders (useful for searching)
+      const { data: materialsData } = await getMaterials(company.id, { is_active: true })
+      if (materialsData) setMaterials(materialsData)
     }
+    
+    loadData()
+  }, [company?.id, isWorkOrder, open])
 
-    toast.success('Item updated successfully')
-    setEditingItemId(null)
-    onUpdate?.()
+  // Initialize form when order changes or editing starts
+  const handleStartEdit = () => {
+    setSupplierId(order.supplier_id || null)
+    setOrderDate(order.order_date || new Date().toISOString().split('T')[0])
+    setExpectedDeliveryDate(order.expected_delivery_date || '')
+    setNotes(order.notes || '')
+    setIsEditing(true)
   }
 
   const handleCancelEdit = () => {
+    setIsEditing(false)
     setEditingItemId(null)
+    setAddingNewItem(false)
+    setEditAllMode(false)
+  }
+
+  const handleSaveOrder = async () => {
+    if (!company) return
+    
+    setIsSaving(true)
+    try {
+      const { error } = await updateMaterialOrder(company.id, order.id, {
+        supplier_id: supplierId,
+        order_date: orderDate || null,
+        expected_delivery_date: expectedDeliveryDate || null,
+        notes: notes || null,
+      })
+
+      if (error) throw new Error(error.message)
+      
+      toast.success('Order updated successfully')
+      setIsEditing(false)
+      onUpdate?.()
+    } catch (error: any) {
+      toast.error(`Failed to update order: ${error.message}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Handle material search and selection
+  const handleMaterialSearch = (searchTerm: string) => {
+    setNewItem({ ...newItem, description: searchTerm })
+    
+    if (searchTerm.length < 2) {
+      setFilteredMaterials([])
+      return
+    }
+    
+    const filtered = materials.filter(m => 
+      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.product_line?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    setFilteredMaterials(filtered)
+  }
+
+  const handleSelectMaterial = async (material: Material) => {
+    setSelectedMaterial(material)
+    setNewItem({
+      description: material.name,
+      quantity: 1,
+      unit: material.unit || 'ea',
+      estimated_unit_cost: material.current_cost || 0,
+    })
+    setFilteredMaterials([])
+
+    // Load variants for this material
+    if (company?.id) {
+      const result = await getMaterialVariants(company.id, material.id)
+      if (result.data) {
+        setMaterialVariants(result.data)
+        
+        // Auto-select default variant if exists
+        const defaultVariant = result.data.find((v: MaterialVariant) => v.is_default)
+        if (defaultVariant) {
+          handleSelectVariant(defaultVariant, material.current_cost || 0)
+        }
+      }
+    }
+  }
+
+  const handleSelectVariant = (variant: MaterialVariant, baseCost: number) => {
+    setSelectedVariant(variant)
+    const variantPrice = getVariantPrice(baseCost, variant)
+    setNewItem(prev => ({
+      ...prev,
+      estimated_unit_cost: variantPrice,
+    }))
+  }
+
+  const handleAddItem = async () => {
+    if (!newItem.description.trim()) {
+      toast.error('Please enter an item description')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const { error } = await addMaterialOrderItem(order.id, {
+        description: newItem.description,
+        quantity: newItem.quantity,
+        unit: newItem.unit,
+        estimated_unit_cost: newItem.estimated_unit_cost,
+        material_id: selectedMaterial?.id || null,
+        variant_id: selectedVariant?.id || null,
+        variant_name: selectedVariant?.variant_name || null,
+      })
+
+      if (error) throw new Error(error.message)
+      
+      toast.success('Item added successfully')
+      setAddingNewItem(false)
+      setNewItem({ description: '', quantity: 1, unit: 'ea', estimated_unit_cost: 0 })
+      setSelectedMaterial(null)
+      setMaterialVariants([])
+      setSelectedVariant(null)
+      onUpdate?.()
+    } catch (error: any) {
+      toast.error(`Failed to add item: ${error.message}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleStartEditItem = async (item: MaterialOrderItem) => {
+    setEditingItemId(item.id)
+    setEditItem({
+      description: item.description,
+      quantity: item.quantity,
+      unit: item.unit,
+      estimated_unit_cost: item.estimated_unit_cost || 0,
+    })
+    
+    // Try to load variants if this item matches a material
+    if (company?.id && item.description) {
+      const { data: materialsData } = await getMaterials(company.id)
+      if (materialsData) {
+        const matchedMaterial = materialsData.find(m => m.name === item.description)
+        if (matchedMaterial) {
+          const result = await getMaterialVariants(company.id, matchedMaterial.id)
+          if (result.data && result.data.length > 0) {
+            setEditingVariants(result.data)
+            setSelectedMaterial(matchedMaterial)
+          }
+        }
+      }
+    }
+  }
+
+  const handleSaveItem = async (itemId: string) => {
+    setIsSaving(true)
+    try {
+      const { error } = await updateMaterialOrderItem(itemId, {
+        description: editItem.description,
+        quantity: editItem.quantity,
+        unit: editItem.unit,
+        estimated_unit_cost: editItem.estimated_unit_cost,
+        material_id: selectedMaterial?.id || null,
+        variant_id: editingVariant?.id || null,
+        variant_name: editingVariant?.variant_name || null,
+      })
+
+      if (error) throw new Error(error.message)
+      
+      toast.success('Item updated successfully')
+      setEditingItemId(null)
+      setEditingVariants([])
+      setEditingVariant(null)
+      setSelectedMaterial(null)
+      onUpdate?.()
+    } catch (error: any) {
+      toast.error(`Failed to update item: ${error.message}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // For Edit All mode - track changes locally
+  const handleUpdateItemInline = (itemId: string, updates: Partial<MaterialOrderItem>) => {
+    setEditAllItems(prev => ({
+      ...prev,
+      [itemId]: { ...(prev[itemId] || {}), ...updates }
+    }))
+  }
+
+  // Get the display value for an item (edited or original)
+  const getItemValue = (item: MaterialOrderItem, field: keyof MaterialOrderItem) => {
+    if (editAllMode && editAllItems[item.id]?.[field] !== undefined) {
+      return editAllItems[item.id][field]
+    }
+    return item[field]
+  }
+
+  // Save all edited items
+  const handleSaveAllItems = async () => {
+    setIsSaving(true)
+    try {
+      const promises = Object.entries(editAllItems).map(([itemId, updates]) =>
+        updateMaterialOrderItem(itemId, updates as any)
+      )
+      
+      await Promise.all(promises)
+      
+      toast.success(`Updated ${promises.length} item(s) successfully`)
+      setEditAllMode(false)
+      setEditAllItems({})
+      onUpdate?.()
+    } catch (error: any) {
+      toast.error(`Failed to save items: ${error.message}`)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return
-    
-    const result = await deleteMaterialOrderItem(itemId)
 
-    if (result.error) {
-      toast.error('Failed to delete item')
-      return
-    }
-
-    toast.success('Item deleted successfully')
-    onUpdate?.()
-  }
-
-  const handleEditAll = () => {
-    // Initialize edited items with current values
-    const allItems = items.reduce((acc: any, item: any) => {
-      acc[item.id] = {
-        quantity: item.quantity,
-        unitCost: item.estimated_unit_cost || 0,
-      }
-      return acc
-    }, {})
-    setEditedItems(allItems)
-    setIsEditingAll(true)
-  }
-
-  const handleSaveAll = async () => {
+    setIsSaving(true)
     try {
-      // Update all changed items
-      const updates = Object.entries(editedItems).map(([itemId, values]) => 
-        updateMaterialOrderItem(itemId, {
-          quantity: values.quantity,
-          estimated_unit_cost: values.unitCost,
-        })
-      )
-
-      const results = await Promise.all(updates)
+      const { error } = await deleteMaterialOrderItem(itemId)
+      if (error) throw new Error(error.message)
       
-      if (results.some(r => r.error)) {
-        toast.error('Some items failed to update')
-        return
-      }
-
-      toast.success('All items updated successfully')
-      setIsEditingAll(false)
-      setEditedItems({})
-      onUpdate?.()
-    } catch (error) {
-      toast.error('Failed to update items')
-    }
-  }
-
-  const handleCancelAll = () => {
-    setIsEditingAll(false)
-    setEditedItems({})
-  }
-
-  const updateEditedItem = (itemId: string, field: 'quantity' | 'unitCost', value: number) => {
-    setEditedItems(prev => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        [field]: value,
-      }
-    }))
-  }
-
-  const calculateItemTotal = (quantity: number, unitCost: number) => {
-    return quantity * unitCost
-  }
-
-  const handleAddItem = async () => {
-    if (!newItem.description || newItem.quantity <= 0) {
-      toast.error('Please provide description and quantity')
-      return
-    }
-
-    const result = await addMaterialOrderItem(order.id, newItem)
-
-    if (result.error) {
-      toast.error('Failed to add item')
-      return
-    }
-
-    toast.success('Item added successfully')
-    setShowAddItem(false)
-    setNewItem({
-      description: '',
-      quantity: 0,
-      unit: 'EA',
-      estimated_unit_cost: 0,
-      notes: '',
-    })
-    onUpdate?.()
-  }
-
-  const handleSaveOrderDetails = async () => {
-    const supabase = createClient()
-    
-    const { error } = await supabase
-      .from('material_orders')
-      .update({
-        supplier_id: editedDetails.supplier_id || null,
-        order_date: editedDetails.order_date || null,
-        expected_delivery_date: editedDetails.expected_delivery_date || null,
-        notes: editedDetails.notes || null,
-      })
-      .eq('id', order.id)
-
-    if (error) {
-      toast.error('Failed to update order details')
-      return
-    }
-
-    toast.success('Order details updated')
-    setIsEditingDetails(false)
-    onUpdate?.()
-  }
-
-  const handleDownloadPDF = async () => {
-    if (!company) {
-      toast.error('Company information not loaded')
-      return
-    }
-
-    setIsGeneratingPDF(true)
-    try {
-      await generatePurchaseOrderPDF({
-        order,
-        company: {
-          name: company.name,
-          logo_url: company.logo_url,
-          address: company.address,
-          city: company.city,
-          state: company.state,
-          zip: company.zip,
-          contact_phone: company.contact_phone,
-          contact_email: company.contact_email,
-        },
-      })
-      toast.success('PDF downloaded successfully')
-    } catch (error) {
-      console.error('PDF generation error:', error)
-      toast.error('Failed to generate PDF')
-    } finally {
-      setIsGeneratingPDF(false)
-    }
-  }
-
-  const handleSendEmail = async () => {
-    if (!order.supplier?.email) {
-      toast.error('No supplier email found. Please add a supplier with an email address.')
-      return
-    }
-
-    if (!company) {
-      toast.error('Company information not loaded')
-      return
-    }
-
-    setIsSendingEmail(true)
-    try {
-      const response = await fetch('/api/material-orders/send-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order.id,
-          recipientEmail: order.supplier.email,
-          recipientName: order.supplier.contact_name || order.supplier.name,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send email')
-      }
-
-      toast.success(`Email sent to ${order.supplier.email}`)
+      toast.success('Item deleted successfully')
       onUpdate?.()
     } catch (error: any) {
-      console.error('Email send error:', error)
-      toast.error(`Failed to send email: ${error.message}`)
+      toast.error(`Failed to delete item: ${error.message}`)
     } finally {
-      setIsSendingEmail(false)
+      setIsSaving(false)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'bg-gray-500'
+      case 'ordered':
+        return 'bg-blue-500'
+      case 'confirmed':
+        return 'bg-blue-600'
+      case 'in_transit':
+        return 'bg-yellow-500'
+      case 'delivered':
+        return 'bg-green-500'
+      case 'cancelled':
+        return 'bg-red-500'
+      default:
+        return 'bg-gray-500'
     }
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="flex items-center gap-2">
-                Order {order.order_number}
-                {order.template_name && (
-                  <Badge variant="outline">{order.template_name}</Badge>
-                )}
-              </DialogTitle>
-              <DialogDescription>
-                {order.supplier?.name && `Supplier: ${order.supplier.name} • `}
-                {items.length} item{items.length !== 1 ? 's' : ''}
-              </DialogDescription>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span>{isWorkOrder ? 'Work Order' : 'Material Order'} Details</span>
+              <Badge className={getStatusColor(order.status)}>
+                {order.status.toUpperCase()}
+              </Badge>
             </div>
-            <div className="flex items-center gap-2">
-              {!isEditingAll ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadPDF}
-                    disabled={isGeneratingPDF}
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendEmail}
-                    disabled={isSendingEmail || !order.supplier?.email}
-                  >
-                    <Mail className="h-4 w-4 mr-1" />
-                    {isSendingEmail ? 'Sending...' : 'Email PO'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleEditAll}
-                    disabled={items.length === 0}
-                  >
-                    <Edit2 className="h-4 w-4 mr-1" />
-                    Edit All
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddItem(true)}
-                  >
-                    Add Item
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCancelAll}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSaveAll}
-                  >
-                    <Save className="h-4 w-4 mr-1" />
-                    Save All
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
+            {!isEditing && (
+              <Button variant="outline" size="sm" onClick={handleStartEdit}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit Order
+              </Button>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
-        {/* Scrollable content area - flex-1 to fill available space */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1">
-            {/* Order Details Section */}
-            <div className="border-b pb-4 mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Order Details</h3>
-                {!isEditingDetails && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditingDetails(true)}
-                  >
-                    <Edit2 className="h-3 w-3 mr-1" />
-                    Edit
-                  </Button>
-                )}
+        <div className="space-y-6">
+          {/* Order Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center text-sm text-gray-500">
+                <Package className="mr-2 h-4 w-4" />
+                <span>Order Number</span>
               </div>
-          
-          {isEditingDetails ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-supplier">Supplier</Label>
-                <Select 
-                  value={editedDetails.supplier_id || undefined} 
-                  onValueChange={(value) => setEditedDetails({ ...editedDetails, supplier_id: value || '' })}
-                >
-                  <SelectTrigger id="edit-supplier">
-                    <SelectValue placeholder="Select supplier (optional)" />
+              <p className="font-medium">{order.order_number}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center text-sm text-gray-500">
+                <User className="mr-2 h-4 w-4" />
+                <span>{isWorkOrder ? 'Subcontractor' : 'Supplier'}</span>
+              </Label>
+              {isEditing ? (
+                <Select value={supplierId || undefined} onValueChange={setSupplierId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={`Select ${isWorkOrder ? 'subcontractor' : 'supplier'}`} />
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((supplier) => (
@@ -497,435 +403,536 @@ export function MaterialOrderDetailDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-order-date">Order Date</Label>
-                <Input
-                  id="edit-order-date"
-                  type="date"
-                  value={editedDetails.order_date}
-                  onChange={(e) => setEditedDetails({ ...editedDetails, order_date: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-expected-delivery">Expected Delivery</Label>
-                <Input
-                  id="edit-expected-delivery"
-                  type="date"
-                  value={editedDetails.expected_delivery_date}
-                  onChange={(e) => setEditedDetails({ ...editedDetails, expected_delivery_date: e.target.value })}
-                  min={editedDetails.order_date || undefined}
-                />
-              </div>
-
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-notes">Notes</Label>
-                <Input
-                  id="edit-notes"
-                  placeholder="Add notes..."
-                  value={editedDetails.notes}
-                  onChange={(e) => setEditedDetails({ ...editedDetails, notes: e.target.value })}
-                />
-              </div>
-
-              <div className="col-span-2 flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setIsEditingDetails(false)
-                    setEditedDetails({
-                      supplier_id: order.supplier_id || '',
-                      order_date: order.order_date || '',
-                      expected_delivery_date: order.expected_delivery_date || '',
-                      notes: order.notes || '',
-                    })
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSaveOrderDetails}>
-                  Save Details
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">Supplier:</span>{' '}
-                <span className="font-medium">{order.supplier?.name || 'Not set'}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Order Date:</span>{' '}
-                <span className="font-medium">{order.order_date || 'Not set'}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Expected Delivery:</span>{' '}
-                <span className="font-medium">{order.expected_delivery_date || 'Not set'}</span>
-              </div>
-              {order.notes && (
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Notes:</span>{' '}
-                  <span className="font-medium">{order.notes}</span>
-                </div>
+              ) : (
+                <p className="font-medium">{order.supplier?.name || 'N/A'}</p>
               )}
             </div>
-          </div>
-        </div>
 
-            {/* Email History */}
-            {emailHistory.length > 0 && (
-              <div className="border-b pb-4 mb-4">
-                <h3 className="text-sm font-semibold mb-3">Email History</h3>
-                <div className="space-y-2">
-                  {emailHistory.map((email) => (
-                    <div key={email.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">{email.recipient_email}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(email.sent_at).toLocaleString()}
+            <div className="space-y-2">
+              <Label className="flex items-center text-sm text-gray-500">
+                <Calendar className="mr-2 h-4 w-4" />
+                <span>Order Date</span>
+              </Label>
+              {isEditing ? (
+                <Input
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                />
+              ) : (
+                <p className="font-medium">
+                  {order.order_date ? format(new Date(order.order_date), 'MMM dd, yyyy') : 'Not set'}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center text-sm text-gray-500">
+                <Truck className="mr-2 h-4 w-4" />
+                <span>{isWorkOrder ? 'Install Date' : 'Expected Delivery'}</span>
+              </Label>
+              {isEditing ? (
+                <Input
+                  type="date"
+                  value={expectedDeliveryDate}
+                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                />
+              ) : (
+                <p className="font-medium">
+                  {order.expected_delivery_date ? format(new Date(order.expected_delivery_date), 'MMM dd, yyyy') : 'Not set'}
+                </p>
+              )}
+            </div>
+
+            {!isWorkOrder && (
+              <div className="space-y-2">
+                <div className="flex items-center text-sm text-gray-500">
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>Tax Rate (%)</span>
+                </div>
+                <p className="font-medium">{(order.tax_rate * 100).toFixed(2)}%</p>
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label className="flex items-center text-sm text-gray-500">
+              <FileText className="mr-2 h-4 w-4" />
+              <span>Notes</span>
+            </Label>
+            {isEditing ? (
+              <textarea
+                className="w-full min-h-[80px] p-3 border rounded-md"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any notes about this order..."
+              />
+            ) : order.notes ? (
+              <p className="text-sm bg-gray-50 p-3 rounded-md">{order.notes}</p>
+            ) : (
+              <p className="text-sm text-gray-400 italic">No notes</p>
+            )}
+          </div>
+
+          {/* Edit Order Actions */}
+          {isEditing && (
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button onClick={handleSaveOrder} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          )}
+
+          {/* Line Items */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Line Items</h3>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    if (editAllMode) {
+                      handleSaveAllItems()
+                    } else {
+                      setEditAllMode(true)
+                    }
+                  }}
+                  disabled={addingNewItem || editingItemId !== null || !order.items || order.items.length === 0}
+                >
+                  {editAllMode ? (
+                    <><Save className="h-4 w-4 mr-2" />Save All</>
+                  ) : (
+                    <><Edit3 className="h-4 w-4 mr-2" />Edit All</>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setAddingNewItem(true)}
+                  disabled={addingNewItem || editAllMode}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
+            </div>
+            
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Item</th>
+                    <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Variant</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Quantity</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Unit Cost</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Total</th>
+                    <th className="px-4 py-2 text-right text-sm font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {/* Add New Item Row */}
+                  {addingNewItem && (
+                    <tr className="bg-blue-50">
+                      <td className="px-4 py-2 relative" colSpan={6}>
+                        <div className="space-y-2">
+                          {/* Material Search */}
+                          <Input
+                            placeholder="Search materials or type description"
+                            value={newItem.description}
+                            onChange={(e) => handleMaterialSearch(e.target.value)}
+                            autoFocus
+                          />
+                          
+                          {/* Material Autocomplete Dropdown */}
+                          {filteredMaterials.length > 0 && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                              {filteredMaterials.map((material) => (
+                                <div
+                                  key={material.id}
+                                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                  onClick={() => handleSelectMaterial(material)}
+                                >
+                                  <div className="font-medium">{material.name}</div>
+                                  {material.manufacturer && (
+                                    <div className="text-xs text-gray-500">{material.manufacturer}</div>
+                                  )}
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    {formatCurrency(material.current_cost || 0)} per {material.unit || 'ea'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Variant Picker */}
+                          {materialVariants.length > 0 && (
+                            <div className="border-t pt-2">
+                              <label className="text-xs font-medium text-gray-700 block mb-1">
+                                Select Variant:
+                              </label>
+                              {materialVariants[0]?.variant_type === 'color' ? (
+                                <div className="flex gap-2 flex-wrap">
+                                  {materialVariants.map((variant) => (
+                                    <button
+                                      key={variant.id}
+                                      type="button"
+                                      onClick={() => handleSelectVariant(variant, selectedMaterial?.current_cost || 0)}
+                                      className={`flex items-center gap-2 px-3 py-2 rounded border-2 transition ${
+                                        selectedVariant?.id === variant.id 
+                                          ? 'border-blue-500 bg-blue-50' 
+                                          : 'border-gray-300 hover:border-gray-400'
+                                      }`}
+                                    >
+                                      {variant.color_hex && (
+                                        <div 
+                                          className="w-6 h-6 rounded-full border border-gray-300" 
+                                          style={{ backgroundColor: variant.color_hex }}
+                                        />
+                                      )}
+                                      <span className="text-sm">{variant.variant_name}</span>
+                                      {variant.price_adjustment !== 0 && (
+                                        <span className="text-xs text-gray-600">
+                                          ({variant.price_adjustment > 0 ? '+' : ''}{formatCurrency(variant.price_adjustment)})
+                                        </span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <select
+                                  value={selectedVariant?.id || ''}
+                                  onChange={(e) => {
+                                    const variant = materialVariants.find(v => v.id === e.target.value)
+                                    if (variant) {
+                                      handleSelectVariant(variant, selectedMaterial?.current_cost || 0)
+                                    }
+                                  }}
+                                  className="w-full px-3 py-2 border rounded"
+                                >
+                                  <option value="">Select {materialVariants[0]?.variant_type}...</option>
+                                  {materialVariants.map((variant) => (
+                                    <option key={variant.id} value={variant.id}>
+                                      {variant.variant_name}
+                                      {variant.price_adjustment !== 0 && 
+                                        ` (${variant.price_adjustment > 0 ? '+' : ''}${formatCurrency(variant.price_adjustment)})`
+                                      }
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Quantity, Unit, and Cost Inputs */}
+                          <div className="grid grid-cols-4 gap-2">
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Quantity</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={newItem.quantity}
+                                onChange={(e) => setNewItem({ ...newItem, quantity: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Unit</label>
+                              <Input
+                                value={newItem.unit}
+                                onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                                placeholder="ea"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Unit Cost</label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={newItem.estimated_unit_cost}
+                                onChange={(e) => setNewItem({ ...newItem, estimated_unit_cost: parseFloat(e.target.value) || 0 })}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-600 block mb-1">Total</label>
+                              <div className="px-3 py-2 bg-gray-100 rounded text-sm font-medium">
+                                {formatCurrency(newItem.quantity * newItem.estimated_unit_cost)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" onClick={handleAddItem} disabled={isSaving}>
+                              <Save className="h-3 w-3 mr-1" />
+                              Add Item
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => {
+                                setAddingNewItem(false)
+                                setNewItem({ description: '', quantity: 1, unit: 'ea', estimated_unit_cost: 0 })
+                                setSelectedMaterial(null)
+                                setMaterialVariants([])
+                                setSelectedVariant(null)
+                              }}
+                              disabled={isSaving}
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Cancel
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                      <Badge variant={email.status === 'sent' ? 'default' : email.status === 'failed' ? 'destructive' : 'secondary'}>
-                        {email.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Quantity</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead className="text-right">Unit Cost</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item: any) => {
-                  const isEditingSingle = editingItemId === item.id
-                  const isInEditMode = isEditingSingle || isEditingAll
-                  
-                  let quantity, unitCost
-                  if (isEditingSingle) {
-                    quantity = editedQuantity
-                    unitCost = editedUnitCost
-                  } else if (isEditingAll) {
-                    quantity = editedItems[item.id]?.quantity ?? item.quantity
-                    unitCost = editedItems[item.id]?.unitCost ?? (item.estimated_unit_cost || 0)
-                  } else {
-                    quantity = item.quantity
-                    unitCost = item.estimated_unit_cost || 0
-                  }
-                  
-                  const total = calculateItemTotal(quantity, unitCost)
-
-                  return (
-                    <TableRow key={item.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{item.description}</p>
-                        {item.notes && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.notes}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isInEditMode ? (
-                        <Input
-                          type="number"
-                          value={quantity}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0
-                            if (isEditingSingle) {
-                              setEditedQuantity(val)
-                            } else {
-                              updateEditedItem(item.id, 'quantity', val)
-                            }
-                          }}
-                          className="w-20 text-right"
-                          step="1"
-                        />
-                      ) : (
-                        <span>{item.quantity}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{item.unit}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isInEditMode ? (
-                        <Input
-                          type="number"
-                          value={unitCost}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0
-                            if (isEditingSingle) {
-                              setEditedUnitCost(val)
-                            } else {
-                              updateEditedItem(item.id, 'unitCost', val)
-                            }
-                          }}
-                          className="w-24 text-right"
-                          step="0.01"
-                        />
-                      ) : (
-                        <span>{formatCurrency(unitCost)}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCurrency(total)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isEditingSingle ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleSaveItem(item.id)}
-                          >
-                            <Save className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleCancelEdit}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : !isEditingAll ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEditItem(item)}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteItem(item.id)}
-                          >
-                            <Trash2 className="h-3 w-3 text-red-600" />
-                          </Button>
-                        </div>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                )
-})}
-              </TableBody>
-            </Table>
-
-            {showAddItem && (
-              <div className="border rounded-lg p-4 space-y-4 bg-muted/30 mt-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold">Add New Item</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setShowAddItem(false)
-                      setNewItem({
-                        description: '',
-                        quantity: 0,
-                        unit: 'EA',
-                        estimated_unit_cost: 0,
-                        notes: '',
-                      })
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="material-select">Select Material (Optional)</Label>
-                    <Select
-                      value={selectedMaterialId}
-                      onValueChange={(value) => {
-                        setSelectedMaterialId(value)
-                        setSelectedVariantId(null) // Reset variant when material changes
-                        if (value) {
-                          const material = materials.find(m => m.id === value)
-                          if (material) {
-                            setNewItem({
-                              description: material.name,
-                              quantity: 0,
-                              unit: material.unit || 'EA',
-                              estimated_unit_cost: material.current_cost || 0,
-                              notes: '',
-                            })
-                          }
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose from materials database..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {materials.map((material) => (
-                          <SelectItem key={material.id} value={material.id}>
-                            {material.name} ({material.unit}) - {formatCurrency(material.current_cost || 0)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedMaterialId && (
-                    <div className="col-span-2">
-                      <MaterialVariantSelector
-                        materialId={selectedMaterialId}
-                        materialName={materials.find(m => m.id === selectedMaterialId)?.name || ''}
-                        baseCost={materials.find(m => m.id === selectedMaterialId)?.current_cost || 0}
-                        selectedVariantId={selectedVariantId}
-                        onVariantChange={(variantId, effectivePrice) => {
-                          setSelectedVariantId(variantId)
-                          setNewItem(prev => ({
-                            ...prev,
-                            estimated_unit_cost: effectivePrice,
-                          }))
-                        }}
-                      />
-                    </div>
+                      </td>
+                    </tr>
                   )}
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="new-description">Description</Label>
-                    <Input
-                      id="new-description"
-                      value={newItem.description}
-                      onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                      placeholder="e.g., Shingles, Nails, Ridge Cap"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-quantity">Quantity</Label>
-                    <Input
-                      id="new-quantity"
-                      type="number"
-                      step="1"
-                      value={newItem.quantity}
-                      onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-unit">Unit</Label>
-                    <Input
-                      id="new-unit"
-                      value={newItem.unit}
-                      onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                      placeholder="EA, SQ, LF, etc."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-cost">Unit Cost</Label>
-                    <Input
-                      id="new-cost"
-                      type="number"
-                      step="0.01"
-                      value={newItem.estimated_unit_cost}
-                      onChange={(e) => setNewItem({ ...newItem, estimated_unit_cost: parseFloat(e.target.value) || 0 })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-total">Total</Label>
-                    <Input
-                      id="new-total"
-                      value={formatCurrency(newItem.quantity * newItem.estimated_unit_cost)}
-                      disabled
-                    />
-                  </div>
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="new-notes">Notes (Optional)</Label>
-                    <Input
-                      id="new-notes"
-                      value={newItem.notes}
-                      onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
-                      placeholder="Additional details..."
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowAddItem(false)
-                      setNewItem({
-                        description: '',
-                        quantity: 0,
-                        unit: 'EA',
-                        estimated_unit_cost: 0,
-                        notes: '',
-                      })
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddItem}>
-                    Add Item
-                  </Button>
-                </div>
-              </div>
-            )}
-          </ScrollArea>
-        </div>
-
-        {/* Footer with totals and actions - flex-shrink-0 to always stay visible */}
-        <div className="flex-shrink-0 border-t pt-4 space-y-4">
-          <div className="flex justify-between items-start">
-            <div className="text-sm text-muted-foreground">
-              Total: {items.length} item{items.length !== 1 ? 's' : ''}
-            </div>
-            <div className="text-right space-y-1">
-              <div className="flex items-center justify-between gap-8 text-sm">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-medium">{formatCurrency(order.total_estimated)}</span>
-              </div>
-              {order.tax_rate > 0 && (
-                <>
-                  <div className="flex items-center justify-between gap-8 text-sm">
-                    <span className="text-muted-foreground">
-                      Tax ({(order.tax_rate * 100).toFixed(2)}%):
-                    </span>
-                    <span className="font-medium">{formatCurrency(order.tax_amount || 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-8 pt-2 border-t">
-                    <span className="font-semibold">Total with Tax:</span>
-                    <span className="text-2xl font-bold">
-                      {formatCurrency(order.total_with_tax || order.total_estimated)}
-                    </span>
-                  </div>
-                </>
-              )}
-              {order.tax_rate === 0 && (
-                <div className="flex items-center justify-between gap-8 pt-2 border-t">
-                  <span className="font-semibold">Total:</span>
-                  <span className="text-2xl font-bold">
-                    {formatCurrency(order.total_estimated)}
-                  </span>
-                </div>
-              )}
+                  
+                  {/* Existing Items */}
+                  {order.items && order.items.length > 0 ? (
+                    order.items.map((item) => {
+                      const displayDescription = editingItemId === item.id ? editItem.description : (getItemValue(item, 'description') as string)
+                      const displayQuantity = editingItemId === item.id ? editItem.quantity : (getItemValue(item, 'quantity') as number)
+                      const displayUnit = editingItemId === item.id ? editItem.unit : (getItemValue(item, 'unit') as string)
+                      const displayCost = editingItemId === item.id ? editItem.estimated_unit_cost : (getItemValue(item, 'estimated_unit_cost') as number || 0)
+                      
+                      return (
+                      <tr key={item.id} className={editingItemId === item.id || editAllMode ? 'bg-yellow-50' : ''}>
+                        <td className="px-4 py-2 text-sm">
+                          {editingItemId === item.id || editAllMode ? (
+                            <div className="space-y-2">
+                              <Input
+                                value={displayDescription}
+                                onChange={(e) => {
+                                  if (editingItemId === item.id) {
+                                    setEditItem({ ...editItem, description: e.target.value })
+                                  } else if (editAllMode) {
+                                    handleUpdateItemInline(item.id, { description: e.target.value })
+                                  }
+                                }}
+                              />
+                              {editingItemId === item.id && editingVariants.length > 0 && (
+                                <div className="border-t pt-2">
+                                  <label className="text-xs font-medium text-gray-700 block mb-1">
+                                    Variant:
+                                  </label>
+                                  {editingVariants[0]?.variant_type === 'color' ? (
+                                    <div className="flex gap-1 flex-wrap">
+                                      {editingVariants.map((variant) => (
+                                        <button
+                                          key={variant.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingVariant(variant)
+                                            const variantPrice = getVariantPrice(selectedMaterial?.current_cost || 0, variant)
+                                            setEditItem(prev => ({ ...prev, estimated_unit_cost: variantPrice }))
+                                          }}
+                                          className={`flex items-center gap-1 px-2 py-1 rounded border text-xs ${
+                                            editingVariant?.id === variant.id 
+                                              ? 'border-blue-500 bg-blue-50' 
+                                              : 'border-gray-300 hover:border-gray-400'
+                                          }`}
+                                        >
+                                          {variant.color_hex && (
+                                            <div 
+                                              className="w-4 h-4 rounded-full border border-gray-300" 
+                                              style={{ backgroundColor: variant.color_hex }}
+                                            />
+                                          )}
+                                          <span>{variant.variant_name}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <select
+                                      value={editingVariant?.id || ''}
+                                      onChange={(e) => {
+                                        const variant = editingVariants.find(v => v.id === e.target.value)
+                                        if (variant) {
+                                          setEditingVariant(variant)
+                                          const variantPrice = getVariantPrice(selectedMaterial?.current_cost || 0, variant)
+                                          setEditItem(prev => ({ ...prev, estimated_unit_cost: variantPrice }))
+                                        }
+                                      }}
+                                      className="w-full px-2 py-1 border rounded text-xs"
+                                    >
+                                      <option value="">Select variant...</option>
+                                      {editingVariants.map((variant) => (
+                                        <option key={variant.id} value={variant.id}>
+                                          {variant.variant_name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="font-medium">{item.description}</p>
+                              {item.notes && <p className="text-gray-500 text-xs">{item.notes}</p>}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {editingItemId === item.id && editingVariant ? (
+                            <span className="text-gray-900">{editingVariant.variant_name}</span>
+                          ) : (
+                            item.variant_name && (
+                              <span className="text-gray-700">{item.variant_name}</span>
+                            )
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          {editingItemId === item.id || editAllMode ? (
+                            <div className="flex gap-1 justify-end">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="w-20"
+                                value={displayQuantity}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0
+                                  if (editingItemId === item.id) {
+                                    setEditItem({ ...editItem, quantity: val })
+                                  } else if (editAllMode) {
+                                    handleUpdateItemInline(item.id, { quantity: val })
+                                  }
+                                }}
+                              />
+                              <Input
+                                className="w-16"
+                                value={displayUnit}
+                                onChange={(e) => {
+                                  if (editingItemId === item.id) {
+                                    setEditItem({ ...editItem, unit: e.target.value })
+                                  } else if (editAllMode) {
+                                    handleUpdateItemInline(item.id, { unit: e.target.value })
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            `${item.quantity} ${item.unit}`
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right">
+                          {editingItemId === item.id || editAllMode ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="w-24"
+                              value={displayCost}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0
+                                if (editingItemId === item.id) {
+                                  setEditItem({ ...editItem, estimated_unit_cost: val })
+                                } else if (editAllMode) {
+                                  handleUpdateItemInline(item.id, { estimated_unit_cost: val })
+                                }
+                              }}
+                            />
+                          ) : (
+                            formatCurrency(item.estimated_unit_cost || 0)
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-right font-medium">
+                          {editingItemId === item.id || editAllMode
+                            ? formatCurrency(displayQuantity * displayCost)
+                            : formatCurrency(item.estimated_total || 0)
+                          }
+                        </td>
+                        <td className="px-4 py-2">
+                          {!editAllMode && (
+                            <div className="flex justify-end gap-1">
+                              {editingItemId === item.id ? (
+                                <>
+                                  <Button size="sm" onClick={() => handleSaveItem(item.id)} disabled={isSaving}>
+                                    <Save className="h-3 w-3" />
+                                  </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    setEditingItemId(null)
+                                    setEditingVariants([])
+                                    setEditingVariant(null)
+                                  }}
+                                  disabled={isSaving}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  onClick={() => handleStartEditItem(item)}
+                                  disabled={editingItemId !== null || addingNewItem}
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  disabled={isSaving || editingItemId !== null || addingNewItem}
+                                >
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </>
+                            )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                      )
+                    })
+                  ) : !addingNewItem ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                        No items added yet. Click "Add Item" to get started.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+          {/* Totals */}
+          <div className="flex justify-end">
+            <div className="w-64 space-y-2 border-t pt-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">{formatCurrency(order.total_estimated || 0)}</span>
+              </div>
+              {!isWorkOrder && order.tax_amount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Tax ({(order.tax_rate * 100).toFixed(2)}%):</span>
+                  <span className="font-medium">{formatCurrency(order.tax_amount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-semibold border-t pt-2">
+                <span>Total:</span>
+                <span>{formatCurrency(isWorkOrder ? order.total_estimated : (order.total_with_tax || 0))}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Close Button */}
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
           </div>

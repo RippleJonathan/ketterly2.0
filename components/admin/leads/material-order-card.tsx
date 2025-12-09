@@ -330,7 +330,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 <span className="text-muted-foreground">Subtotal:</span>
                 <span className="font-medium">{formatCurrency(order.total_estimated)}</span>
               </div>
-              {order.tax_rate > 0 && (
+              {order.order_type !== 'work' && order.tax_rate > 0 && (
                 <>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">
@@ -344,7 +344,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                   </div>
                 </>
               )}
-              {order.tax_rate === 0 && (
+              {(order.order_type === 'work' || order.tax_rate === 0) && (
                 <div className="flex items-center justify-between pt-2 border-t">
                   <span className="font-semibold">Total:</span>
                   <span className="font-semibold text-lg">{formatCurrency(order.total_estimated)}</span>
@@ -506,8 +506,8 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
 
       <MaterialOrderDetailDialog
         order={order}
-        isOpen={showDetails}
-        onClose={() => setShowDetails(false)}
+        open={showDetails}
+        onOpenChange={setShowDetails}
         onUpdate={onUpdate}
       />
 

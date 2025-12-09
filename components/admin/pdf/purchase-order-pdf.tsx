@@ -79,14 +79,17 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   tableColDescription: {
-    width: '40%',
+    width: '30%',
+  },
+  tableColVariant: {
+    width: '15%',
   },
   tableColQuantity: {
-    width: '15%',
+    width: '12%',
     textAlign: 'right',
   },
   tableColUnit: {
-    width: '10%',
+    width: '8%',
     textAlign: 'center',
   },
   tableColUnitCost: {
@@ -279,6 +282,7 @@ export function PurchaseOrderPDF({ order, company }: PurchaseOrderPDFProps) {
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={styles.tableColDescription}>Description</Text>
+            <Text style={styles.tableColVariant}>Variant</Text>
             <Text style={styles.tableColQuantity}>Qty</Text>
             <Text style={styles.tableColUnit}>Unit</Text>
             <Text style={styles.tableColUnitCost}>Unit Cost</Text>
@@ -294,6 +298,9 @@ export function PurchaseOrderPDF({ order, company }: PurchaseOrderPDFProps) {
                   </Text>
                 )}
               </View>
+              <Text style={styles.tableColVariant}>
+                {item.variant_name || '-'}
+              </Text>
               <Text style={styles.tableColQuantity}>{item.quantity}</Text>
               <Text style={styles.tableColUnit}>{item.unit}</Text>
               <Text style={styles.tableColUnitCost}>

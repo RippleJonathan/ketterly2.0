@@ -447,6 +447,7 @@ export async function importTemplateToOrder(
   params: GenerateOrderFromTemplateParams & {
     companyId: string
     leadId: string
+    order_type?: 'material' | 'work'
     createdBy?: string
     supplier_id?: string | null
     order_date?: string | null
@@ -637,6 +638,7 @@ export async function importTemplateToOrder(
       .insert({
         company_id: companyId,
         lead_id: leadId,
+        order_type: params.order_type || 'material',
         template_id: template_id,
         template_name: templateData.name,
         status: 'draft',

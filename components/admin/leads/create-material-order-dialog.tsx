@@ -11,6 +11,7 @@ import { useCreateMaterialOrder } from '@/lib/hooks/use-material-orders'
 import { useSuppliers } from '@/lib/hooks/use-suppliers'
 import { importTemplateToOrder } from '@/lib/api/material-orders'
 import { MaterialTemplate } from '@/lib/types/material-templates'
+import type { OrderType } from '@/lib/types/material-orders'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -28,6 +29,7 @@ interface CreateMaterialOrderDialogProps {
   onClose: () => void
   leadId: string
   leadAddress?: string
+  orderType: OrderType
   onSuccess?: () => void
 }
 
@@ -40,6 +42,7 @@ export function CreateMaterialOrderDialog({
   onClose,
   leadId,
   leadAddress,
+  orderType,
   onSuccess,
 }: CreateMaterialOrderDialogProps) {
   const { data: company } = useCurrentCompany()
@@ -50,6 +53,11 @@ export function CreateMaterialOrderDialog({
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>('')
   const [notes, setNotes] = useState<string>('')
   const [isImporting, setIsImporting] = useState(false)
+  
+  // Conditional labels based on order type
+  const isMaterial = orderType === 'material'
+  const orderLabel = isMaterial ? 'Material Order' : 'Work Order'
+  const supplierLabel = isMaterial ? 'Supplier' : 'Subcontractor'
 
   const { data: templatesResponse } = useTemplates({ is_active: true })
   const templates = templatesResponse?.data || []
@@ -112,6 +120,7 @@ export function CreateMaterialOrderDialog({
       const result = await importTemplateToOrder({
         companyId: company.id,
         leadId: leadId,
+        order_type: orderType,
         template_id: selectedTemplate.id,
         supplier_id: supplierId || null,
         order_date: orderDate || null,
@@ -154,9 +163,9 @@ export function CreateMaterialOrderDialog({
         {step === 'method' && (
           <>
             <DialogHeader>
-              <DialogTitle>Create Material Order</DialogTitle>
+              <DialogTitle>Create {orderLabel}</DialogTitle>
               <DialogDescription>
-                Choose how you want to create the material order
+                Choose how you want to create the {orderLabel.toLowerCase()}
               </DialogDescription>
             </DialogHeader>
 
@@ -226,7 +235,7 @@ export function CreateMaterialOrderDialog({
         {step === 'template' && (
           <>
             <DialogHeader>
-              <DialogTitle>Select Material Template</DialogTitle>
+              <DialogTitle>Select {isMaterial ? 'Material' : 'Work'} Template</DialogTitle>
               <DialogDescription>
                 Choose a template to auto-generate the order from measurements
               </DialogDescription>
@@ -349,10 +358,10 @@ export function CreateMaterialOrderDialog({
 
               {/* Supplier Selection */}
               <div className="space-y-2">
-                <Label htmlFor="supplier">Supplier (Optional)</Label>
+                <Label htmlFor="supplier">{supplierLabel} (Optional)</Label>
                 <Select value={supplierId || undefined} onValueChange={(value) => setSupplierId(value || '')}>
                   <SelectTrigger id="supplier">
-                    <SelectValue placeholder="Select a supplier (optional)" />
+                    <SelectValue placeholder={`Select a ${supplierLabel.toLowerCase()} (optional)`} />
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((supplier) => (
@@ -364,7 +373,7 @@ export function CreateMaterialOrderDialog({
                 </Select>
                 {suppliers.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No suppliers available. Add one in Settings.
+                    No {supplierLabel.toLowerCase()}s available. Add one in Settings.
                   </p>
                 )}
               </div>

@@ -49,6 +49,8 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_type ON public.suppliers(type) WHERE is
 -- RLS
 ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
 
+-- Drop policy if exists and recreate (to handle reruns)
+DROP POLICY IF EXISTS "Users can only access their company's suppliers" ON public.suppliers;
 CREATE POLICY "Users can only access their company's suppliers"
   ON public.suppliers
   FOR ALL
@@ -136,6 +138,12 @@ CREATE TABLE IF NOT EXISTS public.material_orders (
   -- Template used (if any)
   template_id UUID REFERENCES public.material_templates(id),
   template_name TEXT, -- Snapshot of template name at time of order
+  
+  -- Order type
+  order_type TEXT NOT NULL CHECK (order_type IN (
+    'material',     -- Material order
+    'work'          -- Work/labor order for subcontractors
+  )) DEFAULT 'material',
   
   -- Status workflow
   status TEXT NOT NULL CHECK (status IN (

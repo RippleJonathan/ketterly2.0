@@ -1,5 +1,7 @@
 // Material order types for tracking orders and costs
 
+export type OrderType = 'material' | 'work'
+
 export type MaterialOrderStatus = 
   | 'draft'
   | 'ordered'
@@ -15,6 +17,7 @@ export interface MaterialOrder {
   
   // Order identification
   order_number: string
+  order_type: OrderType
   
   // Supplier
   supplier_id: string | null
@@ -78,6 +81,11 @@ export interface MaterialOrderItem {
   description: string
   quantity: number
   unit: string
+  
+  // Material & Variant references
+  material_id: string | null
+  variant_id: string | null
+  variant_name: string | null
   
   // Costs
   estimated_unit_cost: number | null
@@ -150,6 +158,9 @@ export interface MaterialOrderItemInsert {
   unit: string
   estimated_unit_cost?: number | null
   actual_unit_cost?: number | null
+  material_id?: string | null
+  variant_id?: string | null
+  variant_name?: string | null
   quote_line_item_id?: string | null
   notes?: string | null
 }
@@ -160,6 +171,9 @@ export interface MaterialOrderItemUpdate {
   unit?: string
   estimated_unit_cost?: number | null
   actual_unit_cost?: number | null
+  material_id?: string | null
+  variant_id?: string | null
+  variant_name?: string | null
   notes?: string | null
 }
 

@@ -740,7 +740,6 @@ export async function importTemplateToOrder(
 
     // 6. Calculate tax and update order with totals
     // Work orders don't include tax, only material orders do
-    const isWorkOrder = (params.order_type || 'material') === 'work'
     const tax_amount = isWorkOrder ? 0 : total_estimated * taxRate
     const total_with_tax = total_estimated + tax_amount
 

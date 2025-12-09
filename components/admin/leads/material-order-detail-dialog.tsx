@@ -812,7 +812,7 @@ export function MaterialOrderDetailDialog({
                       placeholder="e.g., Shingles, Nails, Ridge Cap"
                     />
                   </div>
-                  <div className="space-y-2">">
+                  <div className="space-y-2">
                     <Label htmlFor="new-quantity">Quantity</Label>
                     <Input
                       id="new-quantity"
@@ -823,7 +823,7 @@ export function MaterialOrderDetailDialog({
                       placeholder="0"
                     />
                   </div>
-                  <div className="space-y-2">">
+                  <div className="space-y-2">
                     <Label htmlFor="new-unit">Unit</Label>
                     <Input
                       id="new-unit"
@@ -832,7 +832,7 @@ export function MaterialOrderDetailDialog({
                       placeholder="EA, SQ, LF, etc."
                     />
                   </div>
-                  <div className="space-y-2">">
+                  <div className="space-y-2">
                     <Label htmlFor="new-cost">Unit Cost</Label>
                     <Input
                       id="new-cost"
@@ -851,7 +851,7 @@ export function MaterialOrderDetailDialog({
                       disabled
                     />
                   </div>
-                  <div className="col-span-2 space-y-2">">
+                  <div className="col-span-2 space-y-2">
                     <Label htmlFor="new-notes">Notes (Optional)</Label>
                     <Input
                       id="new-notes"
@@ -932,5 +932,5 @@ export function MaterialOrderDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
-  ))
-}}
+  )
+}

@@ -352,18 +352,6 @@ export function WorkOrderPDF({ workOrder, company }: WorkOrderPDFProps) {
               <Text style={styles.totalValue}>{formatCurrency(workOrder.other_costs)}</Text>
             </View>
           )}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal:</Text>
-            <Text style={styles.totalValue}>{formatCurrency(workOrder.subtotal)}</Text>
-          </View>
-          {workOrder.include_tax && workOrder.tax_amount > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>
-                Tax ({(workOrder.tax_rate * 100).toFixed(2)}%):
-              </Text>
-              <Text style={styles.totalValue}>{formatCurrency(workOrder.tax_amount)}</Text>
-            </View>
-          )}
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Total:</Text>
             <Text style={styles.grandTotalValue}>{formatCurrency(workOrder.total_amount)}</Text>

@@ -100,8 +100,6 @@ export function EditWorkOrderDialog({
     job_site_city: '',
     job_site_state: '',
     job_site_zip: '',
-    tax_rate: 0,
-    include_tax: true,
     requires_materials: false,
     materials_will_be_provided: true,
     special_instructions: '',
@@ -176,8 +174,6 @@ export function EditWorkOrderDialog({
         job_site_city: workOrder.job_site_city || '',
         job_site_state: workOrder.job_site_state || '',
         job_site_zip: workOrder.job_site_zip || '',
-        tax_rate: workOrder.tax_rate || 0,
-        include_tax: workOrder.include_tax !== undefined ? workOrder.include_tax : true,
         requires_materials: workOrder.requires_materials || false,
         materials_will_be_provided: workOrder.materials_will_be_provided || true,
         special_instructions: workOrder.special_instructions || '',
@@ -270,8 +266,7 @@ export function EditWorkOrderDialog({
       .reduce((sum, item) => sum + item.line_total, 0)
 
     const subtotal = laborTotal + materialsTotal + equipmentTotal + otherTotal
-    const taxAmount = editedDetails.include_tax ? subtotal * editedDetails.tax_rate : 0
-    const total = subtotal + taxAmount
+    const total = subtotal // No tax on work orders
 
     return {
       laborTotal,
@@ -279,7 +274,6 @@ export function EditWorkOrderDialog({
       equipmentTotal,
       otherTotal,
       subtotal,
-      taxAmount,
       total,
     }
   }
@@ -561,10 +555,10 @@ export function EditWorkOrderDialog({
         equipment_cost: totals.equipmentTotal,
         other_costs: totals.otherTotal,
         subtotal: totals.subtotal,
-        tax_rate: editedDetails.tax_rate,
-        tax_amount: totals.taxAmount,
+        tax_rate: 0,
+        tax_amount: 0,
         total_amount: totals.total,
-        include_tax: editedDetails.include_tax,
+        include_tax: false,
         requires_materials: editedDetails.requires_materials,
         materials_will_be_provided: editedDetails.materials_will_be_provided,
         special_instructions: editedDetails.special_instructions || null,
@@ -722,44 +716,6 @@ export function EditWorkOrderDialog({
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Tax Rate (%)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={(editedDetails.tax_rate * 100).toFixed(2)}
-                    onChange={(e) =>
-                      setEditedDetails({
-                        ...editedDetails,
-                        tax_rate: parseFloat(e.target.value) / 100 || 0,
-                      })
-                    }
-                    disabled={!editedDetails.include_tax}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="include_tax"
-                      checked={editedDetails.include_tax}
-                      onChange={(e) =>
-                        setEditedDetails({
-                          ...editedDetails,
-                          include_tax: e.target.checked,
-                        })
-                      }
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label htmlFor="include_tax" className="font-normal cursor-pointer">
-                      Include tax in work order
-                    </Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    When unchecked, tax will not be calculated or shown on the work order PDF
-                  </p>
-                </div>
               </div>
             </div>
 
@@ -1039,16 +995,6 @@ export function EditWorkOrderDialog({
                   <span>Other:</span>
                   <span>{formatCurrency(totals.otherTotal)}</span>
                 </div>
-                <div className="flex justify-between font-medium border-t pt-2">
-                  <span>Subtotal:</span>
-                  <span>{formatCurrency(totals.subtotal)}</span>
-                </div>
-                {editedDetails.include_tax && (
-                  <div className="flex justify-between text-sm">
-                    <span>Tax ({(editedDetails.tax_rate * 100).toFixed(2)}%):</span>
-                    <span>{formatCurrency(totals.taxAmount)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total:</span>
                   <span>{formatCurrency(totals.total)}</span>

@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     const materialOrderPdfs: Array<{ filename: string; content: Buffer }> = []
     let materialListHtml = ''
 
+    // Fetch material orders for PDFs (if specific IDs provided)
     if (materialOrderIds && materialOrderIds.length > 0) {
       const { data: materialOrders, error: materialOrdersError } = await supabase
         .from('material_orders')
@@ -123,33 +124,70 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Generate material list HTML (without prices)
-        if (includeMaterialList) {
-          const allItems = materialOrders.flatMap(order => order.items || [])
-          materialListHtml = `
-            <div class="order-details">
-              <h3>Materials List:</h3>
-              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                <thead>
-                  <tr style="background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
-                    <th style="padding: 8px; text-align: left;">Item</th>
-                    <th style="padding: 8px; text-align: left;">Variant</th>
-                    <th style="padding: 8px; text-align: center;">Quantity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${allItems.map(item => `
-                    <tr style="border-bottom: 1px solid #e5e7eb;">
-                      <td style="padding: 8px;">${item.material?.name || item.description}</td>
-                      <td style="padding: 8px;">${item.variant_name || '-'}</td>
-                      <td style="padding: 8px; text-align: center;">${item.quantity} ${item.material?.unit || ''}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          `
+        // Generate PDFs for selected material orders
+        for (const materialOrder of materialOrders) {
+          const pdfBuffer = await generatePurchaseOrderBuffer({
+            order: materialOrder,
+            company: {
+              name: company.name,
+              logo_url: company.logo_url,
+              address: company.address,
+              city: company.city,
+              state: company.state,
+              zip: company.zip,
+              contact_phone: company.contact_phone,
+              contact_email: company.contact_email,
+            },
+          })
+          
+          materialOrderPdfs.push({
+            filename: `PO-${materialOrder.order_number}.pdf`,
+            content: pdfBuffer,
+          })
         }
+      }
+    }
+
+    // Generate material list HTML (without prices) - fetch all material orders for this lead if requested
+    if (includeMaterialList && workOrder.lead_id) {
+      const { data: allMaterialOrders, error: allMaterialOrdersError } = await supabase
+        .from('material_orders')
+        .select(`
+          *,
+          items:material_order_items(
+            *,
+            material:materials(name, unit)
+          )
+        `)
+        .eq('lead_id', workOrder.lead_id)
+        .eq('company_id', companyId)
+        .is('deleted_at', null)
+
+      if (!allMaterialOrdersError && allMaterialOrders && allMaterialOrders.length > 0) {
+        const allItems = allMaterialOrders.flatMap(order => order.items || [])
+        materialListHtml = `
+          <div class="order-details">
+            <h3>Materials List:</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              <thead>
+                <tr style="background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                  <th style="padding: 8px; text-align: left;">Item</th>
+                  <th style="padding: 8px; text-align: left;">Variant</th>
+                  <th style="padding: 8px; text-align: center;">Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allItems.map(item => `
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 8px;">${item.material?.name || item.description}</td>
+                    <td style="padding: 8px;">${item.variant_name || '-'}</td>
+                    <td style="padding: 8px; text-align: center;">${item.quantity} ${item.material?.unit || ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `
       }
     }
 

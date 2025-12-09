@@ -166,6 +166,7 @@ export interface WorkOrder {
   tax_rate: number
   tax_amount: number
   total_amount: number
+  include_tax: boolean // Whether to include tax in PDF and calculations
   
   // Status
   status: WorkOrderStatus
@@ -240,6 +241,7 @@ export interface WorkOrderInsert {
   tax_rate?: number
   tax_amount?: number
   total_amount: number
+  include_tax?: boolean
   
   // Status
   status?: WorkOrderStatus

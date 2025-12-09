@@ -356,7 +356,7 @@ export function WorkOrderPDF({ workOrder, company }: WorkOrderPDFProps) {
             <Text style={styles.totalLabel}>Subtotal:</Text>
             <Text style={styles.totalValue}>{formatCurrency(workOrder.subtotal)}</Text>
           </View>
-          {workOrder.tax_amount > 0 && (
+          {workOrder.include_tax && workOrder.tax_amount > 0 && (
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>
                 Tax ({(workOrder.tax_rate * 100).toFixed(2)}%):

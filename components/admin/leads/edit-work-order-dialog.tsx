@@ -136,15 +136,23 @@ export function EditWorkOrderDialog({
       if (!workOrder) return
 
       // Fetch measurements for the lead
-      if (workOrder.lead_id) {
-        const { data: measurementData } = await supabase
+      if (workOrder.lead_id && company?.id) {
+        console.log('Fetching measurements for lead:', workOrder.lead_id)
+        const { data: measurementData, error: measurementError } = await supabase
           .from('lead_measurements')
           .select('*')
           .eq('lead_id', workOrder.lead_id)
-          .single()
+          .eq('company_id', company.id)
+          .is('deleted_at', null)
+          .maybeSingle()
         
-        if (measurementData) {
+        if (measurementError) {
+          console.error('Error fetching measurements:', measurementError)
+        } else if (measurementData) {
+          console.log('Measurements loaded:', measurementData)
           setMeasurements(measurementData as RoofMeasurements)
+        } else {
+          console.log('No measurements found for this lead')
         }
       }
 
@@ -302,6 +310,7 @@ export function EditWorkOrderDialog({
   }
 
   const handleImportMaterial = (material: Material) => {
+    console.log('Importing material:', material.name, 'Measurements:', measurements)
     const tempId = `material-${Date.now()}`
     const itemType = material.category === 'shingles' || material.category === 'underlayment' || 
                      material.category === 'flashing' || material.category === 'ventilation'
@@ -312,18 +321,23 @@ export function EditWorkOrderDialog({
     let calculatedQuantity = 1
     let quantityNote = ''
     
-    if (measurements && material.measurement_type && material.default_per_unit) {
+    if (measurements) {
+      // Use material's measurement settings, with sensible defaults
+      const measurementType = material.measurement_type || 'square'
+      const perUnit = material.default_per_unit || material.default_per_square || 1
+      
       calculatedQuantity = calculateMaterialQuantity(
-        material.measurement_type,
-        material.default_per_unit,
+        measurementType,
+        perUnit,
         measurements
       )
+      console.log(`Calculated quantity for ${material.name}:`, calculatedQuantity, 'from', measurementType, 'per unit:', perUnit)
       
       // Round to 2 decimal places
       calculatedQuantity = Math.round(calculatedQuantity * 100) / 100
       
       if (calculatedQuantity > 0) {
-        quantityNote = `Auto-calculated from measurements (${material.measurement_type})`
+        quantityNote = `Auto-calculated from measurements (${measurementType})`
       }
     }
     
@@ -346,23 +360,110 @@ export function EditWorkOrderDialog({
     toast.success(`Added ${material.name}${quantityNote ? ' with calculated quantity' : ''}`)
   }
 
-  const handleImportTemplate = (template: MaterialTemplate) => {
-    const templateItems = template.items || []
-    const newItems: LineItemEdit[] = templateItems.map((item: TemplateItem, index) => ({
-      tempId: `template-${Date.now()}-${index}`,
-      item_type: 'materials',
-      description: item.description || item.item,
-      quantity: item.per_square || 1,
-      unit: item.unit || 'each',
-      unit_price: 0, // User needs to fill in price
-      line_total: 0,
-      notes: `From template: ${template.name}`,
-      sort_order: lineItems.length + index,
-    }))
+  const handleImportTemplate = async (template: MaterialTemplate) => {
+    if (!company?.id) {
+      toast.error('Unable to import template: missing company data')
+      return
+    }
 
-    setLineItems([...lineItems, ...newItems])
-    setShowTemplateBrowser(false)
-    toast.success(`Added ${newItems.length} items from ${template.name}`)
+    try {
+      // Fetch the full template with materials
+      const { data: templateData, error: templateError } = await supabase
+        .from('material_templates')
+        .select(`
+          *,
+          template_materials:template_materials(
+            id,
+            measurement_type,
+            per_unit,
+            description,
+            sort_order,
+            material:materials(
+              id,
+              name,
+              unit,
+              current_cost,
+              measurement_type,
+              default_per_unit,
+              default_per_square,
+              manufacturer,
+              sku,
+              category
+            )
+          )
+        `)
+        .eq('id', template.id)
+        .eq('company_id', company.id)
+        .single()
+
+      if (templateError) throw templateError
+      if (!templateData) throw new Error('Template not found')
+
+      const newItems: LineItemEdit[] = []
+
+      // Process each material in the template
+      for (const [index, tm] of (templateData.template_materials || []).entries()) {
+        if (!tm.material) continue
+
+        // Get measurement settings from the material (single source of truth)
+        const measurementType = tm.material.measurement_type || 'square'
+        const perUnit = tm.material.default_per_unit || tm.material.default_per_square || 1
+
+        // Calculate quantity from measurements if available, otherwise use default quantity
+        let calculatedQty = 1
+        if (measurements) {
+          calculatedQty = calculateMaterialQuantity(
+            measurementType,
+            perUnit,
+            measurements
+          )
+        }
+
+        if (calculatedQty === 0) {
+          // Skip items with no valid calculation
+          continue
+        }
+
+        // Round to 2 decimal places
+        const quantity = Math.round(calculatedQty * 100) / 100
+
+        // Determine item type based on category
+        const itemType = tm.material.category === 'shingles' || 
+                        tm.material.category === 'underlayment' || 
+                        tm.material.category === 'flashing' || 
+                        tm.material.category === 'ventilation'
+                        ? 'materials' 
+                        : 'other'
+
+        newItems.push({
+          tempId: `template-${Date.now()}-${index}`,
+          item_type: itemType,
+          description: tm.description || `${tm.material.name}${tm.material.manufacturer ? ` - ${tm.material.manufacturer}` : ''}`,
+          quantity,
+          unit: tm.material.unit || 'each',
+          unit_price: tm.material.current_cost || 0,
+          line_total: quantity * (tm.material.current_cost || 0),
+          notes: [
+            tm.material.sku ? `SKU: ${tm.material.sku}` : null,
+            `From template: ${template.name}`,
+            measurements ? `Calculated from ${measurementType} measurements` : 'Using default quantity (no measurements)'
+          ].filter(Boolean).join(' | ') || null,
+          sort_order: lineItems.length + index,
+        })
+      }
+
+      if (newItems.length === 0) {
+        toast.error('No valid items could be calculated from this template')
+        return
+      }
+
+      setLineItems([...lineItems, ...newItems])
+      setShowTemplateBrowser(false)
+      toast.success(`Added ${newItems.length} items from ${template.name}${measurements ? ' with calculated quantities' : ''}`)
+    } catch (error: any) {
+      console.error('Error importing template:', error)
+      toast.error(`Failed to import template: ${error.message}`)
+    }
   }
 
   const handleAddItem = () => {
@@ -495,6 +596,9 @@ export function EditWorkOrderDialog({
       <DialogContent className="max-w-6xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Edit Work Order - {workOrder.title}</DialogTitle>
+          <DialogDescription>
+            Edit work order details, line items, and totals
+          </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="h-[calc(90vh-120px)] pr-4">
@@ -947,6 +1051,9 @@ export function EditWorkOrderDialog({
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Browse Materials</DialogTitle>
+            <DialogDescription>
+              Select a material to add to this work order. Quantities will be auto-calculated from measurements if available.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="relative">
@@ -1003,6 +1110,9 @@ export function EditWorkOrderDialog({
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Import from Template</DialogTitle>
+            <DialogDescription>
+              Import all materials from a template. Quantities will be auto-calculated based on measurements.
+            </DialogDescription>
           </DialogHeader>
           <ScrollArea className="h-[400px]">
             <div className="space-y-2">
@@ -1031,7 +1141,7 @@ export function EditWorkOrderDialog({
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {template.items.length} items
+                      {template.template_materials_count || 0} items
                     </div>
                   </div>
                 ))

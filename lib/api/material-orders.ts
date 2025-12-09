@@ -568,6 +568,58 @@ export async function importTemplateToOrder(
       throw new Error('No valid items calculated from template. Check measurements.')
     }
 
+    // 2.5. Fetch and add accessories from measurements
+    const { data: measurementData, error: measurementError } = await supabase
+      .from('lead_measurements')
+      .select(`
+        id,
+        accessories:measurement_accessories(
+          id,
+          material_id,
+          quantity,
+          notes,
+          material:materials(
+            id,
+            name,
+            category,
+            unit,
+            current_cost
+          )
+        )
+      `)
+      .eq('lead_id', leadId)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('measured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Add accessories to calculatedItems if they exist
+    if (measurementData?.accessories && measurementData.accessories.length > 0) {
+      for (const accessory of measurementData.accessories) {
+        if (!accessory.material) continue
+
+        const quantity = accessory.quantity || 1
+        const unitCost = estimated_costs?.[accessory.material.id] || accessory.material.current_cost || 0
+        const total = quantity * unitCost
+
+        calculatedItems.push({
+          material_id: accessory.material.id,
+          material_name: accessory.material.name,
+          measurement_type: 'each',
+          measurement_value: quantity,
+          per_unit: 1,
+          calculated_quantity: quantity,
+          unit: accessory.material.unit || 'each',
+          description: `${accessory.material.name}${accessory.notes ? ` - ${accessory.notes}` : ''}`,
+          estimated_unit_cost: unitCost,
+          estimated_total: total
+        })
+      }
+
+      console.log(`Added ${measurementData.accessories.length} accessories from measurements`)
+    }
+
     // 3. Get company tax rate
     const { data: companyData, error: companyError } = await supabase
       .from('companies')

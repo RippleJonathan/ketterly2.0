@@ -33,6 +33,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { WorkOrder, PAYMENT_METHODS } from '@/lib/types/work-orders'
 import { EditWorkOrderDialog } from './edit-work-order-dialog'
+import { SendEmailDialog } from './send-email-dialog'
 import { generateWorkOrderPDF } from '@/lib/utils/pdf-generator'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 
@@ -199,7 +200,11 @@ export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
   }
 
   // Send email
-  const handleSendEmail = async (recipientEmail: string, recipientName?: string) => {
+  const handleSendEmail = async (
+    recipientEmails: string[], 
+    includeMaterialList: boolean,
+    materialOrderIds?: string[]
+  ) => {
     setIsSendingEmail(true)
     try {
       const response = await fetch('/api/work-orders/send-email', {
@@ -209,8 +214,9 @@ export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
         },
         body: JSON.stringify({
           workOrderId: workOrder.id,
-          recipientEmail,
-          recipientName,
+          recipientEmails,
+          includeMaterialList,
+          materialOrderIds,
         }),
       })
 
@@ -483,19 +489,16 @@ export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
       />
 
       {/* Email Dialog */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Work Order via Email</DialogTitle>
-          </DialogHeader>
-          <EmailWorkOrderForm
-            workOrder={workOrder}
-            onSend={handleSendEmail}
-            onCancel={() => setShowEmailDialog(false)}
-            isSending={isSendingEmail}
-          />
-        </DialogContent>
-      </Dialog>
+      <SendEmailDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        orderType="work"
+        leadId={workOrder.lead_id}
+        order={workOrder}
+        defaultRecipient={workOrder.subcontractor_email}
+        onSend={handleSendEmail}
+        isSending={isSendingEmail}
+      />
     </>
   )
 }

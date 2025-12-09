@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
-import { generateWorkOrderBuffer } from '@/lib/utils/pdf-generator-server'
+import { generateWorkOrderBuffer, generatePurchaseOrderBuffer } from '@/lib/utils/pdf-generator-server'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -30,14 +30,17 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { workOrderId, recipientEmail, recipientName } = body
+    const { workOrderId, recipientEmails, includeMaterialList, materialOrderIds } = body
 
-    if (!workOrderId || !recipientEmail) {
+    if (!workOrderId || !recipientEmails || !recipientEmails.length) {
       return NextResponse.json(
-        { error: 'Work order ID and recipient email are required' },
+        { error: 'Work order ID and at least one recipient email are required' },
         { status: 400 }
       )
     }
+
+    const primaryEmail = recipientEmails[0]
+    const ccEmails = recipientEmails.slice(1)
 
     // Fetch work order with all details
     const { data: workOrder, error: orderError } = await supabase
@@ -80,6 +83,76 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Fetch material orders if requested
+    const materialOrderPdfs: Array<{ filename: string; content: Buffer }> = []
+    let materialListHtml = ''
+
+    if (materialOrderIds && materialOrderIds.length > 0) {
+      const { data: materialOrders, error: materialOrdersError } = await supabase
+        .from('material_orders')
+        .select(`
+          *,
+          items:material_order_items(
+            *,
+            material:materials(name, unit)
+          )
+        `)
+        .in('id', materialOrderIds)
+        .eq('company_id', companyId)
+
+      if (!materialOrdersError && materialOrders) {
+        // Generate PDFs for each material order
+        for (const materialOrder of materialOrders) {
+          const pdfBuffer = await generatePurchaseOrderBuffer({
+            order: materialOrder,
+            company: {
+              name: company.name,
+              logo_url: company.logo_url,
+              address: company.address,
+              city: company.city,
+              state: company.state,
+              zip: company.zip,
+              contact_phone: company.contact_phone,
+              contact_email: company.contact_email,
+            },
+          })
+          
+          materialOrderPdfs.push({
+            filename: `PO-${materialOrder.order_number}.pdf`,
+            content: pdfBuffer,
+          })
+        }
+
+        // Generate material list HTML (without prices)
+        if (includeMaterialList) {
+          const allItems = materialOrders.flatMap(order => order.items || [])
+          materialListHtml = `
+            <div class="order-details">
+              <h3>Materials List:</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                  <tr style="background-color: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                    <th style="padding: 8px; text-align: left;">Item</th>
+                    <th style="padding: 8px; text-align: left;">Variant</th>
+                    <th style="padding: 8px; text-align: center;">Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${allItems.map(item => `
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="padding: 8px;">${item.material?.name || item.description}</td>
+                      <td style="padding: 8px;">${item.variant_name || '-'}</td>
+                      <td style="padding: 8px; text-align: center;">${item.quantity} ${item.material?.unit || ''}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+        }
+      }
+    }
+
     // Determine email subject and content
     const isInternalWork = !workOrder.subcontractor_name
     const subjectLine = isInternalWork
@@ -91,7 +164,8 @@ export async function POST(request: NextRequest) {
       const { data: emailData, error: sendError } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'orders@ketterly.com',
         replyTo: company.contact_email || undefined,
-        to: recipientEmail,
+        to: primaryEmail,
+        cc: ccEmails.length > 0 ? ccEmails : undefined,
         subject: subjectLine,
         html: `
           <!DOCTYPE html>
@@ -105,6 +179,8 @@ export async function POST(request: NextRequest) {
                 .footer { padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
                 .button { display: inline-block; padding: 12px 24px; background-color: #1e40af; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
                 .order-details { background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0; }
+                table { border-collapse: collapse; }
+                th, td { padding: 8px; }
               </style>
             </head>
             <body>
@@ -113,7 +189,7 @@ export async function POST(request: NextRequest) {
                   <h1>Work Order</h1>
                 </div>
                 <div class="content">
-                  <p>Hello${recipientName ? ` ${recipientName}` : ''},</p>
+                  <p>Hello,</p>
                   
                   <p>Please find attached Work Order <strong>${workOrder.work_order_number}</strong> from ${company.name}.</p>
                   
@@ -134,7 +210,9 @@ export async function POST(request: NextRequest) {
                   
                   ${workOrder.special_instructions ? `<p><strong>Special Instructions:</strong><br/>${workOrder.special_instructions}</p>` : ''}
                   
-                  <p>The complete work order details are attached as a PDF.</p>
+                  ${materialListHtml}
+                  
+                  <p>The complete work order details are attached as a PDF${materialOrderPdfs.length > 0 ? `, along with ${materialOrderPdfs.length} material order(s)` : ''}.</p>
                   
                   ${workOrder.job_site_address ? `
                     <div class="order-details">
@@ -165,6 +243,7 @@ export async function POST(request: NextRequest) {
             filename: `WO-${workOrder.work_order_number}.pdf`,
             content: pdfBuffer,
           },
+          ...materialOrderPdfs,
         ],
       })
 

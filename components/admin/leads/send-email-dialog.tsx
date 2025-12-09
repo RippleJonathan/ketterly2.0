@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,25 +8,79 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { X, Plus, Mail } from 'lucide-react'
 import { MaterialOrder } from '@/lib/types/material-orders'
+import { WorkOrder } from '@/lib/types/work-orders'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { createClient } from '@/lib/supabase/client'
 
 interface SendEmailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  order: MaterialOrder
+  order: MaterialOrder | WorkOrder
+  orderType: 'material' | 'work'
+  leadId?: string
   onSend: (data: {
     recipientEmails: string[]
     recipientName: string
     includeMaterialList: boolean
+    materialOrderIds?: string[]
   }) => Promise<void>
 }
 
-export function SendEmailDialog({ open, onOpenChange, order, onSend }: SendEmailDialogProps) {
-  const [primaryEmail, setPrimaryEmail] = useState(order.supplier?.email || '')
-  const [recipientName, setRecipientName] = useState(order.supplier?.contact_name || order.supplier?.name || '')
+export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, onSend }: SendEmailDialogProps) {
+  const { data: company } = useCurrentCompany()
+  const [primaryEmail, setPrimaryEmail] = useState('')
+  const [recipientName, setRecipientName] = useState('')
   const [additionalEmails, setAdditionalEmails] = useState<string[]>([])
   const [newEmail, setNewEmail] = useState('')
   const [includeMaterialList, setIncludeMaterialList] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [materialOrders, setMaterialOrders] = useState<MaterialOrder[]>([])
+  const [selectedMaterialOrders, setSelectedMaterialOrders] = useState<string[]>([])
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+
+  // Initialize email fields based on order type
+  useEffect(() => {
+    if (orderType === 'material') {
+      const matOrder = order as MaterialOrder
+      setPrimaryEmail(matOrder.supplier?.email || '')
+      setRecipientName(matOrder.supplier?.contact_name || matOrder.supplier?.name || '')
+    } else {
+      const woOrder = order as WorkOrder
+      setPrimaryEmail(woOrder.subcontractor_email || '')
+      setRecipientName(woOrder.subcontractor_name || '')
+    }
+  }, [order, orderType])
+
+  // Load material orders if this is a work order
+  useEffect(() => {
+    if (open && orderType === 'work' && leadId && company?.id) {
+      loadMaterialOrders()
+    }
+  }, [open, orderType, leadId, company?.id])
+
+  const loadMaterialOrders = async () => {
+    if (!company?.id || !leadId) return
+    
+    setIsLoadingOrders(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('material_orders')
+        .select('*, supplier:suppliers(*), items:material_order_items(*)')
+        .eq('company_id', company.id)
+        .eq('lead_id', leadId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+
+      if (!error && data) {
+        setMaterialOrders(data as MaterialOrder[])
+      }
+    } catch (error) {
+      console.error('Failed to load material orders:', error)
+    } finally {
+      setIsLoadingOrders(false)
+    }
+  }
 
   const handleAddEmail = () => {
     if (newEmail.trim() && newEmail.includes('@')) {
@@ -49,25 +103,35 @@ export function SendEmailDialog({ open, onOpenChange, order, onSend }: SendEmail
         recipientEmails: allEmails,
         recipientName: recipientName.trim(),
         includeMaterialList,
+        materialOrderIds: selectedMaterialOrders.length > 0 ? selectedMaterialOrders : undefined,
       })
       onOpenChange(false)
       // Reset form
       setAdditionalEmails([])
       setNewEmail('')
       setIncludeMaterialList(false)
+      setSelectedMaterialOrders([])
     } finally {
       setIsSending(false)
     }
+  }
+
+  const toggleMaterialOrder = (orderId: string) => {
+    setSelectedMaterialOrders(prev =>
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    )
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Send Purchase Order Email</DialogTitle>
+          <DialogTitle>Send {orderType === 'work' ? 'Work Order' : 'Purchase Order'} Email</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
           {/* Primary Recipient */}
           <div className="space-y-2">
             <Label htmlFor="primary-email">Primary Recipient Email *</Label>
@@ -100,7 +164,13 @@ export function SendEmailDialog({ open, onOpenChange, order, onSend }: SendEmail
                 placeholder="additional@example.com"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddEmail()}
+                onKeyPress={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddEmail()
+                  }
+                }}
               />
               <Button
                 type="button"
@@ -135,25 +205,94 @@ export function SendEmailDialog({ open, onOpenChange, order, onSend }: SendEmail
           </div>
 
           {/* Material List Option */}
-          <div className="flex items-center space-x-2 pt-2 border-t">
-            <Checkbox
-              id="include-materials"
-              checked={includeMaterialList}
-              onCheckedChange={(checked) => setIncludeMaterialList(checked as boolean)}
-            />
-            <Label
-              htmlFor="include-materials"
-              className="text-sm font-normal cursor-pointer"
-            >
-              Include material list in email body (without prices)
-            </Label>
-          </div>
+          {orderType === 'material' && (
+            <div className="flex items-center space-x-2 pt-2 border-t">
+              <Checkbox
+                id="include-materials"
+                checked={includeMaterialList}
+                onCheckedChange={(checked) => setIncludeMaterialList(checked as boolean)}
+              />
+              <Label
+                htmlFor="include-materials"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Include material list in email body (without prices)
+              </Label>
+            </div>
+          )}
+
+          {/* Material Orders Selection for Work Orders */}
+          {orderType === 'work' && materialOrders.length > 0 && (
+            <div className="space-y-2 pt-2 border-t">
+              <Label>Include Material Orders</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Select material orders to attach to this work order email
+              </p>
+              {isLoadingOrders ? (
+                <div className="text-sm text-gray-500">Loading material orders...</div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {materialOrders.map((matOrder) => (
+                    <div
+                      key={matOrder.id}
+                      className="flex items-start space-x-2 bg-gray-50 p-2 rounded"
+                    >
+                      <Checkbox
+                        id={`mat-order-${matOrder.id}`}
+                        checked={selectedMaterialOrders.includes(matOrder.id)}
+                        onCheckedChange={() => toggleMaterialOrder(matOrder.id)}
+                      />
+                      <Label
+                        htmlFor={`mat-order-${matOrder.id}`}
+                        className="text-sm font-normal cursor-pointer flex-1"
+                      >
+                        <div>
+                          <div className="font-medium">{matOrder.order_number}</div>
+                          <div className="text-xs text-gray-600">
+                            {matOrder.supplier?.name} • {matOrder.items?.length || 0} items
+                            {matOrder.order_date && ` • ${new Date(matOrder.order_date).toLocaleDateString()}`}
+                          </div>
+                        </div>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Material List Option for Work Orders */}
+          {orderType === 'work' && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="include-materials"
+                checked={includeMaterialList}
+                onCheckedChange={(checked) => setIncludeMaterialList(checked as boolean)}
+              />
+              <Label
+                htmlFor="include-materials"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Include material list in email body (without prices)
+              </Label>
+            </div>
+          )}
 
           {/* Order Summary */}
           <div className="bg-blue-50 p-3 rounded text-sm space-y-1">
-            <div><strong>PO Number:</strong> {order.order_number}</div>
-            <div><strong>Items:</strong> {order.items?.length || 0}</div>
-            {order.supplier && <div><strong>Supplier:</strong> {order.supplier.name}</div>}
+            <div><strong>{orderType === 'work' ? 'WO' : 'PO'} Number:</strong> {orderType === 'work' ? (order as WorkOrder).work_order_number : (order as MaterialOrder).order_number}</div>
+            {orderType === 'material' && <div><strong>Items:</strong> {(order as MaterialOrder).items?.length || 0}</div>}
+            {orderType === 'material' && (order as MaterialOrder).supplier && (
+              <div><strong>Supplier:</strong> {(order as MaterialOrder).supplier?.name}</div>
+            )}
+            {orderType === 'work' && (order as WorkOrder).subcontractor_name && (
+              <div><strong>Subcontractor:</strong> {(order as WorkOrder).subcontractor_name}</div>
+            )}
+            {selectedMaterialOrders.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-blue-200">
+                <strong>+ {selectedMaterialOrders.length} Material Order(s) will be attached</strong>
+              </div>
+            )}
           </div>
         </div>
 

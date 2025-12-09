@@ -593,6 +593,8 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
         open={showEmailDialog}
         onOpenChange={setShowEmailDialog}
         order={order}
+        orderType="material"
+        leadId={order.lead_id}
         onSend={handleSendEmail}
       />
     </Card>

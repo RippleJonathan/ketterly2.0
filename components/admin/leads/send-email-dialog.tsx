@@ -277,6 +277,13 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
               </Label>
             </div>
           )}
+          {orderType === 'work' && includeMaterialList && (
+            <p className="text-xs text-gray-500 ml-6">
+              {selectedMaterialOrders.length > 0 
+                ? `Material list will show items from ${selectedMaterialOrders.length} selected order(s)` 
+                : 'Material list will show items from all material orders for this job'}
+            </p>
+          )}
 
           {/* Order Summary */}
           <div className="bg-blue-50 p-3 rounded text-sm space-y-1">

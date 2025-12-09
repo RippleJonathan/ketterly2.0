@@ -600,38 +600,38 @@ export function MaterialOrderDetailDialog({
           </div>
         )}
 
-        <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Unit Cost</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item: any) => {
-                const isEditingSingle = editingItemId === item.id
-                const isInEditMode = isEditingSingle || isEditingAll
-                
-                let quantity, unitCost
-                if (isEditingSingle) {
-                  quantity = editedQuantity
-                  unitCost = editedUnitCost
-                } else if (isEditingAll) {
-                  quantity = editedItems[item.id]?.quantity ?? item.quantity
-                  unitCost = editedItems[item.id]?.unitCost ?? (item.estimated_unit_cost || 0)
-                } else {
-                  quantity = item.quantity
-                  unitCost = item.estimated_unit_cost || 0
-                }
-                
-                const total = calculateItemTotal(quantity, unitCost)
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Quantity</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right">Unit Cost</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item: any) => {
+                  const isEditingSingle = editingItemId === item.id
+                  const isInEditMode = isEditingSingle || isEditingAll
+                  
+                  let quantity, unitCost
+                  if (isEditingSingle) {
+                    quantity = editedQuantity
+                    unitCost = editedUnitCost
+                  } else if (isEditingAll) {
+                    quantity = editedItems[item.id]?.quantity ?? item.quantity
+                    unitCost = editedItems[item.id]?.unitCost ?? (item.estimated_unit_cost || 0)
+                  } else {
+                    quantity = item.quantity
+                    unitCost = item.estimated_unit_cost || 0
+                  }
+                  
+                  const total = calculateItemTotal(quantity, unitCost)
 
-                return (
-                  <TableRow key={item.id}>
+                  return (
+                    <TableRow key={item.id}>
                     <TableCell>
                       <div>
                         <p className="font-medium">{item.description}</p>
@@ -727,162 +727,162 @@ export function MaterialOrderDetailDialog({
                     </TableCell>
                   </TableRow>
                 )
-              })}
-            </TableBody>
-          </Table>
+})}
+              </TableBody>
+            </Table>
 
-          {showAddItem && (
-            <div className="border rounded-lg p-4 space-y-4 bg-muted/30 mt-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Add New Item</h4>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowAddItem(false)
-                    setNewItem({
-                      description: '',
-                      quantity: 0,
-                      unit: 'EA',
-                      estimated_unit_cost: 0,
-                      notes: '',
-                    })
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="material-select">Select Material (Optional)</Label>
-                  <Select
-                    value={selectedMaterialId}
-                    onValueChange={(value) => {
-                      setSelectedMaterialId(value)
-                      setSelectedVariantId(null) // Reset variant when material changes
-                      if (value) {
-                        const material = materials.find(m => m.id === value)
-                        if (material) {
-                          setNewItem({
-                            description: material.name,
-                            quantity: 0,
-                            unit: material.unit || 'EA',
-                            estimated_unit_cost: material.current_cost || 0,
-                            notes: '',
-                          })
-                        }
-                      }
+            {showAddItem && (
+              <div className="border rounded-lg p-4 space-y-4 bg-muted/30 mt-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold">Add New Item</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowAddItem(false)
+                      setNewItem({
+                        description: '',
+                        quantity: 0,
+                        unit: 'EA',
+                        estimated_unit_cost: 0,
+                        notes: '',
+                      })
                     }}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose from materials database..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {materials.map((material) => (
-                        <SelectItem key={material.id} value={material.id}>
-                          {material.name} ({material.unit}) - {formatCurrency(material.current_cost || 0)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-                {selectedMaterialId && (
-                  <div className="col-span-2">
-                    <MaterialVariantSelector
-                      materialId={selectedMaterialId}
-                      materialName={materials.find(m => m.id === selectedMaterialId)?.name || ''}
-                      baseCost={materials.find(m => m.id === selectedMaterialId)?.current_cost || 0}
-                      selectedVariantId={selectedVariantId}
-                      onVariantChange={(variantId, effectivePrice) => {
-                        setSelectedVariantId(variantId)
-                        setNewItem(prev => ({
-                          ...prev,
-                          estimated_unit_cost: effectivePrice,
-                        }))
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="material-select">Select Material (Optional)</Label>
+                    <Select
+                      value={selectedMaterialId}
+                      onValueChange={(value) => {
+                        setSelectedMaterialId(value)
+                        setSelectedVariantId(null) // Reset variant when material changes
+                        if (value) {
+                          const material = materials.find(m => m.id === value)
+                          if (material) {
+                            setNewItem({
+                              description: material.name,
+                              quantity: 0,
+                              unit: material.unit || 'EA',
+                              estimated_unit_cost: material.current_cost || 0,
+                              notes: '',
+                            })
+                          }
+                        }
                       }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose from materials database..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {materials.map((material) => (
+                          <SelectItem key={material.id} value={material.id}>
+                            {material.name} ({material.unit}) - {formatCurrency(material.current_cost || 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedMaterialId && (
+                    <div className="col-span-2">
+                      <MaterialVariantSelector
+                        materialId={selectedMaterialId}
+                        materialName={materials.find(m => m.id === selectedMaterialId)?.name || ''}
+                        baseCost={materials.find(m => m.id === selectedMaterialId)?.current_cost || 0}
+                        selectedVariantId={selectedVariantId}
+                        onVariantChange={(variantId, effectivePrice) => {
+                          setSelectedVariantId(variantId)
+                          setNewItem(prev => ({
+                            ...prev,
+                            estimated_unit_cost: effectivePrice,
+                          }))
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="new-description">Description</Label>
+                    <Input
+                      id="new-description"
+                      value={newItem.description}
+                      onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                      placeholder="e.g., Shingles, Nails, Ridge Cap"
                     />
                   </div>
-                )}
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="new-description">Description</Label>
-                  <Input
-                    id="new-description"
-                    value={newItem.description}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                    placeholder="e.g., Shingles, Nails, Ridge Cap"
-                  />
+                  <div className="space-y-2">">
+                    <Label htmlFor="new-quantity">Quantity</Label>
+                    <Input
+                      id="new-quantity"
+                      type="number"
+                      step="1"
+                      value={newItem.quantity}
+                      onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">">
+                    <Label htmlFor="new-unit">Unit</Label>
+                    <Input
+                      id="new-unit"
+                      value={newItem.unit}
+                      onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                      placeholder="EA, SQ, LF, etc."
+                    />
+                  </div>
+                  <div className="space-y-2">">
+                    <Label htmlFor="new-cost">Unit Cost</Label>
+                    <Input
+                      id="new-cost"
+                      type="number"
+                      step="0.01"
+                      value={newItem.estimated_unit_cost}
+                      onChange={(e) => setNewItem({ ...newItem, estimated_unit_cost: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-total">Total</Label>
+                    <Input
+                      id="new-total"
+                      value={formatCurrency(newItem.quantity * newItem.estimated_unit_cost)}
+                      disabled
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-2">">
+                    <Label htmlFor="new-notes">Notes (Optional)</Label>
+                    <Input
+                      id="new-notes"
+                      value={newItem.notes}
+                      onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
+                      placeholder="Additional details..."
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-quantity">Quantity</Label>
-                  <Input
-                    id="new-quantity"
-                    type="number"
-                    step="1"
-                    value={newItem.quantity}
-                    onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-unit">Unit</Label>
-                  <Input
-                    id="new-unit"
-                    value={newItem.unit}
-                    onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                    placeholder="EA, SQ, LF, etc."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-cost">Unit Cost</Label>
-                  <Input
-                    id="new-cost"
-                    type="number"
-                    step="0.01"
-                    value={newItem.estimated_unit_cost}
-                    onChange={(e) => setNewItem({ ...newItem, estimated_unit_cost: parseFloat(e.target.value) || 0 })}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-total">Total</Label>
-                  <Input
-                    id="new-total"
-                    value={formatCurrency(newItem.quantity * newItem.estimated_unit_cost)}
-                    disabled
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="new-notes">Notes (Optional)</Label>
-                  <Input
-                    id="new-notes"
-                    value={newItem.notes}
-                    onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
-                    placeholder="Additional details..."
-                  />
+                <div className="flex justify-end gap-2">">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddItem(false)
+                      setNewItem({
+                        description: '',
+                        quantity: 0,
+                        unit: 'EA',
+                        estimated_unit_cost: 0,
+                        notes: '',
+                      })
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddItem}>
+                    Add Item
+                  </Button>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowAddItem(false)
-                    setNewItem({
-                      description: '',
-                      quantity: 0,
-                      unit: 'EA',
-                      estimated_unit_cost: 0,
-                      notes: '',
-                    })
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleAddItem}>
-                  Add Item
-                </Button>
-              </div>
-            </div>
-          )}
+            )}
           </ScrollArea>
         </div>
 
@@ -932,5 +932,5 @@ export function MaterialOrderDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
+  ))
+}}

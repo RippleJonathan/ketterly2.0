@@ -7,22 +7,16 @@ import { z } from 'zod'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useTemplates } from '@/lib/hooks/use-material-templates'
 import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
-import { useCreateMaterialOrder } from '@/lib/hooks/use-material-orders'
-import { useSuppliers } from '@/lib/hooks/use-suppliers'
 import { importTemplateToOrder } from '@/lib/api/material-orders'
 import { MaterialTemplate } from '@/lib/types/material-templates'
 import type { OrderType } from '@/lib/types/material-orders'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, FileText, Package, Ruler } from 'lucide-react'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
 
 interface CreateMaterialOrderDialogProps {
   isOpen: boolean
@@ -46,29 +40,19 @@ export function CreateMaterialOrderDialog({
   onSuccess,
 }: CreateMaterialOrderDialogProps) {
   const { data: company } = useCurrentCompany()
-  const [step, setStep] = useState<'method' | 'template' | 'review'>('method')
+  const [step, setStep] = useState<'method' | 'template'>('method')
   const [selectedTemplate, setSelectedTemplate] = useState<MaterialTemplate | null>(null)
-  const [supplierId, setSupplierId] = useState<string>('')
-  const [orderDate, setOrderDate] = useState<string>('')
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState<string>('')
-  const [notes, setNotes] = useState<string>('')
   const [isImporting, setIsImporting] = useState(false)
   
   // Conditional labels based on order type
   const isMaterial = orderType === 'material'
   const orderLabel = isMaterial ? 'Material Order' : 'Work Order'
-  const supplierLabel = isMaterial ? 'Supplier' : 'Subcontractor'
 
   const { data: templatesResponse } = useTemplates({ is_active: true })
   const templates = templatesResponse?.data || []
 
-  const { data: suppliersResponse } = useSuppliers({ type: 'material_supplier' })
-  const suppliers = suppliersResponse?.data || []
-
   const { data: measurementsResponse } = useLeadMeasurements(leadId)
   const measurements = measurementsResponse?.data
-
-  const createOrder = useCreateMaterialOrder()
 
   const { register, handleSubmit, watch, reset } = useForm({
     resolver: zodResolver(methodSchema),
@@ -84,10 +68,6 @@ export function CreateMaterialOrderDialog({
     if (!isOpen) {
       setStep('method')
       setSelectedTemplate(null)
-      setSupplierId('')
-      setOrderDate('')
-      setExpectedDeliveryDate('')
-      setNotes('')
       reset()
     }
   }, [isOpen, reset])
@@ -106,12 +86,7 @@ export function CreateMaterialOrderDialog({
     setSelectedTemplate(template)
   }
 
-  const handleContinueToReview = () => {
-    if (!selectedTemplate) return
-    setStep('review')
-  }
-
-  const handleImportTemplate = async () => {
+  const handleCreateOrder = async () => {
     if (!selectedTemplate || !company || !measurements) return
 
     setIsImporting(true)
@@ -122,10 +97,10 @@ export function CreateMaterialOrderDialog({
         leadId: leadId,
         order_type: orderType,
         template_id: selectedTemplate.id,
-        supplier_id: supplierId || null,
-        order_date: orderDate || null,
-        expected_delivery_date: expectedDeliveryDate || null,
-        notes: notes || null,
+        supplier_id: null,
+        order_date: null,
+        expected_delivery_date: null,
+        notes: null,
         measurements: {
           total_squares: measurements.total_squares || measurements.actual_squares || 0,
           hip_feet: measurements.hip_feet || 0,
@@ -327,103 +302,17 @@ export function CreateMaterialOrderDialog({
                   Back
                 </Button>
                 <Button
-                  onClick={handleContinueToReview}
-                  disabled={!selectedTemplate || !measurements}
+                  onClick={handleCreateOrder}
+                  disabled={!selectedTemplate || !measurements || isImporting}
                 >
-                  Continue
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Step 3: Review & Details */}
-        {step === 'review' && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Order Details</DialogTitle>
-              <DialogDescription>
-                Add supplier and delivery information for this order
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {/* Selected Template */}
-              {selectedTemplate && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <div className="text-sm font-medium mb-1">Template</div>
-                  <div className="text-sm">{selectedTemplate.name}</div>
-                </div>
-              )}
-
-              {/* Supplier Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="supplier">{supplierLabel} (Optional)</Label>
-                <Select value={supplierId || undefined} onValueChange={(value) => setSupplierId(value || '')}>
-                  <SelectTrigger id="supplier">
-                    <SelectValue placeholder={`Select a ${supplierLabel.toLowerCase()} (optional)`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {suppliers.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No {supplierLabel.toLowerCase()}s available. Add one in Settings.
-                  </p>
-                )}
-              </div>
-
-              {/* Order Date */}
-              <div className="space-y-2">
-                <Label htmlFor="order_date">Order Date (Optional)</Label>
-                <Input
-                  id="order_date"
-                  type="date"
-                  value={orderDate}
-                  onChange={(e) => setOrderDate(e.target.value)}
-                />
-              </div>
-
-              {/* Expected Delivery Date */}
-              <div className="space-y-2">
-                <Label htmlFor="expected_delivery_date">Expected Delivery (Optional)</Label>
-                <Input
-                  id="expected_delivery_date"
-                  type="date"
-                  value={expectedDeliveryDate}
-                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  min={orderDate || undefined}
-                />
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Add any notes about this order..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="flex justify-between pt-4 border-t">
-                <Button type="button" variant="outline" onClick={() => setStep('template')}>
-                  Back
-                </Button>
-                <Button
-                  onClick={handleImportTemplate}
-                  disabled={isImporting}
-                >
-                  {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Create Order
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Order'
+                  )}
                 </Button>
               </div>
             </div>

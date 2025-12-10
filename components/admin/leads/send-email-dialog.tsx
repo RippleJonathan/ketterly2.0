@@ -103,7 +103,7 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
       await onSend({
         recipientEmails: allEmails,
         recipientName: recipientName.trim(),
-        includeMaterialList,
+        includeMaterialList: selectedMaterialOrders.length > 0, // Auto-enable if material orders selected
         materialOrderIds: selectedMaterialOrders.length > 0 ? selectedMaterialOrders : undefined,
       })
       onOpenChange(false)
@@ -227,7 +227,7 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
             <div className="space-y-2 pt-2 border-t">
               <Label>Include Material Orders</Label>
               <p className="text-xs text-gray-500 mb-2">
-                Select material orders to attach to this work order email
+                Select material orders to include in this work order email
               </p>
               {isLoadingOrders ? (
                 <div className="text-sm text-gray-500">Loading material orders...</div>
@@ -262,30 +262,6 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
             </div>
           )}
 
-          {/* Material List Option for Work Orders */}
-          {orderType === 'work' && (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="include-materials"
-                checked={includeMaterialList}
-                onCheckedChange={(checked) => setIncludeMaterialList(checked as boolean)}
-              />
-              <Label
-                htmlFor="include-materials"
-                className="text-sm font-normal cursor-pointer"
-              >
-                Include material list in email body (without prices)
-              </Label>
-            </div>
-          )}
-          {orderType === 'work' && includeMaterialList && (
-            <p className="text-xs text-gray-500 ml-6">
-              {selectedMaterialOrders.length > 0 
-                ? `Material list will show items from ${selectedMaterialOrders.length} selected order(s)` 
-                : 'Material list will show items from all material orders for this job'}
-            </p>
-          )}
-
           {/* Order Summary */}
           <div className="bg-blue-50 p-3 rounded text-sm space-y-1">
             <div><strong>{orderType === 'work' ? 'WO' : 'PO'} Number:</strong> {orderType === 'work' ? (order as WorkOrder).work_order_number : (order as MaterialOrder).order_number}</div>
@@ -298,7 +274,10 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
             )}
             {selectedMaterialOrders.length > 0 && (
               <div className="mt-2 pt-2 border-t border-blue-200">
-                <strong>+ {selectedMaterialOrders.length} Material Order(s) will be attached</strong>
+                <strong>+ {selectedMaterialOrders.length} Material Order(s)</strong>
+                <div className="text-xs text-gray-600 mt-1">
+                  Material list will be included in email (without prices)
+                </div>
               </div>
             )}
           </div>

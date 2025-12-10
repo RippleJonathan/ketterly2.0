@@ -524,6 +524,15 @@ export function MaterialOrderDetailDialog({
               </div>
             </div>
             
+            {/* Reminder for material orders */}
+            {!isWorkOrder && (
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-xs text-blue-800">
+                  <strong>💡 Tip:</strong> Don't forget to add accessories from the Measurements tab if needed (nails, screws, flashing, etc.)
+                </p>
+              </div>
+            )}
+            
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50">

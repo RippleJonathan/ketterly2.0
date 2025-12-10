@@ -10,8 +10,10 @@ import { FilesTab } from '@/components/admin/leads/files-tab'
 import { PhotosTab } from '@/components/admin/leads/photos-tab'
 import { MeasurementsTab } from '@/components/admin/leads/measurements-tab'
 import { OrdersTab } from '@/components/admin/leads/orders-tab'
+import { PaymentsTab } from '@/components/admin/leads/payments-tab'
+import { FinancialsTab } from '@/components/admin/leads/financials-tab'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image } from 'lucide-react'
+import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image, TrendingUp } from 'lucide-react'
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -90,6 +92,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: 'notes', label: 'Notes & Activity', icon: StickyNote },
     { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'financials', label: 'Financials', icon: TrendingUp },
     { id: 'team', label: 'Team', icon: Users },
   ]
 
@@ -184,7 +187,8 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         {tab === 'photos' && <PhotosTab leadId={id} leadName={lead.full_name} />}
         {tab === 'notes' && <ActivityTab leadId={id} />}
         {tab === 'documents' && <FilesTab leadId={id} leadName={lead.full_name} />}
-        {tab === 'payments' && <PlaceholderTab title="Payments" description="Track deposits, payments, and invoices" />}
+        {tab === 'payments' && <PaymentsTab leadId={id} />}
+        {tab === 'financials' && <FinancialsTab leadId={id} />}
         {tab === 'team' && <PlaceholderTab title="Team" description="Assign team members and manage crew schedules" />}
       </div>
     </div>

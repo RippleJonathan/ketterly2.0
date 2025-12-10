@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { 
   LayoutDashboard, 
   Users, 
+  UserCog,
   FileText, 
   Briefcase, 
   Calendar,
@@ -25,7 +26,16 @@ const navigation = [
   { name: 'Schedule', href: '/admin/schedule', icon: Calendar },
   { name: 'Invoices', href: '/admin/invoices', icon: DollarSign },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+]
+
+const teamNavigation = [
+  { name: 'Users', href: '/admin/users', icon: UserCog },
+]
+
+const settingsNavigation = [
   { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Commission Plans', href: '/admin/settings/commission-plans', icon: DollarSign },
+  { name: 'Role Templates', href: '/admin/settings/role-templates', icon: UserCog },
 ]
 
 export function Sidebar() {
@@ -104,6 +114,74 @@ export function Sidebar() {
               )
             })}
           </ul>
+
+          {/* Team Section */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Team
+            </p>
+            <ul className="space-y-1">
+              {teamNavigation.map((item) => {
+                const isActive = pathname === item.href
+                const Icon = item.icon
+
+                return (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`
+                        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                        transition-colors
+                        ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }
+                      `}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{item.name}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          {/* Settings Section */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Settings
+            </p>
+            <ul className="space-y-1">
+              {settingsNavigation.map((item) => {
+                const isActive = pathname === item.href
+                const Icon = item.icon
+
+                return (
+                  <li key={item.name}>
+                    <Link
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`
+                        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                        transition-colors
+                        ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                        }
+                      `}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{item.name}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
         </nav>
 
         {/* User Footer */}

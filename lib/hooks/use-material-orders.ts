@@ -57,13 +57,14 @@ export function useCreateMaterialOrder() {
 
   return useMutation({
     mutationFn: (order: MaterialOrderInsert) => createMaterialOrder(company!.id, order),
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       if (response.error) {
         toast.error(`Failed to create material order: ${response.error}`)
         return
       }
       
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials', variables.lead_id] })
       toast.success('Material order created successfully')
     },
     onError: (error: Error) => {
@@ -93,13 +94,14 @@ export function useCreateFromTemplate() {
       squares: number
       items: MaterialOrderItemInsert[]
     }) => createFromTemplate(company!.id, leadId, templateId, templateName, squares, items),
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       if (response.error) {
         toast.error(`Failed to create order from template: ${response.error}`)
         return
       }
       
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials', variables.leadId] })
       toast.success('Material order created from template')
     },
     onError: (error: Error) => {
@@ -126,6 +128,7 @@ export function useUpdateMaterialOrder() {
       
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id, orderId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Material order updated successfully')
     },
     onError: (error: Error) => {
@@ -159,6 +162,7 @@ export function useUpdateOrderStatus() {
       
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id, orderId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Order status updated successfully')
     },
     onError: (error: Error) => {
@@ -190,6 +194,7 @@ export function useUpdateActualCosts() {
       
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id, orderId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Actual costs updated successfully')
     },
     onError: (error: Error) => {
@@ -215,6 +220,7 @@ export function useUploadInvoice() {
       }
       
       queryClient.invalidateQueries({ queryKey: ['material-orders', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Invoice uploaded successfully')
     },
     onError: (error: Error) => {

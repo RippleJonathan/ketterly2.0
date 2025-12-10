@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { MaterialOrder } from '@/lib/types/material-orders'
 import { deleteMaterialOrder } from '@/lib/api/material-orders'
+import { useUploadDocument, useDocuments } from '@/lib/hooks/use-documents'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +31,7 @@ import { SendEmailDialog } from './send-email-dialog'
 import { toast } from 'sonner'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf-generator'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { getDocumentSignedUrl } from '@/lib/api/documents'
 
 interface MaterialOrderCardProps {
   order: MaterialOrder
@@ -77,7 +79,18 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { data: company } = useCurrentCompany()
+  const uploadDocument = useUploadDocument()
+  
+  // Get documents for this lead to check for invoice
+  const { data: documentsResponse } = useDocuments(order.lead_id, {
+    document_type: 'receipt'
+  })
+  // Find invoice for this specific material order by checking description
+  const invoiceDocument = documentsResponse?.data?.find(
+    doc => doc.description?.includes(order.order_number)
+  )
   const status = statusConfig[order.status]
   const StatusIcon = status.icon
 
@@ -118,6 +131,52 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
       toast.error('Failed to delete order')
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleUploadInvoice = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !company) return
+
+    try {
+      await uploadDocument.mutateAsync({
+        leadId: order.lead_id,
+        file,
+        documentData: {
+          company_id: company.id,
+          lead_id: order.lead_id,
+          document_type: 'receipt',
+          title: `Invoice - ${order.order_number}`,
+          description: `Invoice for material order ${order.order_number}`,
+        },
+      })
+      toast.success('Invoice uploaded successfully')
+    } catch (error) {
+      toast.error('Failed to upload invoice')
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleViewInvoice = async () => {
+    if (!invoiceDocument) return
+
+    try {
+      const result = await getDocumentSignedUrl(invoiceDocument.file_url)
+      if (result.error || !result.data) {
+        toast.error('Failed to load invoice')
+        return
+      }
+      window.open(result.data, '_blank')
+    } catch (error) {
+      toast.error('Failed to load invoice')
     }
   }
 
@@ -477,10 +536,34 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 </Button>
               )}
               {order.status !== 'cancelled' && (
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-1" />
-                  Upload Invoice
-                </Button>
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleUploadInvoice}
+                    disabled={uploadDocument.isPending}
+                  >
+                    <Upload className="h-4 w-4 mr-1" />
+                    {uploadDocument.isPending ? 'Uploading...' : 'Upload Invoice'}
+                  </Button>
+                  {invoiceDocument && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={handleViewInvoice}
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      View Invoice
+                    </Button>
+                  )}
+                </>
               )}
             </div>
             <Button 

@@ -60,6 +60,7 @@ export function useCreateWorkOrder() {
       }
       
       queryClient.invalidateQueries({ queryKey: ['work-orders', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Work order created successfully')
     },
     onError: (error: Error) => {
@@ -86,6 +87,7 @@ export function useUpdateWorkOrder() {
       
       queryClient.invalidateQueries({ queryKey: ['work-orders', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['work-orders', company?.id, variables.workOrderId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Work order updated successfully')
     },
     onError: (error: Error) => {
@@ -110,6 +112,7 @@ export function useDeleteWorkOrder() {
       }
       
       queryClient.invalidateQueries({ queryKey: ['work-orders', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Work order deleted successfully')
     },
     onError: (error: Error) => {

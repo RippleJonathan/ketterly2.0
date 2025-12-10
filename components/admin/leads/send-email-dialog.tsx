@@ -45,8 +45,9 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
       setPrimaryEmail(matOrder.supplier?.email || '')
       setRecipientName(matOrder.supplier?.contact_name || matOrder.supplier?.name || '')
     } else if (matOrder.order_type === 'work') {
-      setPrimaryEmail(matOrder.subcontractor_email || '')
-      setRecipientName(matOrder.subcontractor_name || '')
+      // Work orders - would need crew email from assignment
+      setPrimaryEmail('')
+      setRecipientName('')
     }
   }, [order])
 

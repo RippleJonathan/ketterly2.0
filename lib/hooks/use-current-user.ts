@@ -29,3 +29,11 @@ export function useCurrentUser() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }
+
+/**
+ * Check if current user has admin or office role
+ */
+export function useIsAdminOrOffice() {
+  const { data: user } = useCurrentUser()
+  return user?.role === 'admin' || user?.role === 'office'
+}

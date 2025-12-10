@@ -102,6 +102,7 @@ export function useCreateQuote() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['leads', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       if (data?.lead_id) {
         queryClient.invalidateQueries({ queryKey: ['lead', data.lead_id] })
       }
@@ -139,6 +140,7 @@ export function useUpdateQuote() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['quote', data?.id] })
+      queryClient.invalidateQueries({ queryKey: ['financials'] })
       if (data?.lead_id) {
         queryClient.invalidateQueries({ queryKey: ['lead', data.lead_id] })
       }
@@ -177,6 +179,7 @@ export function useUpdateQuoteLineItems() {
       queryClient.invalidateQueries({ queryKey: ['quote', variables.quoteId] })
       // Invalidate all quotes lists to update totals on estimates tab
       queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Line items updated successfully')
     },
     onError: (error: Error) => {
@@ -266,6 +269,7 @@ export function useAcceptQuote() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['quote', data?.id] })
+      queryClient.invalidateQueries({ queryKey: ['financials'] })
       if (data?.lead_id) {
         queryClient.invalidateQueries({ queryKey: ['lead', data.lead_id] })
         queryClient.invalidateQueries({ queryKey: ['leads', company?.id] })

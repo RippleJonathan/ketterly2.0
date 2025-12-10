@@ -1,15 +1,29 @@
 'use client'
 
-import { Bell, Search, LogOut } from 'lucide-react'
+import { Bell, Search, LogOut, User, Settings } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useCurrentUser } from '@/lib/hooks/use-users'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export function Header() {
   const router = useRouter()
   const supabase = createClient()
   const { data: company } = useCurrentCompany()
+  const { data: userResponse } = useCurrentUser()
+  
+  const user = userResponse?.data
 
   const handleLogout = async () => {
     try {
@@ -20,6 +34,14 @@ export function Header() {
     } catch (error) {
       toast.error('Failed to sign out')
     }
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
   }
 
   return (
@@ -52,14 +74,48 @@ export function Header() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
+          {/* Profile Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.avatar_url || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {user?.full_name ? getInitials(user.full_name) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden sm:inline text-sm font-medium text-gray-700">
+                  {user?.full_name || 'User'}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{user?.full_name || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin/profile" className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  My Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/settings" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

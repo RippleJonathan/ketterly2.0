@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
-import { generatePurchaseOrderBuffer } from '@/lib/utils/pdf-generator-server'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,59 +75,102 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    // Generate PDF blob for main order
-    const pdfBuffer = await generatePurchaseOrderBuffer({
-      order,
-      company: {
-        name: company.name,
-        logo_url: company.logo_url,
-        address: company.address,
-        city: company.city,
-        state: company.state,
-        zip: company.zip,
-        contact_phone: company.contact_phone,
-        contact_email: company.contact_email,
-      },
-    })
+    // Generate order items HTML (always show for the main order)
+    let orderItemsHtml = ''
+    if (order.items && order.items.length > 0) {
+      const isWorkOrder = order.order_type === 'work'
+      orderItemsHtml = `
+        <div class="order-details">
+          <h3>${isWorkOrder ? 'Work Order Items:' : 'Order Items:'}</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+              <tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">
+                <th style="padding: 8px; text-align: left;">Item</th>
+                ${!isWorkOrder ? '<th style="padding: 8px; text-align: left;">Variant</th>' : ''}
+                <th style="padding: 8px; text-align: right;">Quantity</th>
+                <th style="padding: 8px; text-align: center;">Unit</th>
+                <th style="padding: 8px; text-align: right;">Unit Price</th>
+                <th style="padding: 8px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.items.map((item: any) => `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="padding: 8px;">${item.description}</td>
+                  ${!isWorkOrder ? `<td style="padding: 8px;">${item.variant_name || '-'}</td>` : ''}
+                  <td style="padding: 8px; text-align: right;">${item.quantity}</td>
+                  <td style="padding: 8px; text-align: center;">${item.unit}</td>
+                  <td style="padding: 8px; text-align: right;">${formatCurrency(item.estimated_unit_cost || 0)}</td>
+                  <td style="padding: 8px; text-align: right;">${formatCurrency((item.quantity * (item.estimated_unit_cost || 0)))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="border-top: 2px solid #d1d5db; font-weight: bold;">
+                <td colspan="${isWorkOrder ? '4' : '5'}" style="padding: 8px; text-align: right;">Subtotal:</td>
+                <td style="padding: 8px; text-align: right;">${formatCurrency(order.total_estimated || 0)}</td>
+              </tr>
+              ${!isWorkOrder && order.tax_amount && order.tax_amount > 0 ? `
+                <tr style="font-weight: bold;">
+                  <td colspan="${isWorkOrder ? '4' : '5'}" style="padding: 8px; text-align: right;">Tax (${(order.tax_rate * 100).toFixed(2)}%):</td>
+                  <td style="padding: 8px; text-align: right;">${formatCurrency(order.tax_amount)}</td>
+                </tr>
+              ` : ''}
+              <tr style="font-weight: bold; font-size: 1.1em;">
+                <td colspan="${isWorkOrder ? '4' : '5'}" style="padding: 8px; text-align: right;">Total:</td>
+                <td style="padding: 8px; text-align: right;">${formatCurrency(order.total_with_tax || order.total_estimated || 0)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `
+    }
 
-    // Fetch and generate PDFs for additional material orders if this is a work order
-    const additionalAttachments: Array<{ filename: string; content: Buffer }> = []
-    if (order.order_type === 'work' && materialOrderIds && materialOrderIds.length > 0) {
-      const { data: materialOrders, error: materialOrdersError } = await supabase
+    // Generate material list HTML if requested (for work orders with material orders selected)
+    let materialListHtml = ''
+    if (includeMaterialList && order.order_type === 'work' && materialOrderIds && materialOrderIds.length > 0) {
+      const { data: materialOrders } = await supabase
         .from('material_orders')
-        .select(`
-          *,
-          items:material_order_items(*)
-        `)
+        .select('items:material_order_items(*)')
         .in('id', materialOrderIds)
         .eq('company_id', companyId)
         .eq('order_type', 'material')
-
-      if (!materialOrdersError && materialOrders) {
-        for (const matOrder of materialOrders) {
-          const matPdfBuffer = await generatePurchaseOrderBuffer({
-            order: matOrder,
-            company: {
-              name: company.name,
-              logo_url: company.logo_url,
-              address: company.address,
-              city: company.city,
-              state: company.state,
-              zip: company.zip,
-              contact_phone: company.contact_phone,
-              contact_email: company.contact_email,
-            },
-          })
-          
-          additionalAttachments.push({
-            filename: `PO-${matOrder.order_number}.pdf`,
-            content: matPdfBuffer,
-          })
+      
+      if (materialOrders) {
+        const itemsForList = materialOrders.flatMap(mo => mo.items || [])
+        
+        if (itemsForList.length > 0) {
+          materialListHtml = `
+            <div class="order-details">
+              <h3>Materials Included:</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                  <tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">
+                    <th style="padding: 8px; text-align: left;">Item</th>
+                    <th style="padding: 8px; text-align: left;">Variant</th>
+                    <th style="padding: 8px; text-align: right;">Quantity</th>
+                    <th style="padding: 8px; text-align: center;">Unit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsForList.map((item: any) => `
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="padding: 8px;">${item.description}</td>
+                      <td style="padding: 8px;">${item.variant_name || '-'}</td>
+                      <td style="padding: 8px; text-align: right;">${item.quantity}</td>
+                      <td style="padding: 8px; text-align: center;">${item.unit}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `
         }
       }
     }
 
     // Create email record (status: sending)
+    const orderTypeLabel = order.order_type === 'work' ? 'Work Order' : 'Purchase Order'
     const { data: emailRecord, error: emailInsertError } = await supabase
       .from('material_order_emails')
       .insert({
@@ -130,7 +179,7 @@ export async function POST(request: NextRequest) {
         supplier_id: order.supplier_id,
         recipient_email: primaryEmail,
         recipient_name: recipientName || null,
-        subject: `Purchase Order ${order.order_number} from ${company.name}`,
+        subject: `${orderTypeLabel} ${order.order_number} from ${company.name}`,
         status: 'sending',
         sent_by: user.id,
       })
@@ -144,60 +193,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate material list HTML if requested
-    let materialListHtml = ''
-    if (includeMaterialList) {
-      let itemsForList: any[] = []
-      
-      // If this is a work order with selected material orders, use those
-      if (order.order_type === 'work' && materialOrderIds && materialOrderIds.length > 0) {
-        const { data: materialOrders } = await supabase
-          .from('material_orders')
-          .select('items:material_order_items(*)')
-          .in('id', materialOrderIds)
-          .eq('company_id', companyId)
-          .eq('order_type', 'material')
-        
-        if (materialOrders) {
-          itemsForList = materialOrders.flatMap(mo => mo.items || [])
-        }
-      } else if (order.items && order.items.length > 0) {
-        // Otherwise use the order's own items
-        itemsForList = order.items
-      }
-      
-      if (itemsForList.length > 0) {
-        materialListHtml = `
-          <div class="order-details">
-            <h3>Materials Included:</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-              <thead>
-                <tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">
-                  <th style="padding: 8px; text-align: left;">Item</th>
-                  <th style="padding: 8px; text-align: left;">Variant</th>
-                  <th style="padding: 8px; text-align: right;">Quantity</th>
-                  <th style="padding: 8px; text-align: center;">Unit</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsForList.map((item: any) => `
-                  <tr style="border-bottom: 1px solid #e5e7eb;">
-                    <td style="padding: 8px;">${item.description}</td>
-                    <td style="padding: 8px;">${item.variant_name || '-'}</td>
-                    <td style="padding: 8px; text-align: right;">${item.quantity}</td>
-                    <td style="padding: 8px; text-align: center;">${item.unit}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        `
-      }
-    }
-
     // Send email with Resend
     try {
-      const orderTypeLabel = order.order_type === 'work' ? 'Work Order' : 'Purchase Order'
       const { data: emailData, error: sendError } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'orders@ketterly.com',
         replyTo: company.contact_email || undefined,
@@ -210,12 +207,13 @@ export async function POST(request: NextRequest) {
             <head>
               <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .container { max-width: 700px; margin: 0 auto; padding: 20px; }
                 .header { background-color: #1e40af; color: white; padding: 20px; text-align: center; }
                 .content { padding: 20px; background-color: #f9fafb; }
                 .footer { padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-                .button { display: inline-block; padding: 12px 24px; background-color: #1e40af; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
                 .order-details { background-color: white; padding: 15px; border-radius: 6px; margin: 15px 0; }
+                table { width: 100%; }
+                th { font-weight: 600; }
               </style>
             </head>
             <body>
@@ -226,23 +224,25 @@ export async function POST(request: NextRequest) {
                 <div class="content">
                   <p>Hello${recipientName ? ` ${recipientName}` : ''},</p>
                   
-                  <p>Please find attached ${orderTypeLabel} <strong>${order.order_number}</strong> from ${company.name}.</p>
-                  ${additionalAttachments.length > 0 ? `<p>This ${orderTypeLabel.toLowerCase()} includes <strong>${additionalAttachments.length} material order(s)</strong> attached as PDFs.</p>` : ''}
+                  <p>Please review ${orderTypeLabel} <strong>${order.order_number}</strong> from ${company.name}.</p>
                   
                   <div class="order-details">
-                    <h3>Order Details:</h3>
+                    <h3>Order Information:</h3>
                     <p><strong>${order.order_type === 'work' ? 'WO' : 'PO'} Number:</strong> ${order.order_number}</p>
-                    ${order.order_date ? `<p><strong>Order Date:</strong> ${order.order_date}</p>` : ''}
-                    ${order.expected_delivery_date ? `<p><strong>Expected Delivery:</strong> ${order.expected_delivery_date}</p>` : ''}
-                    <p><strong>Total Items:</strong> ${order.items?.length || 0}</p>
-                    <p><strong>Total Amount:</strong> $${order.total_with_tax?.toFixed(2) || order.total_estimated?.toFixed(2)}</p>
+                    ${order.order_date ? `<p><strong>Date:</strong> ${new Date(order.order_date).toLocaleDateString()}</p>` : ''}
+                    ${order.expected_delivery_date ? `<p><strong>Expected Delivery:</strong> ${new Date(order.expected_delivery_date).toLocaleDateString()}</p>` : ''}
                   </div>
+                  
+                  ${orderItemsHtml}
                   
                   ${materialListHtml}
                   
-                  ${order.notes ? `<p><strong>Notes:</strong><br/>${order.notes}</p>` : ''}
-                  
-                  <p>The complete purchase order details are attached as a PDF.</p>
+                  ${order.notes ? `
+                    <div class="order-details">
+                      <h3>Notes:</h3>
+                      <p>${order.notes}</p>
+                    </div>
+                  ` : ''}
                   
                   <p>If you have any questions, please contact us at:</p>
                   <p>
@@ -258,13 +258,6 @@ export async function POST(request: NextRequest) {
             </body>
           </html>
         `,
-        attachments: [
-          {
-            filename: `${order.order_type === 'work' ? 'WO' : 'PO'}-${order.order_number}.pdf`,
-            content: pdfBuffer,
-          },
-          ...additionalAttachments,
-        ],
       })
 
       if (sendError) {

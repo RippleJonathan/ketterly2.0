@@ -40,23 +40,23 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
 
   // Initialize email fields based on order type
   useEffect(() => {
-    if (orderType === 'material') {
-      const matOrder = order as MaterialOrder
+    const matOrder = order as MaterialOrder
+    if (matOrder.order_type === 'material') {
       setPrimaryEmail(matOrder.supplier?.email || '')
       setRecipientName(matOrder.supplier?.contact_name || matOrder.supplier?.name || '')
-    } else {
-      const woOrder = order as WorkOrder
-      setPrimaryEmail(woOrder.subcontractor_email || '')
-      setRecipientName(woOrder.subcontractor_name || '')
+    } else if (matOrder.order_type === 'work') {
+      setPrimaryEmail(matOrder.subcontractor_email || '')
+      setRecipientName(matOrder.subcontractor_name || '')
     }
-  }, [order, orderType])
+  }, [order])
 
   // Load material orders if this is a work order
   useEffect(() => {
-    if (open && orderType === 'work' && leadId && company?.id) {
+    const matOrder = order as MaterialOrder
+    if (open && matOrder.order_type === 'work' && leadId && company?.id) {
       loadMaterialOrders()
     }
-  }, [open, orderType, leadId, company?.id])
+  }, [open, order, leadId, company?.id])
 
   const loadMaterialOrders = async () => {
     if (!company?.id || !leadId) return

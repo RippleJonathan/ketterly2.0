@@ -155,6 +155,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
     recipientEmails: string[]
     recipientName: string
     includeMaterialList: boolean
+    materialOrderIds?: string[]
   }) => {
     if (!company) {
       toast.error('Company information not loaded')
@@ -173,6 +174,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
           recipientEmails: emailData.recipientEmails,
           recipientName: emailData.recipientName,
           includeMaterialList: emailData.includeMaterialList,
+          materialOrderIds: emailData.materialOrderIds,
         }),
       })
 
@@ -593,7 +595,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
         open={showEmailDialog}
         onOpenChange={setShowEmailDialog}
         order={order}
-        orderType="material"
+        orderType={order.order_type || 'material'}
         leadId={order.lead_id}
         onSend={handleSendEmail}
       />

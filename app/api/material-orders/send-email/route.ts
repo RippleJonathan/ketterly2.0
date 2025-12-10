@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { orderId, recipientEmails, recipientName, includeMaterialList } = body
+    const { orderId, recipientEmails, recipientName, includeMaterialList, materialOrderIds } = body
 
     if (!orderId || !recipientEmails || !Array.isArray(recipientEmails) || recipientEmails.length === 0) {
       return NextResponse.json(
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    // Generate PDF blob
+    // Generate PDF blob for main order
     const pdfBuffer = await generatePurchaseOrderBuffer({
       order,
       company: {
@@ -83,6 +83,43 @@ export async function POST(request: NextRequest) {
         contact_email: company.contact_email,
       },
     })
+
+    // Fetch and generate PDFs for additional material orders if this is a work order
+    const additionalAttachments: Array<{ filename: string; content: Buffer }> = []
+    if (order.order_type === 'work' && materialOrderIds && materialOrderIds.length > 0) {
+      const { data: materialOrders, error: materialOrdersError } = await supabase
+        .from('material_orders')
+        .select(`
+          *,
+          items:material_order_items(*)
+        `)
+        .in('id', materialOrderIds)
+        .eq('company_id', companyId)
+        .eq('order_type', 'material')
+
+      if (!materialOrdersError && materialOrders) {
+        for (const matOrder of materialOrders) {
+          const matPdfBuffer = await generatePurchaseOrderBuffer({
+            order: matOrder,
+            company: {
+              name: company.name,
+              logo_url: company.logo_url,
+              address: company.address,
+              city: company.city,
+              state: company.state,
+              zip: company.zip,
+              contact_phone: company.contact_phone,
+              contact_email: company.contact_email,
+            },
+          })
+          
+          additionalAttachments.push({
+            filename: `PO-${matOrder.order_number}.pdf`,
+            content: matPdfBuffer,
+          })
+        }
+      }
+    }
 
     // Create email record (status: sending)
     const { data: emailRecord, error: emailInsertError } = await supabase
@@ -109,42 +146,64 @@ export async function POST(request: NextRequest) {
 
     // Generate material list HTML if requested
     let materialListHtml = ''
-    if (includeMaterialList && order.items && order.items.length > 0) {
-      materialListHtml = `
-        <div class="order-details">
-          <h3>Material List:</h3>
-          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-            <thead>
-              <tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">
-                <th style="padding: 8px; text-align: left;">Item</th>
-                <th style="padding: 8px; text-align: left;">Variant</th>
-                <th style="padding: 8px; text-align: right;">Quantity</th>
-                <th style="padding: 8px; text-align: center;">Unit</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${order.items.map((item: any) => `
-                <tr style="border-bottom: 1px solid #e5e7eb;">
-                  <td style="padding: 8px;">${item.description}</td>
-                  <td style="padding: 8px;">${item.variant_name || '-'}</td>
-                  <td style="padding: 8px; text-align: right;">${item.quantity}</td>
-                  <td style="padding: 8px; text-align: center;">${item.unit}</td>
+    if (includeMaterialList) {
+      let itemsForList: any[] = []
+      
+      // If this is a work order with selected material orders, use those
+      if (order.order_type === 'work' && materialOrderIds && materialOrderIds.length > 0) {
+        const { data: materialOrders } = await supabase
+          .from('material_orders')
+          .select('items:material_order_items(*)')
+          .in('id', materialOrderIds)
+          .eq('company_id', companyId)
+          .eq('order_type', 'material')
+        
+        if (materialOrders) {
+          itemsForList = materialOrders.flatMap(mo => mo.items || [])
+        }
+      } else if (order.items && order.items.length > 0) {
+        // Otherwise use the order's own items
+        itemsForList = order.items
+      }
+      
+      if (itemsForList.length > 0) {
+        materialListHtml = `
+          <div class="order-details">
+            <h3>Materials Included:</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              <thead>
+                <tr style="background-color: #f3f4f6; border-bottom: 2px solid #d1d5db;">
+                  <th style="padding: 8px; text-align: left;">Item</th>
+                  <th style="padding: 8px; text-align: left;">Variant</th>
+                  <th style="padding: 8px; text-align: right;">Quantity</th>
+                  <th style="padding: 8px; text-align: center;">Unit</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `
+              </thead>
+              <tbody>
+                ${itemsForList.map((item: any) => `
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 8px;">${item.description}</td>
+                    <td style="padding: 8px;">${item.variant_name || '-'}</td>
+                    <td style="padding: 8px; text-align: right;">${item.quantity}</td>
+                    <td style="padding: 8px; text-align: center;">${item.unit}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `
+      }
     }
 
     // Send email with Resend
     try {
+      const orderTypeLabel = order.order_type === 'work' ? 'Work Order' : 'Purchase Order'
       const { data: emailData, error: sendError } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'orders@ketterly.com',
         replyTo: company.contact_email || undefined,
         to: primaryEmail,
         cc: ccEmails.length > 0 ? ccEmails : undefined,
-        subject: `Purchase Order ${order.order_number} from ${company.name}`,
+        subject: `${orderTypeLabel} ${order.order_number} from ${company.name}`,
         html: `
           <!DOCTYPE html>
           <html>
@@ -162,16 +221,17 @@ export async function POST(request: NextRequest) {
             <body>
               <div class="container">
                 <div class="header">
-                  <h1>Purchase Order</h1>
+                  <h1>${orderTypeLabel}</h1>
                 </div>
                 <div class="content">
                   <p>Hello${recipientName ? ` ${recipientName}` : ''},</p>
                   
-                  <p>Please find attached Purchase Order <strong>${order.order_number}</strong> from ${company.name}.</p>
+                  <p>Please find attached ${orderTypeLabel} <strong>${order.order_number}</strong> from ${company.name}.</p>
+                  ${additionalAttachments.length > 0 ? `<p>This ${orderTypeLabel.toLowerCase()} includes <strong>${additionalAttachments.length} material order(s)</strong> attached as PDFs.</p>` : ''}
                   
                   <div class="order-details">
                     <h3>Order Details:</h3>
-                    <p><strong>PO Number:</strong> ${order.order_number}</p>
+                    <p><strong>${order.order_type === 'work' ? 'WO' : 'PO'} Number:</strong> ${order.order_number}</p>
                     ${order.order_date ? `<p><strong>Order Date:</strong> ${order.order_date}</p>` : ''}
                     ${order.expected_delivery_date ? `<p><strong>Expected Delivery:</strong> ${order.expected_delivery_date}</p>` : ''}
                     <p><strong>Total Items:</strong> ${order.items?.length || 0}</p>
@@ -200,9 +260,10 @@ export async function POST(request: NextRequest) {
         `,
         attachments: [
           {
-            filename: `PO-${order.order_number}.pdf`,
+            filename: `${order.order_type === 'work' ? 'WO' : 'PO'}-${order.order_number}.pdf`,
             content: pdfBuffer,
           },
+          ...additionalAttachments,
         ],
       })
 

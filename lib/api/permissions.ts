@@ -13,14 +13,14 @@ import {
 
 export async function getUserPermissions(
   userId: string
-): Promise<ApiResponse<UserPermissions>> {
+): Promise<ApiResponse<UserPermissions | null>> {
   const supabase = createClient()
   try {
     const { data, error } = await supabase
       .from('user_permissions')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .maybeSingle()
 
     if (error) throw error
     return { data, error: null }
@@ -40,13 +40,16 @@ export async function updateUserPermissions(
 ): Promise<ApiResponse<UserPermissions>> {
   const supabase = createClient()
   try {
+    // Use upsert to insert if doesn't exist, update if it does
     const { data, error } = await supabase
       .from('user_permissions')
-      .update({
+      .upsert({
+        user_id: userId,
         ...permissions,
         updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id'
       })
-      .eq('user_id', userId)
       .select()
       .single()
 

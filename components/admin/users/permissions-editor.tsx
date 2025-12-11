@@ -31,9 +31,10 @@ export function PermissionsEditor({ user, open, onOpenChange }: PermissionsEdito
   const permissions = permissionsResponse?.data
   const [localPermissions, setLocalPermissions] = useState<Record<string, boolean>>({})
 
-  // Initialize local permissions from API response
+  // Initialize local permissions from API response or with defaults
   useEffect(() => {
     if (permissions) {
+      // User has existing permissions - load them
       const permMap: Record<string, boolean> = {}
       Object.entries(permissions).forEach(([key, value]) => {
         if (key !== 'id' && key !== 'user_id' && key !== 'created_at' && key !== 'updated_at') {
@@ -41,8 +42,15 @@ export function PermissionsEditor({ user, open, onOpenChange }: PermissionsEdito
         }
       })
       setLocalPermissions(permMap)
+    } else if (permissionsResponse && !isLoading) {
+      // User has no permissions yet - initialize with all false
+      const permMap: Record<string, boolean> = {}
+      Object.values(PERMISSION_CATEGORIES).flat().forEach((perm) => {
+        permMap[perm] = false
+      })
+      setLocalPermissions(permMap)
     }
-  }, [permissions])
+  }, [permissions, permissionsResponse, isLoading])
 
   const handleToggle = (permission: PermissionKey) => {
     setLocalPermissions((prev) => ({

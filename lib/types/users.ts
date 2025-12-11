@@ -1,6 +1,13 @@
 // User Management & Permissions Types
 
-export type UserRole = 'super_admin' | 'admin' | 'manager' | 'user'
+export type UserRole = 
+  | 'super_admin'      // Ketterly platform admin only
+  | 'admin'            // Company owner/administrator - full access
+  | 'office'           // Office staff - quotes, invoices, customers, scheduling
+  | 'sales_manager'    // Sales team lead - manage sales team & leads
+  | 'sales'            // Sales rep - leads, quotes, customer-facing
+  | 'production'       // Production/crew - work orders, photos, status updates
+  | 'marketing'        // Marketing team - leads, analytics, reports
 
 export type CommissionType = 
   | 'percentage'      // % of job total
@@ -484,6 +491,381 @@ export const PERMISSION_CATEGORIES = {
     'can_view_project_timeline',
   ],
 } as const
+
+// =====================================================
+// DEFAULT ROLE PERMISSIONS
+// =====================================================
+
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<PermissionKey, boolean>>> = {
+  // Super Admin - Ketterly platform access only (not selectable by companies)
+  super_admin: {
+    // All permissions = true (handled by RLS, not permission checks)
+  },
+
+  // Admin - Company Owner/Administrator (Full Access)
+  admin: {
+    // Leads & Projects
+    can_view_leads: true,
+    can_create_leads: true,
+    can_edit_leads: true,
+    can_delete_leads: true,
+    can_view_all_leads: true,
+    // Quotes
+    can_view_quotes: true,
+    can_create_quotes: true,
+    can_edit_quotes: true,
+    can_delete_quotes: true,
+    can_approve_quotes: true,
+    can_send_quotes: true,
+    // Invoices & Payments
+    can_view_invoices: true,
+    can_create_invoices: true,
+    can_edit_invoices: true,
+    can_delete_invoices: true,
+    can_record_payments: true,
+    can_void_payments: true,
+    // Material Orders
+    can_view_material_orders: true,
+    can_create_material_orders: true,
+    can_edit_material_orders: true,
+    can_delete_material_orders: true,
+    can_mark_orders_paid: true,
+    // Work Orders & Crew
+    can_view_work_orders: true,
+    can_create_work_orders: true,
+    can_edit_work_orders: true,
+    can_delete_work_orders: true,
+    can_assign_crew: true,
+    // Customers
+    can_view_customers: true,
+    can_create_customers: true,
+    can_edit_customers: true,
+    can_delete_customers: true,
+    // Financials & Reports
+    can_view_financials: true,
+    can_view_profit_margins: true,
+    can_view_commission_reports: true,
+    can_export_reports: true,
+    // Users & Settings
+    can_view_users: true,
+    can_create_users: true,
+    can_edit_users: true,
+    can_delete_users: true,
+    can_manage_permissions: true,
+    can_edit_company_settings: true,
+    // Production
+    can_upload_photos: true,
+    can_update_project_status: true,
+    can_view_project_timeline: true,
+  },
+
+  // Office - Office Staff (Quotes, Invoices, Customers, Scheduling)
+  office: {
+    // Leads & Projects
+    can_view_leads: true,
+    can_create_leads: true,
+    can_edit_leads: true,
+    can_delete_leads: false,
+    can_view_all_leads: true,
+    // Quotes
+    can_view_quotes: true,
+    can_create_quotes: true,
+    can_edit_quotes: true,
+    can_delete_quotes: false,
+    can_approve_quotes: false,  // Only admin/sales_manager
+    can_send_quotes: true,
+    // Invoices & Payments
+    can_view_invoices: true,
+    can_create_invoices: true,
+    can_edit_invoices: true,
+    can_delete_invoices: false,
+    can_record_payments: true,
+    can_void_payments: false,   // Only admin
+    // Material Orders
+    can_view_material_orders: true,
+    can_create_material_orders: true,
+    can_edit_material_orders: true,
+    can_delete_material_orders: false,
+    can_mark_orders_paid: false,  // Only admin
+    // Work Orders & Crew
+    can_view_work_orders: true,
+    can_create_work_orders: true,
+    can_edit_work_orders: true,
+    can_delete_work_orders: false,
+    can_assign_crew: true,
+    // Customers
+    can_view_customers: true,
+    can_create_customers: true,
+    can_edit_customers: true,
+    can_delete_customers: false,
+    // Financials & Reports
+    can_view_financials: false,
+    can_view_profit_margins: false,
+    can_view_commission_reports: false,
+    can_export_reports: true,
+    // Users & Settings
+    can_view_users: true,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_manage_permissions: false,
+    can_edit_company_settings: false,
+    // Production
+    can_upload_photos: false,
+    can_update_project_status: true,
+    can_view_project_timeline: true,
+  },
+
+  // Sales Manager - Sales Team Lead (Manage Sales Team & Leads)
+  sales_manager: {
+    // Leads & Projects
+    can_view_leads: true,
+    can_create_leads: true,
+    can_edit_leads: true,
+    can_delete_leads: true,
+    can_view_all_leads: true,     // Can see all team leads
+    // Quotes
+    can_view_quotes: true,
+    can_create_quotes: true,
+    can_edit_quotes: true,
+    can_delete_quotes: true,
+    can_approve_quotes: true,     // Can approve team quotes
+    can_send_quotes: true,
+    // Invoices & Payments
+    can_view_invoices: true,
+    can_create_invoices: false,
+    can_edit_invoices: false,
+    can_delete_invoices: false,
+    can_record_payments: false,
+    can_void_payments: false,
+    // Material Orders
+    can_view_material_orders: true,
+    can_create_material_orders: false,
+    can_edit_material_orders: false,
+    can_delete_material_orders: false,
+    can_mark_orders_paid: false,
+    // Work Orders & Crew
+    can_view_work_orders: true,
+    can_create_work_orders: false,
+    can_edit_work_orders: false,
+    can_delete_work_orders: false,
+    can_assign_crew: false,
+    // Customers
+    can_view_customers: true,
+    can_create_customers: true,
+    can_edit_customers: true,
+    can_delete_customers: false,
+    // Financials & Reports
+    can_view_financials: true,
+    can_view_profit_margins: true,
+    can_view_commission_reports: true,  // Can see team commissions
+    can_export_reports: true,
+    // Users & Settings
+    can_view_users: true,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_manage_permissions: false,
+    can_edit_company_settings: false,
+    // Production
+    can_upload_photos: false,
+    can_update_project_status: false,
+    can_view_project_timeline: true,
+  },
+
+  // Sales - Sales Representative (Leads, Quotes, Customer-Facing)
+  sales: {
+    // Leads & Projects
+    can_view_leads: true,
+    can_create_leads: true,
+    can_edit_leads: true,
+    can_delete_leads: false,
+    can_view_all_leads: false,    // Only see assigned leads
+    // Quotes
+    can_view_quotes: true,
+    can_create_quotes: true,
+    can_edit_quotes: true,
+    can_delete_quotes: false,
+    can_approve_quotes: false,    // Needs manager approval
+    can_send_quotes: true,
+    // Invoices & Payments
+    can_view_invoices: true,
+    can_create_invoices: false,
+    can_edit_invoices: false,
+    can_delete_invoices: false,
+    can_record_payments: false,
+    can_void_payments: false,
+    // Material Orders
+    can_view_material_orders: false,
+    can_create_material_orders: false,
+    can_edit_material_orders: false,
+    can_delete_material_orders: false,
+    can_mark_orders_paid: false,
+    // Work Orders & Crew
+    can_view_work_orders: false,
+    can_create_work_orders: false,
+    can_edit_work_orders: false,
+    can_delete_work_orders: false,
+    can_assign_crew: false,
+    // Customers
+    can_view_customers: true,
+    can_create_customers: true,
+    can_edit_customers: true,
+    can_delete_customers: false,
+    // Financials & Reports
+    can_view_financials: false,
+    can_view_profit_margins: false,
+    can_view_commission_reports: true,  // Can see own commissions
+    can_export_reports: true,
+    // Users & Settings
+    can_view_users: true,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_manage_permissions: false,
+    can_edit_company_settings: false,
+    // Production
+    can_upload_photos: false,
+    can_update_project_status: false,
+    can_view_project_timeline: true,
+  },
+
+  // Production - Production/Crew (Work Orders, Photos, Status Updates)
+  production: {
+    // Leads & Projects
+    can_view_leads: false,
+    can_create_leads: false,
+    can_edit_leads: false,
+    can_delete_leads: false,
+    can_view_all_leads: false,
+    // Quotes
+    can_view_quotes: false,
+    can_create_quotes: false,
+    can_edit_quotes: false,
+    can_delete_quotes: false,
+    can_approve_quotes: false,
+    can_send_quotes: false,
+    // Invoices & Payments
+    can_view_invoices: false,
+    can_create_invoices: false,
+    can_edit_invoices: false,
+    can_delete_invoices: false,
+    can_record_payments: false,
+    can_void_payments: false,
+    // Material Orders
+    can_view_material_orders: true,   // Need to see what materials are coming
+    can_create_material_orders: false,
+    can_edit_material_orders: false,
+    can_delete_material_orders: false,
+    can_mark_orders_paid: false,
+    // Work Orders & Crew
+    can_view_work_orders: true,       // See assigned work orders
+    can_create_work_orders: false,
+    can_edit_work_orders: true,       // Update work order details
+    can_delete_work_orders: false,
+    can_assign_crew: false,
+    // Customers
+    can_view_customers: true,         // See customer info for jobs
+    can_create_customers: false,
+    can_edit_customers: false,
+    can_delete_customers: false,
+    // Financials & Reports
+    can_view_financials: false,
+    can_view_profit_margins: false,
+    can_view_commission_reports: false,
+    can_export_reports: false,
+    // Users & Settings
+    can_view_users: true,             // See crew members
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_manage_permissions: false,
+    can_edit_company_settings: false,
+    // Production
+    can_upload_photos: true,          // Upload project photos
+    can_update_project_status: true,  // Update project progress
+    can_view_project_timeline: true,  // See project schedule
+  },
+
+  // Marketing - Marketing Team (Leads, Analytics, Reports)
+  marketing: {
+    // Leads & Projects
+    can_view_leads: true,
+    can_create_leads: true,           // Create leads from campaigns
+    can_edit_leads: true,
+    can_delete_leads: false,
+    can_view_all_leads: true,         // See all leads for analytics
+    // Quotes
+    can_view_quotes: true,            // Track conversion rates
+    can_create_quotes: false,
+    can_edit_quotes: false,
+    can_delete_quotes: false,
+    can_approve_quotes: false,
+    can_send_quotes: false,
+    // Invoices & Payments
+    can_view_invoices: false,
+    can_create_invoices: false,
+    can_edit_invoices: false,
+    can_delete_invoices: false,
+    can_record_payments: false,
+    can_void_payments: false,
+    // Material Orders
+    can_view_material_orders: false,
+    can_create_material_orders: false,
+    can_edit_material_orders: false,
+    can_delete_material_orders: false,
+    can_mark_orders_paid: false,
+    // Work Orders & Crew
+    can_view_work_orders: false,
+    can_create_work_orders: false,
+    can_edit_work_orders: false,
+    can_delete_work_orders: false,
+    can_assign_crew: false,
+    // Customers
+    can_view_customers: true,         // Customer demographics/analytics
+    can_create_customers: true,
+    can_edit_customers: false,
+    can_delete_customers: false,
+    // Financials & Reports
+    can_view_financials: true,        // Marketing ROI metrics
+    can_view_profit_margins: false,
+    can_view_commission_reports: false,
+    can_export_reports: true,         // Export analytics
+    // Users & Settings
+    can_view_users: true,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_manage_permissions: false,
+    can_edit_company_settings: false,
+    // Production
+    can_upload_photos: false,
+    can_update_project_status: false,
+    can_view_project_timeline: false,
+  },
+}
+
+// Helper function to get role display name
+export const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: 'Super Admin',
+  admin: 'Admin',
+  office: 'Office Staff',
+  sales_manager: 'Sales Manager',
+  sales: 'Sales Rep',
+  production: 'Production/Crew',
+  marketing: 'Marketing',
+}
+
+// Helper function to get role description
+export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  super_admin: 'Ketterly platform administrator (not selectable)',
+  admin: 'Company owner/administrator with full access to all features',
+  office: 'Office staff managing quotes, invoices, customers, and scheduling',
+  sales_manager: 'Sales team lead managing sales reps and overseeing all leads',
+  sales: 'Sales representative managing assigned leads and creating quotes',
+  production: 'Production crew members updating work orders and project status',
+  marketing: 'Marketing team creating campaigns and analyzing lead performance',
+}
 
 // =====================================================
 // ROLE TEMPLATES

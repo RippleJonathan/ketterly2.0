@@ -1,19 +1,18 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { useCurrentUser } from '@/lib/hooks/use-users'
 import { useUpdateUser } from '@/lib/hooks/use-users'
@@ -21,9 +20,6 @@ import { useUpdateUser } from '@/lib/hooks/use-users'
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
   phone: z.string().optional(),
-  bio: z.string().optional(),
-  specialties: z.string().optional(),
-  certifications: z.string().optional(),
 })
 
 type ProfileFormData = z.infer<typeof profileSchema>
@@ -37,37 +33,62 @@ export function ProfileForm() {
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      full_name: user?.full_name || '',
-      phone: user?.phone || '',
-      bio: user?.bio || '',
-      specialties: user?.specialties?.join(', ') || '',
-      certifications: user?.certifications?.join(', ') || '',
+      full_name: '',
+      phone: '',
     },
   })
+
+  // Update form when user data loads
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        full_name: user.full_name || '',
+        phone: user.phone || '',
+      })
+    }
+  }, [user, form])
 
   if (!user) {
     return <div>Loading...</div>
   }
 
   const onSubmit = async (data: ProfileFormData) => {
-    const updates: any = {
+    const updates = {
       full_name: data.full_name,
       phone: data.phone || null,
-      bio: data.bio || null,
-      specialties: data.specialties
-        ? data.specialties.split(',').map((s) => s.trim()).filter(Boolean)
-        : null,
-      certifications: data.certifications
-        ? data.certifications.split(',').map((s) => s.trim()).filter(Boolean)
-        : null,
     }
 
     await updateUser.mutateAsync({ userId: user.id, updates })
   }
 
+  // Format role for display
+  const formatRole = (role: string) => {
+    return role
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-w-2xl">
+        {/* Email - Read Only */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Email
+          </label>
+          <Input value={user.email} disabled className="bg-muted" />
+        </div>
+
+        {/* Role - Read Only */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Role
+          </label>
+          <Input value={formatRole(user.role)} disabled className="bg-muted" />
+        </div>
+
+        {/* Full Name - Editable */}
         <FormField
           control={form.control}
           name="full_name"
@@ -82,6 +103,7 @@ export function ProfileForm() {
           )}
         />
 
+        {/* Phone - Editable */}
         <FormField
           control={form.control}
           name="phone"
@@ -91,60 +113,6 @@ export function ProfileForm() {
               <FormControl>
                 <Input placeholder="(555) 123-4567" {...field} />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="bio"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Bio</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Tell us a bit about yourself..."
-                  className="resize-none"
-                  rows={4}
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Brief description about your role and experience
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="specialties"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Specialties</FormLabel>
-              <FormControl>
-                <Input placeholder="Asphalt Shingles, Metal Roofing" {...field} />
-              </FormControl>
-              <FormDescription>Comma-separated list of your specialties</FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="certifications"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Certifications</FormLabel>
-              <FormControl>
-                <Input placeholder="GAF Master Elite, OSHA 10" {...field} />
-              </FormControl>
-              <FormDescription>
-                Comma-separated list of your certifications
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

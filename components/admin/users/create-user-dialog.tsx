@@ -39,7 +39,7 @@ const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['super_admin', 'admin', 'manager', 'user']),
+  role: z.enum(['admin', 'office', 'sales_manager', 'sales', 'production', 'marketing']),
   phone: z.string().optional(),
   commission_plan_id: z.string().optional(),
   role_template_id: z.string().optional(),
@@ -63,12 +63,24 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   const form = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
+      email: '',
+      full_name: '',
+      password: '',
+      phone: '',
       role: 'user',
+      commission_plan_id: 'none',
+      role_template_id: 'none',
     },
   })
 
   const onSubmit = async (data: CreateUserFormData) => {
-    await createUser.mutateAsync(data as any)
+    // Convert "none" values to null for optional fields
+    const submitData = {
+      ...data,
+      role_template_id: data.role_template_id === 'none' ? undefined : data.role_template_id,
+      commission_plan_id: data.commission_plan_id === 'none' ? undefined : data.commission_plan_id,
+    }
+    await createUser.mutateAsync(submitData as any)
     form.reset()
     onOpenChange(false)
   }
@@ -160,11 +172,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="super_admin">Super Admin</SelectItem>
+                        <SelectItem value="office">Office Staff</SelectItem>
+                        <SelectItem value="sales_manager">Sales Manager</SelectItem>
+                        <SelectItem value="sales">Sales Rep</SelectItem>
+                        <SelectItem value="production">Production/Crew</SelectItem>
+                        <SelectItem value="marketing">Marketing</SelectItem>
                       </SelectContent>
+                    <FormDescription>
+                      Admin: Full access | Manager: Team management | User: Basic access
+                    </FormDescription>
                     </Select>
                     <FormMessage />
                   </FormItem>
@@ -184,7 +201,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {templates.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
                             {template.name}
@@ -216,7 +233,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {plans.map((plan) => (
                           <SelectItem key={plan.id} value={plan.id}>
                             {plan.name}

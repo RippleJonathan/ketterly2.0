@@ -106,7 +106,8 @@ export function useCreateUser() {
   return useMutation({
     mutationFn: (userData: UserFormData) => createUser(company!.id, userData),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users', company?.id] })
+      // Invalidate all users queries for this company
+      queryClient.invalidateQueries({ queryKey: ['users'] })
       toast.success('User created successfully')
     },
     onError: (error: Error) => {

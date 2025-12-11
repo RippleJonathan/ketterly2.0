@@ -20,14 +20,14 @@ export async function getUsers(
   filters?: UserFilters
 ): Promise<ApiResponse<UserWithRelations[]>> {
   const supabase = createClient()
+  console.log('getUsers called with company_id:', companyId)
   try {
     let query = supabase
       .from('users')
       .select(`
         *,
         commission_plan:commission_plans!commission_plan_id(*),
-        permissions:user_permissions(*),
-        foreman:users!users_foreman_id_fkey(id, full_name, avatar_url)
+        permissions:user_permissions(*)
       `)
       .eq('company_id', companyId)
       .is('deleted_at', null)
@@ -58,7 +58,16 @@ export async function getUsers(
 
     const { data, error, count } = await query
 
-    if (error) throw error
+    if (error) {
+      console.error('getUsers error:', error)
+      throw error
+    }
+    
+    console.log(`getUsers found ${data?.length || 0} users for company ${companyId}`)
+    if (data && data.length > 0) {
+      console.log('Users:', data.map(u => ({ id: u.id, email: u.email, full_name: u.full_name, deleted_at: u.deleted_at })))
+    }
+    
     return { data: data as UserWithRelations[], error: null, count: count || undefined }
   } catch (error) {
     console.error('Failed to fetch users:', error)
@@ -82,7 +91,7 @@ export async function getUserById(
         *,
         commission_plan:commission_plans!commission_plan_id(*),
         permissions:user_permissions(*),
-        foreman:users!users_foreman_id_fkey(id, full_name, avatar_url)
+        foreman:users!foreman_id(id, full_name, avatar_url)
       `)
       .eq('id', userId)
       .eq('company_id', companyId)
@@ -114,7 +123,7 @@ export async function getCurrentUser(): Promise<ApiResponse<UserWithRelations>> 
         *,
         commission_plan:commission_plans!commission_plan_id(*),
         permissions:user_permissions(*),
-        foreman:users!users_foreman_id_fkey(id, full_name, avatar_url)
+        foreman:users!foreman_id(id, full_name, avatar_url)
       `)
       .eq('id', authData.user.id)
       .is('deleted_at', null)
@@ -136,63 +145,26 @@ export async function createUser(
   companyId: string,
   userData: UserFormData
 ): Promise<ApiResponse<User>> {
-  const supabase = createClient()
   try {
-    // Step 1: Create auth user via Supabase Auth Admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: userData.email,
-      password: userData.password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        full_name: userData.full_name,
+    // Call server-side API route to create user (requires service role)
+    const response = await fetch('/api/users/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        ...userData,
+        company_id: companyId,
+      }),
     })
 
-    if (authError) throw authError
-    if (!authData.user) throw new Error('Failed to create auth user')
+    const result = await response.json()
 
-    // Step 2: Create user record
-    const userInsert: UserInsert = {
-      id: authData.user.id,
-      company_id: companyId,
-      email: userData.email,
-      full_name: userData.full_name,
-      role: userData.role,
-      phone: userData.phone || null,
-      commission_plan_id: userData.commission_plan_id || null,
-      hire_date: userData.hire_date || null,
-      date_of_birth: userData.date_of_birth || null,
-      emergency_contact_name: userData.emergency_contact_name || null,
-      emergency_contact_phone: userData.emergency_contact_phone || null,
-      bio: userData.bio || null,
-      specialties: userData.specialties || null,
-      certifications: userData.certifications || null,
-      assigned_territories: userData.assigned_territories || null,
-      crew_role: userData.crew_role || 'none',
-      foreman_id: userData.foreman_id || null,
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create user')
     }
 
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .insert(userInsert)
-      .select()
-      .single()
-
-    if (userError) throw userError
-
-    // Step 3: Create default permissions (via trigger)
-    // The database trigger will handle creating user_permissions record
-
-    // Step 4: If role template specified, apply it
-    if (userData.role_template_id) {
-      const { error: templateError } = await supabase.rpc('apply_role_template', {
-        p_user_id: user.id,
-        p_template_id: userData.role_template_id,
-      })
-      if (templateError) console.error('Failed to apply role template:', templateError)
-    }
-
-    return { data: user, error: null }
+    return { data: result.data, error: null }
   } catch (error) {
     console.error('Failed to create user:', error)
     return createErrorResponse(error)

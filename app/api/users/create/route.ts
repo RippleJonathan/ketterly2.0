@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DEFAULT_ROLE_PERMISSIONS, UserRole } from '@/lib/types/users'
+import { getRolePermissions } from '@/lib/api/role-permission-templates'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
         company_id: currentUser.company_id,
         email,
         full_name,
-        role: role || 'user',
+        role: role || 'sales',
         phone: phone || null,
         commission_plan_id: commission_plan_id || null,
         is_active: true,
@@ -77,23 +78,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 400 })
     }
 
-    // Step 3: Apply role template or default permissions
+    // Step 3: Apply permissions from role_permission_templates
+    const userRole = (role || 'sales') as UserRole
     let permissionsToApply = null
 
-    if (role_template_id && role_template_id !== 'none') {
-      // Use custom role template if provided
-      const { data: template } = await adminClient
-        .from('role_templates')
-        .select('permissions')
-        .eq('id', role_template_id)
-        .single()
+    // First, try to get permissions from role_permission_templates
+    const { data: rolePermissions } = await getRolePermissions(
+      currentUser.company_id,
+      userRole
+    )
 
-      if (template?.permissions) {
-        permissionsToApply = template.permissions
-      }
+    if (rolePermissions) {
+      permissionsToApply = rolePermissions
     } else {
-      // Apply default permissions based on role
-      const userRole = (role || 'sales') as UserRole
+      // Fallback to DEFAULT_ROLE_PERMISSIONS if template doesn't exist
+      console.warn(`No role permission template found for ${userRole}, using defaults`)
       permissionsToApply = DEFAULT_ROLE_PERMISSIONS[userRole]
     }
 

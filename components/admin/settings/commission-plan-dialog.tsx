@@ -138,30 +138,30 @@ export function CommissionPlanDialog({
 
   const onSubmit = async (data: CommissionPlanFormData) => {
     const planData: any = {
-      plan_name: data.plan_name,
+      name: data.plan_name, // Map to actual DB column
       commission_type: data.commission_type,
       calculate_on: data.calculate_on,
       paid_when: data.paid_when,
-      percentage_rate: null,
+      commission_rate: null, // Use actual DB column name
       flat_amount: null,
       hourly_rate: null,
       salary_amount: null,
-      tiers: null,
+      tier_structure: null, // Use actual DB column name
     }
 
     // Set type-specific fields
     if (data.commission_type === 'percentage') {
-      planData.percentage_rate = data.percentage_rate
+      planData.commission_rate = data.percentage_rate // Map to database column
     } else if (data.commission_type === 'flat_per_job') {
       planData.flat_amount = data.flat_amount
     } else if (data.commission_type === 'tiered') {
-      planData.tiers = tiers
+      planData.tier_structure = tiers // Map to database column
     } else if (data.commission_type === 'hourly_plus') {
       planData.hourly_rate = data.hourly_rate
-      planData.percentage_rate = data.percentage_rate
+      planData.commission_rate = data.percentage_rate // Map to database column
     } else if (data.commission_type === 'salary_plus') {
       planData.salary_amount = data.salary_amount
-      planData.percentage_rate = data.percentage_rate
+      planData.commission_rate = data.percentage_rate // Map to database column
     }
 
     if (plan) {

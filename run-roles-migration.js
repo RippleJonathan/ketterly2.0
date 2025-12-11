@@ -1,0 +1,20 @@
+// Run the user roles update migration
+const fs = require('fs')
+const path = require('path')
+
+const migrationPath = path.join(__dirname, 'supabase', 'migrations', '20241211000001_update_user_roles.sql')
+const migration = fs.readFileSync(migrationPath, 'utf8')
+
+console.log('📋 Migration to run:')
+console.log('=' .repeat(80))
+console.log(migration)
+console.log('=' .repeat(80))
+console.log('\n⚠️  IMPORTANT: Run this migration in your Supabase Dashboard SQL Editor')
+console.log('\n📍 Steps:')
+console.log('1. Go to: https://supabase.com/dashboard/project/YOUR_PROJECT/sql/new')
+console.log('2. Copy the SQL above')
+console.log('3. Paste and run it')
+console.log('\n✅ This will:')
+console.log('   - Update the role constraint to include new roles')
+console.log('   - Migrate old "user" roles to "sales"')
+console.log('   - Migrate old "manager" roles to "sales_manager"')

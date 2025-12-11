@@ -32,11 +32,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { DocumentType, DOCUMENT_TYPE_LABELS, SIGNATURE_STATUS_LABELS } from '@/lib/types/documents'
-import { Upload, FileText, MoreVertical, Download, Share2, Trash2, Eye, CheckCircle2, Clock, XCircle, FileIcon, ChevronDown, ChevronUp, Mail } from 'lucide-react'
+import { Upload, FileText, MoreVertical, Download, Share2, Trash2, Eye, CheckCircle2, Clock, XCircle, FileIcon, ChevronDown, ChevronUp, Mail, ScanLine } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { formatBytes } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
+import { ScanDocumentDialog } from './scan-document-dialog'
 
 interface FilesTabProps {
   leadId: string
@@ -53,6 +54,7 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
   const [selectedType, setSelectedType] = useState<DocumentType | 'all'>('all')
   const [isUploadExpanded, setIsUploadExpanded] = useState(false)
   const [emailingSigned, setEmailingSigned] = useState<{ [key: string]: boolean }>({})
+  const [isScanDialogOpen, setIsScanDialogOpen] = useState(false)
 
   // Filter quotes that have both signatures (fully executed contracts)
   const signedQuotes = quotes?.filter(q => q.status === 'accepted') || []
@@ -115,6 +117,18 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Scan Document Dialog */}
+      <ScanDocumentDialog
+        open={isScanDialogOpen}
+        onOpenChange={setIsScanDialogOpen}
+        leadId={leadId}
+        leadName={leadName}
+        onSuccess={() => {
+          // Refresh documents list
+          // React Query will automatically refetch
+        }}
+      />
+
       {/* Upload Section - Collapsible */}
       <Card>
         <CardHeader className="cursor-pointer" onClick={() => setIsUploadExpanded(!isUploadExpanded)}>
@@ -128,11 +142,25 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
                 Upload files related to {leadName}
               </CardDescription>
             </div>
-            {isUploadExpanded ? (
-              <ChevronUp className="h-5 w-5 text-gray-500" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-gray-500" />
-            )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsScanDialogOpen(true)
+                }}
+                className="gap-2"
+              >
+                <ScanLine className="h-4 w-4" />
+                Scan Document
+              </Button>
+              {isUploadExpanded ? (
+                <ChevronUp className="h-5 w-5 text-gray-500" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-500" />
+              )}
+            </div>
           </div>
         </CardHeader>
         {isUploadExpanded && (

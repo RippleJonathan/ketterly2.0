@@ -13,7 +13,8 @@ import {
   BarChart3,
   Settings,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
@@ -30,11 +31,12 @@ const navigation = [
 
 const teamNavigation = [
   { name: 'Users', href: '/admin/users', icon: UserCog },
+  { name: 'Commission Plans', href: '/admin/settings/commission-plans', icon: DollarSign },
 ]
 
 const settingsNavigation = [
   { name: 'Settings', href: '/admin/settings', icon: Settings },
-  { name: 'Commission Plans', href: '/admin/settings/commission-plans', icon: DollarSign },
+  { name: 'Role Permissions', href: '/admin/settings/role-permissions', icon: Shield },
   { name: 'Role Templates', href: '/admin/settings/role-templates', icon: UserCog },
 ]
 

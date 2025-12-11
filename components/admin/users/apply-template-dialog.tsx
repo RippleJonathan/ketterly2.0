@@ -22,7 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { useRoleTemplates } from '@/lib/hooks/use-role-templates'
 import { useApplyRoleTemplate } from '@/lib/hooks/use-role-templates'
-import { UserWithRelations, PERMISSION_LABELS } from '@/lib/types/users'
+import { UserWithRelations, PERMISSION_LABELS, ALL_PERMISSIONS } from '@/lib/types/users'
 
 interface ApplyTemplateDialogProps {
   user: UserWithRelations
@@ -50,12 +50,12 @@ export function ApplyTemplateDialog({ user, open, onOpenChange }: ApplyTemplateD
     onOpenChange(false)
   }
 
-  // Get permissions that will be granted
+  // Get permissions that will be granted from the new table structure
   const grantedPermissions = selectedTemplate
-    ? Object.entries(selectedTemplate.default_permissions)
-        .filter(([_, value]) => value === true)
-        .map(([key]) => key)
+    ? ALL_PERMISSIONS.filter((perm) => selectedTemplate[perm] === true)
     : []
+
+  const permissionCount = grantedPermissions.length
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,16 +75,24 @@ export function ApplyTemplateDialog({ user, open, onOpenChange }: ApplyTemplateD
                 <SelectValue placeholder="Select a template" />
               </SelectTrigger>
               <SelectContent>
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{template.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {template.base_role}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
+                {templates.map((template) => {
+                  const count = ALL_PERMISSIONS.filter((perm) => template[perm] === true).length
+                  return (
+                    <SelectItem key={template.id} value={template.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{template.template_name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {count}/44
+                        </Badge>
+                        {template.is_system_default && (
+                          <Badge variant="secondary" className="text-xs">
+                            System
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -99,7 +107,7 @@ export function ApplyTemplateDialog({ user, open, onOpenChange }: ApplyTemplateD
 
               <div className="rounded-lg border p-4 bg-muted/50">
                 <h4 className="text-sm font-semibold mb-3">
-                  Permissions that will be granted ({grantedPermissions.length}):
+                  Permissions that will be granted ({permissionCount}/44):
                 </h4>
                 <ScrollArea className="h-[300px]">
                   <div className="space-y-1">

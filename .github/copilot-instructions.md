@@ -636,6 +636,161 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
 
 ---
 
+## Permission Management
+
+Ketterly uses a granular permission system with 44 individual permissions across 9 categories.
+
+### Adding Permissions for New Features
+
+Every new feature must have corresponding permissions. Follow this checklist:
+
+1. **Add Permission Columns to Database**
+```sql
+ALTER TABLE public.user_permissions 
+ADD COLUMN can_view_feature BOOLEAN DEFAULT false NOT NULL,
+ADD COLUMN can_create_feature BOOLEAN DEFAULT false NOT NULL,
+ADD COLUMN can_edit_feature BOOLEAN DEFAULT false NOT NULL,
+ADD COLUMN can_delete_feature BOOLEAN DEFAULT false NOT NULL;
+```
+
+2. **Update TypeScript Types** (`lib/types/users.ts`)
+```typescript
+export interface UserPermissions {
+  // ... existing
+  can_view_feature: boolean
+  can_create_feature: boolean
+  can_edit_feature: boolean
+  can_delete_feature: boolean
+}
+
+// Add to ALL_PERMISSIONS array
+export const ALL_PERMISSIONS: PermissionKey[] = [
+  // ... existing
+  'can_view_feature',
+  'can_create_feature',
+  'can_edit_feature',
+  'can_delete_feature',
+]
+
+// Add to PERMISSION_LABELS
+export const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  // ... existing
+  can_view_feature: 'View Feature',
+  can_create_feature: 'Create Feature',
+  // ... etc
+}
+
+// Add to PERMISSION_CATEGORIES
+export const PERMISSION_CATEGORIES = {
+  // ... existing
+  'Feature Category': [
+    'can_view_feature',
+    'can_create_feature',
+    'can_edit_feature',
+    'can_delete_feature',
+  ],
+} as const
+```
+
+3. **Update Role Templates** (`lib/types/users.ts`)
+```typescript
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<PermissionKey, boolean>>> = {
+  admin: {
+    // ... existing
+    can_view_feature: true,
+    can_create_feature: true,
+    can_edit_feature: true,
+    can_delete_feature: true,
+  },
+  // Configure for other roles...
+}
+```
+
+4. **Update API Functions** (`lib/api/permissions.ts`)
+- Add new permissions to `grantAllPermissions()`
+- Add new permissions to `revokeAllPermissions()`
+
+5. **Add Permission Descriptions** (`components/admin/users/permissions-manager.tsx`)
+```typescript
+const PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  // ... existing
+  can_view_feature: 'Description of what this permission allows',
+}
+```
+
+6. **Update Documentation** (`docs/PERMISSIONS_SYSTEM.md`)
+- Add permissions to appropriate category
+- Update total permission count
+- Document role template changes
+
+### Permission Naming Convention
+
+Use this format: `{feature}_{action}`
+
+Examples:
+- `leads_view`, `leads_create`, `leads_edit`, `leads_delete`
+- `quotes_view`, `quotes_create`, `quotes_approve`, `quotes_send`
+- `users_view`, `users_create`, `users_manage_permissions`
+
+### Checking Permissions in Code
+
+**Client Components:**
+```typescript
+import { useCheckPermission } from '@/lib/hooks/use-permissions'
+
+function MyComponent() {
+  const { data: canCreate } = useCheckPermission(userId, 'can_create_feature')
+  
+  if (!canCreate) return null
+  return <CreateButton />
+}
+```
+
+**Server Components:**
+```typescript
+import { createClient } from '@/lib/supabase/server'
+
+export default async function FeaturePage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data: permissions } = await supabase
+    .from('user_permissions')
+    .select('can_view_feature')
+    .eq('user_id', user!.id)
+    .single()
+
+  if (!permissions?.can_view_feature) {
+    redirect('/admin/dashboard')
+  }
+  
+  // ... rest of page
+}
+```
+
+### Permission Best Practices
+
+- ✅ Always check permissions before displaying UI elements
+- ✅ Check permissions on server side (routes, API endpoints)
+- ✅ Use role templates as starting points for new users
+- ✅ Test permission changes thoroughly
+- ❌ Never allow users to grant themselves admin permissions
+- ❌ Never skip permission checks on server-side routes
+- ❌ Never hardcode permission checks with user IDs
+
+### Complete Documentation
+
+See `docs/PERMISSIONS_SYSTEM.md` for complete permission documentation including:
+- All 44 permissions by category
+- Role template details
+- API reference
+- Testing guide
+- Troubleshooting
+
+See `docs/ADDING_NEW_FEATURES.md` for step-by-step checklist when adding features.
+
+---
+
 ## Common Gotchas & Solutions
 
 ### 1. RLS Policy Not Working

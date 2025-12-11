@@ -67,7 +67,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       full_name: '',
       password: '',
       phone: '',
-      role: 'user',
+      role: 'sales',
       commission_plan_id: 'none',
       role_template_id: 'none',
     },
@@ -179,10 +179,10 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         <SelectItem value="production">Production/Crew</SelectItem>
                         <SelectItem value="marketing">Marketing</SelectItem>
                       </SelectContent>
-                    <FormDescription>
-                      Admin: Full access | Manager: Team management | User: Basic access
-                    </FormDescription>
                     </Select>
+                    <FormDescription>
+                      Admin: Full system access | Office: Operations | Sales: Customer-facing | Production: Field work
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -19,7 +19,7 @@ export async function getRoleTemplates(
   const supabase = createClient()
   try {
     let query = supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .select('*')
       .eq('company_id', companyId)
       .is('deleted_at', null)
@@ -50,7 +50,7 @@ export async function getRoleTemplateById(
   const supabase = createClient()
   try {
     const { data, error } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .select('*')
       .eq('id', templateId)
       .eq('company_id', companyId)
@@ -77,7 +77,7 @@ export async function createRoleTemplate(
   const supabase = createClient()
   try {
     const { data, error } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .insert({
         ...template,
         company_id: companyId,
@@ -106,7 +106,7 @@ export async function updateRoleTemplate(
   const supabase = createClient()
   try {
     const { data, error } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
@@ -135,7 +135,7 @@ export async function deleteRoleTemplate(
   const supabase = createClient()
   try {
     const { error } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', templateId)
       .eq('company_id', companyId)
@@ -159,7 +159,7 @@ export async function deactivateRoleTemplate(
   const supabase = createClient()
   try {
     const { data, error } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .update({ 
         is_active: false,
         updated_at: new Date().toISOString(),
@@ -188,7 +188,7 @@ export async function reactivateRoleTemplate(
   const supabase = createClient()
   try {
     const { data, error } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .update({ 
         is_active: true,
         updated_at: new Date().toISOString(),
@@ -216,21 +216,29 @@ export async function applyRoleTemplate(
 ): Promise<ApiResponse<UserPermissions>> {
   const supabase = createClient()
   try {
-    // Step 1: Get template
+    // Step 1: Get template with all permission columns
     const { data: template, error: templateError } = await supabase
-      .from('role_templates')
-      .select('default_permissions')
+      .from('role_permission_templates')
+      .select('*')
       .eq('id', templateId)
       .is('deleted_at', null)
       .single()
 
     if (templateError) throw templateError
 
-    // Step 2: Update user permissions with template permissions
+    // Step 2: Extract permission fields (all fields starting with 'can_')
+    const permissionUpdates: Record<string, boolean> = {}
+    Object.keys(template).forEach((key) => {
+      if (key.startsWith('can_')) {
+        permissionUpdates[key] = template[key]
+      }
+    })
+
+    // Step 3: Update user permissions with template permissions
     const { data, error } = await supabase
       .from('user_permissions')
       .update({
-        ...template.default_permissions,
+        ...permissionUpdates,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
@@ -255,21 +263,29 @@ export async function applyRoleTemplateToMultiple(
 ): Promise<ApiResponse<number>> {
   const supabase = createClient()
   try {
-    // Step 1: Get template
+    // Step 1: Get template with all permission columns
     const { data: template, error: templateError } = await supabase
-      .from('role_templates')
-      .select('default_permissions')
+      .from('role_permission_templates')
+      .select('*')
       .eq('id', templateId)
       .is('deleted_at', null)
       .single()
 
     if (templateError) throw templateError
 
-    // Step 2: Update all users' permissions
+    // Step 2: Extract permission fields (all fields starting with 'can_')
+    const permissionUpdates: Record<string, boolean> = {}
+    Object.keys(template).forEach((key) => {
+      if (key.startsWith('can_')) {
+        permissionUpdates[key] = template[key]
+      }
+    })
+
+    // Step 3: Update all users' permissions
     const { data, error } = await supabase
       .from('user_permissions')
       .update({
-        ...template.default_permissions,
+        ...permissionUpdates,
         updated_at: new Date().toISOString(),
       })
       .in('user_id', userIds)
@@ -319,7 +335,7 @@ export async function createTemplateFromUser(
 
     // Step 4: Create template
     const { data: template, error: createError } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .insert({
         company_id: companyId,
         name: templateName,
@@ -353,7 +369,7 @@ export async function duplicateRoleTemplate(
   try {
     // Step 1: Get original template
     const { data: original, error: fetchError } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .select('*')
       .eq('id', templateId)
       .eq('company_id', companyId)
@@ -364,7 +380,7 @@ export async function duplicateRoleTemplate(
 
     // Step 2: Create new template with same permissions
     const { data: duplicate, error: createError } = await supabase
-      .from('role_templates')
+      .from('role_permission_templates')
       .insert({
         company_id: companyId,
         name: newName,
@@ -383,3 +399,4 @@ export async function duplicateRoleTemplate(
     return createErrorResponse(error)
   }
 }
+

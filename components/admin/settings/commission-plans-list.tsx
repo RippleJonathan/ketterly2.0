@@ -160,7 +160,7 @@ export function CommissionPlansList() {
             ) : (
               plans.map((plan) => (
                 <TableRow key={plan.id}>
-                  <TableCell className="font-medium">{plan.plan_name}</TableCell>
+                  <TableCell className="font-medium">{plan.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {getTypeIcon(plan.commission_type)}
@@ -168,11 +168,11 @@ export function CommissionPlansList() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {plan.commission_type === 'percentage' && `${plan.percentage_rate}%`}
+                    {plan.commission_type === 'percentage' && `${plan.commission_rate}%`}
                     {plan.commission_type === 'flat_per_job' && `$${plan.flat_amount}`}
                     {plan.commission_type === 'tiered' && 'Tiered Structure'}
-                    {plan.commission_type === 'hourly_plus' && `$${plan.hourly_rate}/hr + ${plan.percentage_rate}%`}
-                    {plan.commission_type === 'salary_plus' && `$${plan.salary_amount}/mo + ${plan.percentage_rate}%`}
+                    {plan.commission_type === 'hourly_plus' && `$${plan.hourly_rate}/hr + ${plan.commission_rate}%`}
+                    {plan.commission_type === 'salary_plus' && `$${plan.salary_amount}/mo + ${plan.commission_rate}%`}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">

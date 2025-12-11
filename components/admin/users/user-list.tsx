@@ -54,7 +54,7 @@ import {
 } from 'lucide-react'
 import { CreateUserDialog } from './create-user-dialog'
 import { EditUserDialog } from './edit-user-dialog'
-import { PermissionsEditor } from './permissions-editor'
+import { PermissionsManager } from './permissions-manager'
 import { CopyPermissionsDialog } from './copy-permissions-dialog'
 import { ApplyTemplateDialog } from './apply-template-dialog'
 import { useDeactivateUser, useReactivateUser, useDeleteUser } from '@/lib/hooks/use-users'
@@ -134,17 +134,23 @@ export function UserList() {
       header: 'Role',
       cell: ({ row }) => {
         const role = row.original.role
-        const roleColors = {
+        const roleColors: Record<string, string> = {
           super_admin: 'bg-purple-100 text-purple-800',
           admin: 'bg-blue-100 text-blue-800',
-          manager: 'bg-green-100 text-green-800',
-          user: 'bg-gray-100 text-gray-800',
+          office: 'bg-cyan-100 text-cyan-800',
+          sales_manager: 'bg-green-100 text-green-800',
+          sales: 'bg-yellow-100 text-yellow-800',
+          production: 'bg-orange-100 text-orange-800',
+          marketing: 'bg-pink-100 text-pink-800',
         }
-        const roleLabels = {
+        const roleLabels: Record<string, string> = {
           super_admin: 'Super Admin',
           admin: 'Admin',
-          manager: 'Manager',
-          user: 'User',
+          office: 'Office',
+          sales_manager: 'Sales Manager',
+          sales: 'Sales',
+          production: 'Production',
+          marketing: 'Marketing',
         }
 
         return (
@@ -221,7 +227,7 @@ export function UserList() {
                 }}
               >
                 <Shield className="mr-2 h-4 w-4" />
-                Edit Permissions
+                Manage Permissions
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
@@ -231,15 +237,6 @@ export function UserList() {
               >
                 <Copy className="mr-2 h-4 w-4" />
                 Copy Permissions
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setSelectedUser(user)
-                  setApplyTemplateDialogOpen(true)
-                }}
-              >
-                <FileUser className="mr-2 h-4 w-4" />
-                Apply Template
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {user.is_active ? (
@@ -403,7 +400,7 @@ export function UserList() {
             open={editDialogOpen}
             onOpenChange={setEditDialogOpen}
           />
-          <PermissionsEditor
+          <PermissionsManager
             user={selectedUser}
             open={permissionsDialogOpen}
             onOpenChange={setPermissionsDialogOpen}

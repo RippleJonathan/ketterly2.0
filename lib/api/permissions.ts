@@ -83,16 +83,43 @@ export async function copyPermissions(
     // Step 2: Extract only permission fields (exclude id, user_id, timestamps)
     const { id, user_id, created_at, updated_at, ...permissionFields } = sourcePermissions
 
-    // Step 3: Update target user's permissions
-    const { data, error } = await supabase
+    // Step 3: Update target user's permissions (or insert if not exists)
+    const { data: existingPerms } = await supabase
       .from('user_permissions')
-      .update({
-        ...permissionFields,
-        updated_at: new Date().toISOString(),
-      })
+      .select('id')
       .eq('user_id', toUserId)
-      .select()
-      .single()
+      .maybeSingle()
+
+    let data, error
+
+    if (existingPerms) {
+      // Update existing permissions
+      const result = await supabase
+        .from('user_permissions')
+        .update({
+          ...permissionFields,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', toUserId)
+        .select()
+        .single()
+      
+      data = result.data
+      error = result.error
+    } else {
+      // Insert new permissions
+      const result = await supabase
+        .from('user_permissions')
+        .insert({
+          user_id: toUserId,
+          ...permissionFields,
+        })
+        .select()
+        .single()
+      
+      data = result.data
+      error = result.error
+    }
 
     if (error) throw error
     return { data, error: null }

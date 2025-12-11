@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -61,10 +61,12 @@ export function RoleTemplateDialog({
   const updateTemplate = useUpdateRoleTemplate()
 
   // Initialize permissions state with all permissions set to false
-  const initialPermissions = Object.keys(PERMISSION_LABELS).reduce((acc, key) => {
-    acc[key] = false
-    return acc
-  }, {} as Record<string, boolean>)
+  const initialPermissions = useMemo(() => 
+    Object.keys(PERMISSION_LABELS).reduce((acc, key) => {
+      acc[key] = false
+      return acc
+    }, {} as Record<string, boolean>)
+  , [])
 
   const [permissions, setPermissions] = useState<Record<string, boolean>>(initialPermissions)
 
@@ -101,7 +103,7 @@ export function RoleTemplateDialog({
       })
       setPermissions(initialPermissions)
     }
-  }, [template, form, initialPermissions])
+  }, [template, initialPermissions])
 
   const handlePermissionChange = (permission: string, checked: boolean) => {
     setPermissions((prev) => ({ ...prev, [permission]: checked }))

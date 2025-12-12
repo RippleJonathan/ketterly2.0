@@ -29,7 +29,8 @@ export interface User {
   company_id: string
   email: string
   full_name: string
-  role: UserRole
+  role: UserRole // Deprecated - use company_role_id
+  company_role_id: string | null // References company_roles.id
   phone: string | null
   avatar_url: string | null
   is_active: boolean
@@ -63,6 +64,7 @@ export interface User {
   commission_plan?: CommissionPlan | null
   permissions?: UserPermissions
   foreman?: User
+  company_role?: CompanyRole | null
 }
 
 export interface UserInsert {
@@ -70,7 +72,8 @@ export interface UserInsert {
   company_id: string
   email: string
   full_name: string
-  role: UserRole
+  role: UserRole // Deprecated - use company_role_id
+  company_role_id?: string | null
   phone?: string | null
   avatar_url?: string | null
   commission_plan_id?: string | null
@@ -88,7 +91,8 @@ export interface UserInsert {
 
 export interface UserUpdate {
   full_name?: string
-  role?: UserRole
+  role?: UserRole // Deprecated - use company_role_id
+  company_role_id?: string | null
   phone?: string | null
   avatar_url?: string | null
   is_active?: boolean
@@ -105,10 +109,11 @@ export interface UserUpdate {
   foreman_id?: string | null
 }
 
-export interface UserWithRelations extends Omit<User, 'commission_plan' | 'permissions' | 'foreman'> {
+export interface UserWithRelations extends Omit<User, 'commission_plan' | 'permissions' | 'foreman' | 'company_role'> {
   commission_plan: CommissionPlan | null
   permissions: UserPermissions | null
   foreman: Pick<User, 'id' | 'full_name' | 'avatar_url'> | null
+  company_role: CompanyRole | null
 }
 
 export interface UserFilters {
@@ -865,6 +870,54 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   sales: 'Sales representative managing assigned leads and creating quotes',
   production: 'Production crew members updating work orders and project status',
   marketing: 'Marketing team creating campaigns and analyzing lead performance',
+}
+
+// =====================================================
+// COMPANY ROLES (Custom Role System)
+// =====================================================
+
+export interface CompanyRole {
+  id: string
+  company_id: string
+  role_name: string // Unique snake_case identifier (e.g., 'project_manager')
+  display_name: string // User-friendly name (e.g., 'Project Manager')
+  description: string | null
+  permissions: Partial<UserPermissions> // JSONB column with all permissions
+  is_system_role: boolean // True for default roles (cannot be deleted)
+  is_active: boolean
+  user_count: number // Cached count via trigger
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface CompanyRoleInsert {
+  company_id: string
+  role_name: string
+  display_name: string
+  description?: string | null
+  permissions: Partial<UserPermissions>
+  is_system_role?: boolean
+  is_active?: boolean
+  created_by?: string | null
+}
+
+export interface CompanyRoleUpdate {
+  display_name?: string
+  description?: string | null
+  permissions?: Partial<UserPermissions>
+  is_active?: boolean
+}
+
+export interface CompanyRoleWithUserCount extends CompanyRole {
+  user_count: number
+}
+
+export interface CompanyRoleFilters {
+  is_system_role?: boolean
+  is_active?: boolean
+  search?: string // Search by display_name or description
 }
 
 // =====================================================

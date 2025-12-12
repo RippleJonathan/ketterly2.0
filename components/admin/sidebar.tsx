@@ -37,7 +37,7 @@ const teamNavigation = [
 const settingsNavigation = [
   { name: 'Settings', href: '/admin/settings', icon: Settings },
   { name: 'Role Permissions', href: '/admin/settings/role-permissions', icon: Shield },
-  { name: 'Role Templates', href: '/admin/settings/role-templates', icon: UserCog },
+  { name: 'User Roles', href: '/admin/settings/roles', icon: UserCog },
 ]
 
 export function Sidebar() {

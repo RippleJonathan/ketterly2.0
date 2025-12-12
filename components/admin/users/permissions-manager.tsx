@@ -58,9 +58,13 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 interface PermissionsManagerProps {
-  user: UserWithRelations
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  user?: UserWithRelations
+  userId?: string
+  permissions?: Partial<UserPermissions>
+  onChange?: (permissions: Partial<UserPermissions>) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  isRoleEditor?: boolean // When true, renders inline without dialog wrapper
 }
 
 // Category icons mapping

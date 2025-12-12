@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { updateLead } from '@/lib/api/leads'
+import { autoCreateCommission } from '@/lib/utils/auto-commission'
 import {
   Select,
   SelectContent,
@@ -28,6 +30,7 @@ interface User {
 
 export function AssignUserDropdown({ leadId, currentAssignedTo }: AssignUserDropdownProps) {
   const { data: company } = useCurrentCompany()
+  const { data: currentUser } = useCurrentUser()
   const queryClient = useQueryClient()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -56,22 +59,40 @@ export function AssignUserDropdown({ leadId, currentAssignedTo }: AssignUserDrop
   }, [company?.id])
 
   const handleAssign = async (userId: string) => {
-    if (!company?.id) return
+    if (!company?.id) {
+      toast.error('Missing company context')
+      return
+    }
 
+    const supabase = createClient()
     const assignedTo = userId === 'unassigned' ? null : userId
 
+    // Update lead assignment
     const result = await updateLead(company.id, leadId, {
       assigned_to: assignedTo,
     })
 
     if (result.error) {
+      console.error('Failed to assign user:', result.error)
       toast.error('Failed to assign user')
       return
     }
 
+    // Get current user for commission tracking (optional)
+    let actorUserId = currentUser?.id
+    if (!actorUserId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      actorUserId = user?.id || null
+    }
+
+    // Automatically create/update commission for assigned user (non-blocking)
+    await autoCreateCommission(leadId, assignedTo, company.id, actorUserId)
+
     queryClient.invalidateQueries({ queryKey: ['leads', company.id] })
     queryClient.invalidateQueries({ queryKey: ['leads', company.id, leadId] })
-    toast.success(assignedTo ? 'User assigned successfully' : 'Lead unassigned')
+    queryClient.invalidateQueries({ queryKey: ['lead-commissions', company.id, leadId] })
+    
+    toast.success(assignedTo ? 'User assigned' : 'Lead unassigned')
   }
 
   if (isLoading) {

@@ -21,7 +21,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Shield, 
   Search, 
@@ -30,7 +29,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  Sparkles,
   Users,
   DollarSign,
   FileText,
@@ -39,16 +37,11 @@ import {
   BarChart,
   Settings,
   Camera,
-  UserCog,
-  Edit,
-  Trash2,
-  Plus,
 } from 'lucide-react'
 import { useUserPermissions, useUpdatePermissions } from '@/lib/hooks/use-permissions'
-import { useRoleTemplates, useDeleteRoleTemplate, useApplyRoleTemplate } from '@/lib/hooks/use-role-templates'
-import { TemplateEditorDialog } from './template-editor-dialog'
 import { 
   UserWithRelations, 
+  UserPermissions,
   PERMISSION_CATEGORIES, 
   PERMISSION_LABELS, 
   PermissionKey,
@@ -129,23 +122,19 @@ const PERMISSION_DESCRIPTIONS: Record<string, string> = {
 }
 
 export function PermissionsManager({ user, open, onOpenChange }: PermissionsManagerProps) {
+  // Guard clause for user
+  if (!user) {
+    return null
+  }
+
   const { data: permissionsResponse, isLoading } = useUserPermissions(user.id)
   const updatePermissions = useUpdatePermissions()
-  const { data: templatesResponse } = useRoleTemplates()
-  const deleteTemplate = useDeleteRoleTemplate()
-  const applyTemplate = useApplyRoleTemplate()
   
   const permissions = permissionsResponse?.data
-  const templates = templatesResponse?.data || []
   
   const [localPermissions, setLocalPermissions] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
-  
-  // Template editor state
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
-  const [editingTemplate, setEditingTemplate] = useState<any>(null)
 
   // Initialize local permissions from API response or with defaults
   useEffect(() => {
@@ -235,54 +224,6 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
     toast.success('All permissions disabled')
   }
 
-  const handleApplyTemplateToUser = async (templateId: string) => {
-    try {
-      await applyTemplate.mutateAsync({ userId: user.id, templateId })
-      // Refresh the local permissions to match applied template
-      window.location.reload()
-    } catch (error) {
-      // Error handled by hook
-    }
-  }
-
-  const handleEditTemplate = (template: any) => {
-    const permissionData: Record<string, boolean> = {}
-    ALL_PERMISSIONS.forEach((perm) => {
-      permissionData[perm] = template[perm] || false
-    })
-    
-    setEditingTemplate({
-      id: template.id,
-      template_name: template.template_name,
-      description: template.description,
-      is_system_default: template.is_system_default,
-      permissions: permissionData,
-    })
-    setEditorMode('edit')
-    setEditorOpen(true)
-  }
-
-  const handleCreateTemplate = () => {
-    setEditingTemplate(null)
-    setEditorMode('create')
-    setEditorOpen(true)
-  }
-
-  const handleDeleteTemplate = async (templateId: string, templateName: string, isSystemDefault: boolean) => {
-    if (isSystemDefault) {
-      toast.error('System default templates cannot be deleted')
-      return
-    }
-
-    if (confirm(`Are you sure you want to delete the "${templateName}" template? This action cannot be undone.`)) {
-      try {
-        await deleteTemplate.mutateAsync(templateId)
-      } catch (error) {
-        // Error handled by hook
-      }
-    }
-  }
-
   const handleReset = () => {
     if (!permissions) return
     const permMap: Record<string, boolean> = {}
@@ -303,7 +244,7 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
         permissions: localPermissions as any,
       })
       setHasChanges(false)
-      onOpenChange(false)
+      onOpenChange?.(false)
     } catch (error) {
       // Error already handled by hook
     }
@@ -333,8 +274,7 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-6xl h-[95vh] flex flex-col">
           <DialogHeader className="flex-shrink-0 pb-3">
             <div className="flex items-center justify-between">
@@ -390,34 +330,27 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
           </div>
         </div>
 
-        <Tabs defaultValue="permissions" className="flex-1 flex flex-col overflow-hidden mt-3">
-          <TabsList className="grid w-full grid-cols-2 flex-shrink-0 h-9">
-            <TabsTrigger value="permissions" className="text-sm">Permissions</TabsTrigger>
-            <TabsTrigger value="templates" className="text-sm">Role Templates</TabsTrigger>
-          </TabsList>
+        {/* Search Bar */}
+        <div className="relative mb-3 flex-shrink-0 mt-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search permissions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 text-sm"
+          />
+        </div>
 
-          <TabsContent value="permissions" className="flex-1 overflow-hidden mt-3 data-[state=active]:flex data-[state=active]:flex-col">
-            {/* Search Bar */}
-            <div className="relative mb-3 flex-shrink-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search permissions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
+        {/* Permissions List */}
+        <div className="flex-1 overflow-y-auto pr-4">
+          <Accordion type="multiple" defaultValue={Object.keys(PERMISSION_CATEGORIES)} className="space-y-1">
+            {Object.entries(filteredCategories).map(([category, perms]) => {
+              const categoryPerms = perms as readonly string[]
+              const enabledCount = categoryPerms.filter(p => localPermissions[p]).length
+              const totalCount = categoryPerms.length
 
-            {/* Permissions List */}
-            <div className="flex-1 overflow-y-auto pr-4">
-              <Accordion type="multiple" defaultValue={Object.keys(PERMISSION_CATEGORIES)} className="space-y-1">
-                {Object.entries(filteredCategories).map(([category, perms]) => {
-                  const categoryPerms = perms as readonly string[]
-                  const enabledCount = categoryPerms.filter(p => localPermissions[p]).length
-                  const totalCount = categoryPerms.length
-
-                  return (
-                    <AccordionItem key={category} value={category} className="border rounded-lg px-4">
+              return (
+                <AccordionItem key={category} value={category} className="border rounded-lg px-4">
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center justify-between flex-1 pr-4">
                           <div className="flex items-center gap-2">
@@ -499,102 +432,8 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
                 })}
               </Accordion>
             </div>
-          </TabsContent>
 
-          <TabsContent value="templates" className="flex-1 overflow-hidden mt-3 data-[state=active]:flex data-[state=active]:flex-col">
-            <div className="flex-1 overflow-y-auto pr-4">
-              <div className="space-y-4">
-                {/* Header with Create Button */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Sparkles className="h-4 w-4" />
-                    <p>Apply a role template to {user.full_name}</p>
-                  </div>
-                  <Button onClick={handleCreateTemplate} size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Create Template
-                  </Button>
-                </div>
-
-                {/* Templates Grid */}
-                <div className="grid gap-4">
-                  {templates.map((template) => {
-                    const permCount = ALL_PERMISSIONS.filter((perm) => template[perm]).length
-
-                    return (
-                      <div
-                        key={template.id}
-                        className="border rounded-lg p-4 transition-all hover:shadow-md"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <UserCog className="h-5 w-5 flex-shrink-0" />
-                              <h4 className="font-semibold">{template.template_name}</h4>
-                              <Badge variant="secondary">{permCount}/44 permissions</Badge>
-                              {template.is_system_default && (
-                                <Badge variant="outline" className="text-xs">System Default</Badge>
-                              )}
-                            </div>
-                            {template.description && (
-                              <p className="text-sm text-muted-foreground mb-3">
-                                {template.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleApplyTemplateToUser(template.id)}
-                            disabled={applyTemplate.isPending}
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Apply to User
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditTemplate(template)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          {!template.is_system_default && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteTemplate(template.id, template.template_name, template.is_system_default)}
-                              disabled={deleteTemplate.isPending}
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {templates.length === 0 && (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <UserCog className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p className="text-sm">No role templates found</p>
-                      <Button onClick={handleCreateTemplate} variant="link" size="sm" className="mt-2">
-                        Create your first template
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="gap-2 flex-shrink-0 pt-3 border-t">
+        <DialogFooter className="gap-2 flex-shrink-0 pt-3 border-t mt-3">
           <div className="flex-1 flex items-center gap-2">
             {hasChanges && (
               <div className="flex items-center gap-2 text-sm text-orange-600">
@@ -614,7 +453,7 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
           <Button 
             type="button" 
             variant="outline" 
-            onClick={() => onOpenChange(false)}
+            onClick={() => onOpenChange?.(false)}
           >
             Cancel
           </Button>
@@ -627,15 +466,5 @@ export function PermissionsManager({ user, open, onOpenChange }: PermissionsMana
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-    {/* Template Editor Dialog */}
-    <TemplateEditorDialog
-      open={editorOpen}
-      onOpenChange={setEditorOpen}
-      templateId={editingTemplate?.id}
-      initialData={editingTemplate}
-      mode={editorMode}
-    />
-  </>
   )
 }

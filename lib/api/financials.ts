@@ -5,6 +5,7 @@ import { ApiResponse, createErrorResponse } from '@/lib/types/api'
 /**
  * Get complete financial breakdown for a lead
  * Shows profitability from quote stage through completion
+ * PRIMARY SOURCE: Invoice total (auto-updated from quotes and change orders)
  */
 export async function getLeadFinancials(
   leadId: string
@@ -12,17 +13,35 @@ export async function getLeadFinancials(
   try {
     const supabase = createClient()
 
-    // Get quote (revenue starting point)
-    const { data: quote } = await supabase
-      .from('quotes')
-      .select('id, total_amount, status, created_at')
+    // Get invoice (PRIMARY revenue source - auto-synced from quotes + change orders)
+    const { data: invoice } = await supabase
+      .from('customer_invoices')
+      .select('id, invoice_number, total, subtotal, tax_amount, status, invoice_date, amount_paid, balance_due')
       .eq('lead_id', leadId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    // Get approved change orders (additional revenue)
+    // Get invoice line items for breakdown
+    const { data: invoiceLineItems } = await supabase
+      .from('invoice_line_items')
+      .select('id, description, quantity, unit_price, total, quote_line_item_id, change_order_id')
+      .eq('invoice_id', invoice?.id || '')
+      .order('sort_order', { ascending: true })
+
+    // Get accepted quote (for reference, but invoice is source of truth)
+    const { data: quote } = await supabase
+      .from('quotes')
+      .select('id, total_amount, status, created_at')
+      .eq('lead_id', leadId)
+      .in('status', ['accepted', 'approved'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Get approved change orders (for reference)
     const { data: changeOrders } = await supabase
       .from('change_orders')
       .select('id, change_order_number, amount, status, created_at')
@@ -77,8 +96,14 @@ export async function getLeadFinancials(
       .order('order_date', { ascending: false })
 
     // Calculate totals
+    // PRIMARY SOURCE: Invoice total (includes quote + change orders automatically)
+    const invoiceTotal = invoice?.total || 0
     const quoteTotal = quote?.total_amount || 0
     const changeOrdersTotal = changeOrders?.reduce((sum, co) => sum + co.amount, 0) || 0
+    
+    // Use invoice total as estimated revenue (it's auto-synced)
+    // Fall back to quote + change orders if no invoice exists yet
+    const estimatedRevenue = invoiceTotal > 0 ? invoiceTotal : (quoteTotal + changeOrdersTotal)
     const invoicedTotal = invoices?.reduce((sum, inv) => sum + inv.total, 0) || 0
     const paymentsTotal = payments?.reduce((sum, pay) => sum + pay.amount, 0) || 0
     const paymentsClearedTotal = payments?.reduce((sum, pay) => pay.cleared ? sum + pay.amount : sum, 0) || 0
@@ -94,8 +119,7 @@ export async function getLeadFinancials(
     const laborCostsPaid = workOrders?.reduce((sum, wo) => wo.is_paid ? sum + wo.total_estimated : sum, 0) || 0
     const totalCostsPaid = materialCostsPaid + laborCostsPaid
 
-    // Estimated profitability (based on quote + change orders vs estimated costs)
-    const estimatedRevenue = quoteTotal + changeOrdersTotal
+    // Estimated profitability (based on invoice total vs estimated costs)
     const estimatedProfit = estimatedRevenue - totalCosts
     const estimatedMargin = estimatedRevenue > 0 ? (estimatedProfit / estimatedRevenue) * 100 : 0
 
@@ -107,6 +131,7 @@ export async function getLeadFinancials(
     const actualMargin = actualRevenue > 0 ? (actualProfit / actualRevenue) * 100 : 0
 
     const summary: LeadFinancials = {
+      invoice_total: invoiceTotal,
       quote_total: quoteTotal,
       change_orders_total: changeOrdersTotal,
       invoiced_total: invoicedTotal,
@@ -136,6 +161,26 @@ export async function getLeadFinancials(
 
     const breakdown: FinancialsBreakdown = {
       revenue: {
+        invoice: invoice ? {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          total: invoice.total,
+          subtotal: invoice.subtotal,
+          tax_amount: invoice.tax_amount,
+          status: invoice.status,
+          invoice_date: invoice.invoice_date,
+          amount_paid: invoice.amount_paid,
+          balance_due: invoice.balance_due,
+        } : null,
+        invoice_line_items: invoiceLineItems?.map(item => ({
+          id: item.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total: item.total,
+          is_from_quote: !!item.quote_line_item_id,
+          is_from_change_order: !!item.change_order_id,
+        })) || [],
         quote: quote ? {
           id: quote.id,
           total: quote.total_amount,

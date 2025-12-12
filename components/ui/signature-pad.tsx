@@ -74,6 +74,10 @@ export function SignaturePad({
   }
 
   const stopDrawing = () => {
+    if (isDrawing && !isEmpty) {
+      // Auto-save signature when user stops drawing
+      handleSave()
+    }
     setIsDrawing(false)
   }
 
@@ -117,6 +121,10 @@ export function SignaturePad({
   }
 
   const handleTouchEnd = () => {
+    if (isDrawing && !isEmpty) {
+      // Auto-save signature when user stops drawing
+      handleSave()
+    }
     setIsDrawing(false)
   }
 
@@ -170,26 +178,16 @@ export function SignaturePad({
           Clear
         </Button>
 
-        <div className="flex gap-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-          )}
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={isEmpty}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            Save Signature
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            <X className="h-4 w-4 mr-2" />
+            Cancel
           </Button>
-        </div>
+        )}
       </div>
 
       <p className="text-sm text-gray-500 text-center">
-        Sign above using your mouse or touchscreen
+        Sign above using your mouse or touchscreen. Your signature will be saved automatically.
       </p>
     </div>
   )

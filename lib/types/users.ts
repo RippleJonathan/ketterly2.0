@@ -252,6 +252,14 @@ export interface UserPermissions {
   can_view_commission_reports: boolean
   can_export_reports: boolean
   
+  // Commissions
+  can_view_own_commissions: boolean
+  can_view_all_commissions: boolean
+  can_create_commissions: boolean
+  can_edit_commissions: boolean
+  can_delete_commissions: boolean
+  can_mark_commissions_paid: boolean
+  
   // Users & Settings
   can_view_users: boolean
   can_create_users: boolean
@@ -320,6 +328,14 @@ export interface UserPermissionsUpdate {
   can_view_commission_reports?: boolean
   can_export_reports?: boolean
   
+  // Commissions
+  can_view_own_commissions?: boolean
+  can_view_all_commissions?: boolean
+  can_create_commissions?: boolean
+  can_edit_commissions?: boolean
+  can_delete_commissions?: boolean
+  can_mark_commissions_paid?: boolean
+  
   // Users & Settings
   can_view_users?: boolean
   can_create_users?: boolean
@@ -373,6 +389,12 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'can_view_profit_margins',
   'can_view_commission_reports',
   'can_export_reports',
+  'can_view_own_commissions',
+  'can_view_all_commissions',
+  'can_create_commissions',
+  'can_edit_commissions',
+  'can_delete_commissions',
+  'can_mark_commissions_paid',
   'can_view_users',
   'can_create_users',
   'can_edit_users',
@@ -420,6 +442,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   can_view_profit_margins: 'View Profit Margins',
   can_view_commission_reports: 'View Commission Reports',
   can_export_reports: 'Export Reports',
+  can_view_own_commissions: 'View Own Commissions',
+  can_view_all_commissions: 'View All Commissions',
+  can_create_commissions: 'Create Commissions',
+  can_edit_commissions: 'Edit Commissions',
+  can_delete_commissions: 'Delete Commissions',
+  can_mark_commissions_paid: 'Mark Commissions as Paid',
   can_view_users: 'View Users',
   can_create_users: 'Create Users',
   can_edit_users: 'Edit Users',
@@ -481,6 +509,14 @@ export const PERMISSION_CATEGORIES = {
     'can_view_profit_margins',
     'can_view_commission_reports',
     'can_export_reports',
+  ],
+  'Commissions': [
+    'can_view_own_commissions',
+    'can_view_all_commissions',
+    'can_create_commissions',
+    'can_edit_commissions',
+    'can_delete_commissions',
+    'can_mark_commissions_paid',
   ],
   'Users & Settings': [
     'can_view_users',
@@ -551,6 +587,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_profit_margins: true,
     can_view_commission_reports: true,
     can_export_reports: true,
+    // Commissions
+    can_view_commissions: true,
+    can_manage_commissions: true,
+    can_mark_commissions_paid: true,
     // Users & Settings
     can_view_users: true,
     can_create_users: true,
@@ -608,6 +648,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_profit_margins: false,
     can_view_commission_reports: false,
     can_export_reports: true,
+    // Commissions
+    can_view_commissions: true,
+    can_manage_commissions: true,
+    can_mark_commissions_paid: true,
     // Users & Settings
     can_view_users: true,
     can_create_users: false,
@@ -665,6 +709,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_profit_margins: true,
     can_view_commission_reports: true,  // Can see team commissions
     can_export_reports: true,
+    // Commissions
+    can_view_commissions: true,
+    can_manage_commissions: true,
+    can_mark_commissions_paid: false,
     // Users & Settings
     can_view_users: true,
     can_create_users: false,
@@ -779,6 +827,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_profit_margins: false,
     can_view_commission_reports: false,
     can_export_reports: false,
+    // Commissions
+    can_view_commissions: false,
+    can_manage_commissions: false,
+    can_mark_commissions_paid: false,
+    // Commissions
+    can_view_commissions: true,          // View own commissions
+    can_manage_commissions: false,
+    can_mark_commissions_paid: false,
     // Users & Settings
     can_view_users: true,             // See crew members
     can_create_users: false,
@@ -836,6 +892,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_profit_margins: false,
     can_view_commission_reports: false,
     can_export_reports: true,         // Export analytics
+    // Commissions
+    can_view_commissions: false,
+    can_manage_commissions: false,
+    can_mark_commissions_paid: false,
     // Users & Settings
     can_view_users: true,
     can_create_users: false,

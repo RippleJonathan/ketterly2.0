@@ -12,8 +12,9 @@ import { MeasurementsTab } from '@/components/admin/leads/measurements-tab'
 import { OrdersTab } from '@/components/admin/leads/orders-tab'
 import { PaymentsTab } from '@/components/admin/leads/payments-tab'
 import { FinancialsTab } from '@/components/admin/leads/financials-tab'
+import { CommissionsTab } from '@/components/admin/leads/commissions-tab'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image, TrendingUp, Banknote } from 'lucide-react'
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -93,6 +94,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: 'documents', label: 'Documents', icon: FileText },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'financials', label: 'Financials', icon: TrendingUp },
+    { id: 'commissions', label: 'Commissions', icon: Banknote },
     { id: 'team', label: 'Team', icon: Users },
   ]
 
@@ -189,6 +191,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         {tab === 'documents' && <FilesTab leadId={id} leadName={lead.full_name} />}
         {tab === 'payments' && <PaymentsTab leadId={id} />}
         {tab === 'financials' && <FinancialsTab leadId={id} />}
+        {tab === 'commissions' && <CommissionsTab lead={lead} />}
         {tab === 'team' && <PlaceholderTab title="Team" description="Assign team members and manage crew schedules" />}
       </div>
     </div>

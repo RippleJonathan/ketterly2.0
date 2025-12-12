@@ -78,21 +78,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 400 })
     }
 
-    // Step 3: Apply permissions from role_permission_templates
+    // Step 3: Apply permissions from company_roles
     const userRole = (role || 'sales') as UserRole
     let permissionsToApply = null
 
-    // First, try to get permissions from role_permission_templates
-    const { data: rolePermissions } = await getRolePermissions(
-      currentUser.company_id,
-      userRole
-    )
+    // Get permissions from company_roles table based on role
+    const { data: companyRole } = await supabase
+      .from('company_roles')
+      .select('permissions')
+      .eq('company_id', currentUser.company_id)
+      .eq('role_name', userRole)
+      .is('deleted_at', null)
+      .single()
 
-    if (rolePermissions) {
-      permissionsToApply = rolePermissions
+    if (companyRole && companyRole.permissions) {
+      // company_roles stores permissions as JSONB
+      permissionsToApply = companyRole.permissions
     } else {
-      // Fallback to DEFAULT_ROLE_PERMISSIONS if template doesn't exist
-      console.warn(`No role permission template found for ${userRole}, using defaults`)
+      // Fallback to DEFAULT_ROLE_PERMISSIONS if role doesn't exist
+      console.warn(`No company role found for ${userRole}, using defaults`)
       permissionsToApply = DEFAULT_ROLE_PERMISSIONS[userRole]
     }
 

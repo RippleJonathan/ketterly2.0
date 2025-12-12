@@ -558,7 +558,7 @@ export default function PublicQuotePage() {
                         return
                       }
                       if (!signatureDataUrl) {
-                        setSignError('Please draw your signature and click "Save Signature"')
+                        setSignError('Please draw your signature above')
                         return
                       }
                       if (!acceptedTerms) {

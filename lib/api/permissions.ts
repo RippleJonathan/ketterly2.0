@@ -5,6 +5,8 @@ import {
   UserPermissions,
   UserPermissionsUpdate,
   PermissionKey,
+  DEFAULT_ROLE_PERMISSIONS,
+  UserRole,
 } from '@/lib/types/users'
 
 // =====================================================
@@ -16,14 +18,64 @@ export async function getUserPermissions(
 ): Promise<ApiResponse<UserPermissions | null>> {
   const supabase = createClient()
   try {
-    const { data, error } = await supabase
+    // First, try to get existing permissions from user_permissions table
+    const { data: existingPermissions, error } = await supabase
       .from('user_permissions')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle()
 
     if (error) throw error
-    return { data, error: null }
+
+    // If user has permissions in database, return them
+    if (existingPermissions) {
+      return { data: existingPermissions, error: null }
+    }
+
+    // If no permissions exist, load from company_roles based on user's role
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role, company_id')
+      .eq('id', userId)
+      .single()
+
+    if (!userData) {
+      return { data: null, error: null }
+    }
+
+    // Get permissions from company_roles
+    const { data: companyRole } = await supabase
+      .from('company_roles')
+      .select('permissions')
+      .eq('company_id', userData.company_id)
+      .eq('role_name', userData.role)
+      .is('deleted_at', null)
+      .single()
+
+    if (companyRole && companyRole.permissions) {
+      // Return permissions from company_roles (as UserPermissions type)
+      return { 
+        data: {
+          user_id: userId,
+          ...companyRole.permissions
+        } as UserPermissions, 
+        error: null 
+      }
+    }
+
+    // Final fallback: use DEFAULT_ROLE_PERMISSIONS
+    const defaultPerms = DEFAULT_ROLE_PERMISSIONS[userData.role as UserRole]
+    if (defaultPerms) {
+      return { 
+        data: {
+          user_id: userId,
+          ...defaultPerms
+        } as UserPermissions, 
+        error: null 
+      }
+    }
+
+    return { data: null, error: null }
   } catch (error) {
     console.error('Failed to fetch user permissions:', error)
     return createErrorResponse(error)

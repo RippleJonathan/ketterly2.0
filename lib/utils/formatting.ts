@@ -60,3 +60,15 @@ export function truncate(text: string, maxLength: number): string {
 export function formatPercent(value: number, decimals: number = 0): string {
   return `${(value * 100).toFixed(decimals)}%`
 }
+
+/**
+ * Format a date as a readable string
+ */
+export function formatDate(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  return dateObj.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}

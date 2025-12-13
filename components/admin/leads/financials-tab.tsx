@@ -86,6 +86,32 @@ export function FinancialsTab({ leadId }: FinancialsTabProps) {
     <div className="space-y-6">
       {/* Profitability Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Quote + Change Orders (Revenue Source) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Revenue (Estimate)</CardTitle>
+            <FileText className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {formatCurrency(summary.estimated_revenue)}
+            </div>
+            <div className="text-xs space-y-0.5 mt-2">
+              <p className="text-gray-600">
+                Quote: {formatCurrency(summary.quote_total)}
+              </p>
+              {summary.change_orders_total > 0 && (
+                <p className="text-green-600">
+                  + Change Orders: {formatCurrency(summary.change_orders_total)}
+                </p>
+              )}
+            </div>
+            {!summary.has_quote && (
+              <Badge variant="outline" className="mt-2">No Quote Yet</Badge>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Estimated Profit */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -104,29 +130,8 @@ export function FinancialsTab({ leadId }: FinancialsTabProps) {
               {getProfitabilityBadge()}
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              Quote + Change Orders - Costs
+              Revenue - Costs
             </p>
-          </CardContent>
-        </Card>
-
-        {/* Revenue */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(summary.estimated_revenue)}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Quote: {formatCurrency(summary.quote_total)}
-            </p>
-            {summary.change_orders_total > 0 && (
-              <p className="text-xs text-gray-500">
-                + Change Orders: {formatCurrency(summary.change_orders_total)}
-              </p>
-            )}
           </CardContent>
         </Card>
 
@@ -140,51 +145,64 @@ export function FinancialsTab({ leadId }: FinancialsTabProps) {
             <div className="text-2xl font-bold text-gray-900">
               {formatCurrency(summary.total_costs)}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Materials: {formatCurrency(summary.material_costs)}
-            </p>
-            <p className="text-xs text-gray-500">
-              Labor: {formatCurrency(summary.labor_costs)}
-            </p>
+            <div className="text-xs space-y-0.5 mt-2">
+              <p className="text-gray-600">
+                Materials: {formatCurrency(summary.material_costs)}
+              </p>
+              <p className="text-gray-600">
+                Labor: {formatCurrency(summary.labor_costs)}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Payments Status */}
+        {/* Collection Status */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {summary.has_invoice ? 'Collection Status' : 'Invoicing Status'}
-            </CardTitle>
-            <FileText className="h-4 w-4 text-purple-600" />
+            <CardTitle className="text-sm font-medium">Payment Status</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            {summary.has_invoice ? (
-              <>
-                <div className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(summary.payments_received)}
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(summary.payments_received)}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Collected from customer
+            </p>
+            {summary.estimated_revenue > 0 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-green-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, (summary.payments_received / summary.estimated_revenue) * 100)}%`
+                    }}
+                  />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Invoiced: {formatCurrency(summary.invoiced_total)}
+                  {((summary.payments_received / summary.estimated_revenue) * 100).toFixed(1)}% of estimate
                 </p>
-                {summary.outstanding_balance > 0 && (
-                  <p className="text-xs text-red-600">
-                    Outstanding: {formatCurrency(summary.outstanding_balance)}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="text-lg font-medium text-gray-500 mt-2">
-                  Not Invoiced Yet
-                </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Ready to invoice
-                </p>
-              </>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Estimate Workflow Info */}
+      {summary.has_quote && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-blue-900 mb-1">Estimate-Based Workflow</h4>
+              <p className="text-sm text-blue-800">
+                Financials are calculated from your <strong>estimate (quote + change orders)</strong>.
+                Commissions are based on this total revenue. No separate invoice needed for calculations.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Actual vs Estimated Comparison (if has payments) */}
       {summary.has_payments && summary.payments_cleared > 0 && (

@@ -360,36 +360,62 @@ export async function updateQuoteLineItems(
   lineItems: LineItemFormData[]
 ): Promise<ApiResponse<QuoteLineItem[]>> {
   try {
-    // Delete existing line items
-    const { error: deleteError } = await supabase
+    const supabase = createClient()
+    
+    // Get existing line items
+    const { data: existingItems } = await supabase
       .from('quote_line_items')
-      .delete()
+      .select('id')
       .eq('quote_id', quoteId)
+    
+    const existingIds = existingItems?.map(item => item.id) || []
+    
+    // Prepare line items for upsert
+    const lineItemsData: any[] = lineItems.map((item, index) => {
+      const baseItem = {
+        quote_id: quoteId,
+        category: item.category,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        line_total: item.quantity * item.unit_price,
+        cost_per_unit: item.cost_per_unit,
+        supplier: item.supplier,
+        notes: item.notes,
+        sort_order: index,
+      }
+      
+      // If item has an id and it exists, include it for update
+      if (item.id && existingIds.includes(item.id)) {
+        return { ...baseItem, id: item.id }
+      }
+      
+      return baseItem
+    })
 
-    if (deleteError) throw deleteError
-
-    // Insert new line items
-    const lineItemsInsert: QuoteLineItemInsert[] = lineItems.map((item, index) => ({
-      quote_id: quoteId,
-      category: item.category,
-      description: item.description,
-      quantity: item.quantity,
-      unit: item.unit,
-      unit_price: item.unit_price,
-      line_total: item.quantity * item.unit_price,
-      cost_per_unit: item.cost_per_unit,
-      supplier: item.supplier,
-      notes: item.notes,
-      sort_order: index,
-    }))
-
-    const { data, error } = await supabase
+    // Upsert line items (update existing, insert new)
+    const { data: upsertedItems, error: upsertError } = await supabase
       .from('quote_line_items')
-      .insert(lineItemsInsert)
+      .upsert(lineItemsData, { onConflict: 'id' })
       .select()
 
-    if (error) throw error
-    return { data, error: null }
+    if (upsertError) throw upsertError
+    
+    // Delete items that are no longer in the list
+    const newIds = upsertedItems?.map(item => item.id) || []
+    const idsToDelete = existingIds.filter(id => !newIds.includes(id))
+    
+    if (idsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('quote_line_items')
+        .delete()
+        .in('id', idsToDelete)
+      
+      if (deleteError) throw deleteError
+    }
+
+    return { data: upsertedItems, error: null }
   } catch (error: any) {
     console.error('Failed to update line items:', error)
     return { data: null, error: error.message || 'Failed to update line items' }

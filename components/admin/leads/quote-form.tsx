@@ -28,9 +28,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, Trash2, GripVertical } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Database } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import { MaterialPickerDialog } from './material-picker-dialog'
+import { Material } from '@/lib/types/materials'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 
 interface QuoteFormProps {
   leadId: string
@@ -42,9 +45,11 @@ interface QuoteFormProps {
 
 export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: QuoteFormProps) {
   const { user } = useAuth()
+  const { data: company } = useCurrentCompany()
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
   const updateLineItems = useUpdateQuoteLineItems()
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false)
   
   const isEditing = !!existingQuote
 
@@ -191,6 +196,20 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
     })
   }
 
+  const handleMaterialSelected = (material: Material) => {
+    // Add material as a line item with smart defaults
+    append({
+      category: LineItemCategory.MATERIALS,
+      description: `${material.name}${material.manufacturer ? ` - ${material.manufacturer}` : ''}`,
+      quantity: material.default_per_square || 1,
+      unit: material.unit,
+      unit_price: material.current_cost || 0,
+      cost_per_unit: material.current_cost || 0,
+      supplier: '',
+      notes: material.product_line || '',
+    })
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -273,10 +292,21 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Line Items</h3>
-              <Button type="button" onClick={addLineItem} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Line Item
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  onClick={() => setMaterialPickerOpen(true)} 
+                  size="sm"
+                  variant="outline"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  Add from Materials DB
+                </Button>
+                <Button type="button" onClick={addLineItem} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Blank Item
+                </Button>
+              </div>
             </div>
 
             {fields.length === 0 && (
@@ -492,6 +522,16 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* Material Picker Dialog */}
+      {company && (
+        <MaterialPickerDialog
+          open={materialPickerOpen}
+          onOpenChange={setMaterialPickerOpen}
+          onSelectMaterial={handleMaterialSelected}
+          companyId={company.id}
+        />
+      )}
     </Dialog>
   )
 }

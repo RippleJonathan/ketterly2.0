@@ -92,7 +92,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: 'photos', label: 'Photos', icon: Image },
     { id: 'notes', label: 'Notes & Activity', icon: StickyNote },
     { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'payments', label: 'Invoice/Payments', icon: CreditCard },
     { id: 'financials', label: 'Financials', icon: TrendingUp },
     { id: 'commissions', label: 'Commissions', icon: Banknote },
     { id: 'team', label: 'Team', icon: Users },

@@ -6,10 +6,11 @@ import { useQuotes, useQuote } from '@/lib/hooks/use-quotes'
 import { useGenerateQuotePDF } from '@/lib/hooks/use-generate-quote-pdf'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, FileText, Mail, Download, Check, X, Copy, Trash2, Link as LinkIcon, ExternalLink, PenTool } from 'lucide-react'
+import { Plus, FileText, Mail, Download, Check, X, Copy, Trash2, Link as LinkIcon, ExternalLink, PenTool, Lock, Unlock, FileDown, AlertCircle, TrendingUp, TrendingDown, Edit3 } from 'lucide-react'
 import { QuoteStatus } from '@/lib/types/quotes'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { format } from 'date-fns'
@@ -44,6 +45,8 @@ import {
 import { QuoteForm } from './quote-form'
 import { CompanySignatureDialog } from '@/components/admin/quotes/company-signature-dialog'
 import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
+import { useQuery } from '@tanstack/react-query'
+import { compareQuoteToContract } from '@/lib/api/contracts'
 
 interface EstimatesTabProps {
   leadId: string
@@ -230,18 +233,21 @@ interface QuoteCardProps {
 
 function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownloadPDF }: QuoteCardProps) {
   const { user } = useAuth()
-  const markAsSent = useMarkQuoteAsSent()
-  const acceptQuote = useAcceptQuote()
-  const declineQuote = useDeclineQuote()
+  const sendQuoteEmail = useSendQuoteEmail()
   const duplicateQuote = useDuplicateQuote()
   const deleteQuote = useDeleteQuote()
-  const generateShareLink = useGenerateQuoteShareLink()
-  const sendQuoteEmail = useSendQuoteEmail()
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState<string>('')
   const [copied, setCopied] = useState(false)
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false)
+
+  // Get contract comparison if quote is accepted
+  const { data: comparisonData } = useQuery({
+    queryKey: ['contract-comparison', quote.id],
+    queryFn: () => compareQuoteToContract(quote.id),
+    enabled: quote.status === 'accepted',
+  })
 
   const statusConfig = {
     draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800' },
@@ -280,6 +286,10 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   const isExpired =
     new Date(quote.valid_until) < new Date() && quote.status !== 'accepted'
 
+  const comparison = comparisonData?.data
+  const hasContractChanges = comparison?.has_changes || false
+  const totalChange = comparison?.total_change || 0
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       {/* Card Header */}
@@ -289,16 +299,20 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {quote.quote_number}
-              </h3>
+            <div className="flex items-center gap-2 mb-2">
               <Badge className={status.color}>{status.label}</Badge>
               {isExpired && (
                 <Badge className="bg-orange-100 text-orange-800">Expired</Badge>
               )}
               {quote.option_label && (
                 <Badge variant="outline">{quote.option_label}</Badge>
+              )}
+              {/* Contract Change Indicators */}
+              {hasContractChanges && (
+                <Badge className={`flex items-center gap-1 ${totalChange > 0 ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
+                  {totalChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {totalChange > 0 ? '+' : ''}{formatCurrency(totalChange)} from contract
+                </Badge>
               )}
             </div>
             <p className="text-gray-900 font-medium mb-1">{quote.title}</p>
@@ -331,6 +345,85 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
       {/* Expanded Details */}
       {isExpanded && (
         <div className="border-t border-gray-200 p-6 bg-gray-50">
+          {/* Contract Comparison */}
+          {comparison && (
+            <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900">Signed Contract vs Current Estimate</h4>
+                    <p className="text-sm text-blue-700">
+                      Contract #{comparison.contract.contract_number} • Signed {format(new Date(comparison.contract.contract_date), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                </div>
+                {hasContractChanges && (
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => {
+                      // TODO: Generate change order
+                      toast.info('Change order generation coming soon!')
+                    }}
+                  >
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Generate Change Order
+                  </Button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="bg-white rounded-lg p-3">
+                  <p className="text-xs text-gray-600 mb-1">Original Contract</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatCurrency(comparison.contract.original_total)}
+                  </p>
+                </div>
+                
+                <div className="bg-white rounded-lg p-3">
+                  <p className="text-xs text-gray-600 mb-1">Current Estimate</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatCurrency(quote.total_amount)}
+                  </p>
+                </div>
+                
+                <div className={`rounded-lg p-3 ${totalChange > 0 ? 'bg-green-100' : totalChange < 0 ? 'bg-orange-100' : 'bg-gray-100'}`}>
+                  <p className="text-xs text-gray-700 mb-1">Change</p>
+                  <p className={`text-lg font-bold ${totalChange > 0 ? 'text-green-700' : totalChange < 0 ? 'text-orange-700' : 'text-gray-700'}`}>
+                    {totalChange > 0 ? '+' : ''}{formatCurrency(totalChange)}
+                  </p>
+                </div>
+              </div>
+
+              {hasContractChanges && (
+                <div className="mt-4 text-sm space-y-2">
+                  {comparison.added_items.length > 0 && (
+                    <p className="text-green-700">
+                      ✓ <strong>{comparison.added_items.length}</strong> item(s) added
+                    </p>
+                  )}
+                  {comparison.removed_items.length > 0 && (
+                    <p className="text-orange-700">
+                      - <strong>{comparison.removed_items.length}</strong> item(s) removed
+                    </p>
+                  )}
+                  {comparison.modified_items.length > 0 && (
+                    <p className="text-blue-700">
+                      ✎ <strong>{comparison.modified_items.length}</strong> item(s) modified
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!hasContractChanges && (
+                <p className="text-sm text-green-700 mt-3">
+                  ✓ Estimate matches signed contract
+                </p>
+              )}
+            </div>
+          )}
+          
           {/* Line Items */}
           {quote.line_items && quote.line_items.length > 0 && (
             <div className="mb-6">
@@ -443,11 +536,6 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Debug: Show current status */}
-            <div className="w-full text-xs text-gray-500 mb-2">
-              Status: {quote.status}
-            </div>
-            
             {quote.status === 'draft' && (
               <>
                 <Button
@@ -459,14 +547,18 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                   <Mail className="h-4 w-4 mr-2" />
                   {sendQuoteEmail.isPending ? 'Sending...' : 'Send to Customer'}
                 </Button>
-                <Button size="sm" variant="outline" onClick={onEdit}>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={onEdit}
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
               </>
             )}
 
-            {(quote.status === 'sent' || quote.status === 'viewed') && (
+            {quote.status === 'sent' && (
               <>
                 <Button
                   size="sm"
@@ -521,10 +613,45 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               </>
             )}
 
-            <Button 
-              size="sm" 
+            {quote.status === 'accepted' && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onEdit}
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Edit Estimate
+                </Button>
+                {hasContractChanges && (
+                  <Button
+                    size="sm"
+                    className="bg-orange-600 hover:bg-orange-700"
+                    onClick={() => {
+                      toast.info('Change order generation coming soon!')
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Change Order
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    toast.info('Invoice generation coming soon!')
+                  }}
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Generate Invoice
+                </Button>
+              </>
+            )}
+
+            <Button
+              size="sm"
               variant="outline"
-              onClick={onDownloadPDF}
+              onClick={() => onDownloadPDF()}
               disabled={isGenerating}
             >
               <Download className="h-4 w-4 mr-2" />

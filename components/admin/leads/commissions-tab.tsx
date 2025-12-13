@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { AlertTriangle } from 'lucide-react'
 
 interface CommissionsTabProps {
   lead: Lead
@@ -116,7 +117,9 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   })
 
   // Calculate base amount from financials (quote + change orders = revenue)
-  const defaultBaseAmount = financialsData?.data?.estimated_revenue || 0
+  const defaultBaseAmount = financialsData?.data?.summary?.estimated_revenue || 0
+  const quoteTotal = financialsData?.data?.summary?.quote_total || 0
+  const changeOrdersTotal = financialsData?.data?.summary?.change_orders_total || 0
 
   return (
     <div className="space-y-6">
@@ -133,6 +136,50 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
           </Button>
         )}
       </div>
+
+      {/* Estimate Revenue Info */}
+      {defaultBaseAmount > 0 && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h4 className="font-semibold text-green-900 mb-2">Commission Base Amount</h4>
+              <div className="text-sm text-green-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span>Estimate (Quote):</span>
+                  <span className="font-medium">{formatCurrency(quoteTotal)}</span>
+                </div>
+                {changeOrdersTotal > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span>+ Approved Change Orders:</span>
+                    <span className="font-medium text-green-600">
+                      +{formatCurrency(changeOrdersTotal)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-green-300 pt-1 mt-1">
+                  <span className="font-semibold">Total Revenue:</span>
+                  <span className="font-bold text-lg">{formatCurrency(defaultBaseAmount)}</span>
+                </div>
+              </div>
+            </div>
+            <DollarSign className="h-8 w-8 text-green-600" />
+          </div>
+          <p className="text-xs text-green-700 mt-2">
+            💡 Commissions calculate automatically from estimate total (quote + change orders)
+          </p>
+        </div>
+      )}
+
+      {!defaultBaseAmount && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-yellow-800">
+            <AlertTriangle className="h-5 w-5" />
+            <p className="text-sm font-medium">
+              No estimate created yet. Create a quote in the Estimates tab to calculate commissions.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

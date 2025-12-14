@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Loader2,
+  Download,
 } from 'lucide-react'
+import { useGenerateChangeOrderPDF } from '@/lib/hooks/use-generate-change-order-pdf'
 
 interface FinancialsTabProps {
   leadId: string
@@ -28,6 +30,7 @@ interface FinancialsTabProps {
 export function FinancialsTab({ leadId }: FinancialsTabProps) {
   const { data: financialsResponse, isLoading } = useLeadFinancials(leadId)
   const [view, setView] = useState<'overview' | 'revenue' | 'costs'>('overview')
+  const { generateAndDownload, isGenerating } = useGenerateChangeOrderPDF()
 
   const financials = financialsResponse?.data
 
@@ -401,6 +404,7 @@ export function FinancialsTab({ leadId }: FinancialsTabProps) {
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -415,6 +419,22 @@ export function FinancialsTab({ leadId }: FinancialsTabProps) {
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(co.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => generateAndDownload(co as any)}
+                            disabled={isGenerating}
+                            className="h-8 w-8 p-0"
+                          >
+                            {isGenerating ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">Download PDF</span>
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

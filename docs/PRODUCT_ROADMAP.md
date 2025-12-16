@@ -7,64 +7,63 @@
 
 ## 🚀 PRE-LAUNCH PRIORITIES
 
-These features must be completed before production launch:
+**Ordered by development complexity (easiest → hardest)**
 
-### 1. **Push Notifications (OneSignal)**
-- [ ] Integrate OneSignal SDK
-- [ ] Set up notification triggers for key events
-- [ ] Test notification delivery across devices
+### 1. **Navigation Cleanup** ⚡ QUICK WIN (2-4 hours)
+**Difficulty:** ⭐ Easy | **Impact:** High
 
-### 2. **Notification Preferences UI**
-- [ ] Add notification settings to user profile
-- [ ] Opt-in toggles for push notifications
-- [ ] Opt-in toggles for email notifications
-- [ ] Save preferences to user settings
+- [ ] Remove unused navigation links
+- [ ] Role-based navigation (show/hide based on permissions)
+- [ ] Organize by user workflow:
+  - Sales: Leads, Estimates, Quotes, Follow-ups
+  - Production: Schedule, Work Orders, Projects
+  - Office: Invoicing, Payments, Reports
+  - Admin: Settings, Users, Permissions, Analytics
 
-### 3. **Quick Add Lead Button**
+**Why Easy:** Just conditional rendering based on existing permissions system.
+
+---
+
+### 2. **Quick Add Lead Button** ⚡ QUICK WIN (3-5 hours)
+**Difficulty:** ⭐ Easy | **Impact:** High
+
 - [ ] Add "+ Add Lead" button to main navigation/top bar
 - [ ] Modal-based form (doesn't navigate away from current page)
 - [ ] Accessible from any page in the app
 - [ ] Quick capture: name, phone, address, source
 
-### 4. **Global Search Functionality**
-- [ ] Search bar in header/navigation
-- [ ] Search across:
-  - Customer names
-  - Addresses
-  - Phone numbers
-  - Email addresses
-- [ ] Real-time search results
-- [ ] Navigate directly to customer/lead page from results
+**Why Easy:** Reuse existing `LeadForm` component, just add modal wrapper in layout.
 
-### 5. **Calendar System**
-- [ ] Basic calendar view (day/week/month)
-- [ ] Event types:
-  - Inspections
-  - Appointments
-  - Production schedules
-- [ ] Real-time updates (all reps see same schedule)
-- [ ] Drag-and-drop rescheduling
-- [ ] Color-coded by event type or user
-- [ ] Filter by user, team, or location
+---
 
-### 6. **Locations/Teams Management**
-- [ ] Create locations/teams in settings
-- [ ] Assign users to locations/teams
-- [ ] Filter leads/jobs by location
-- [ ] Location-specific permissions
-- [ ] "All locations" vs "specific location" views
+### 3. **Notification Preferences UI** ⚡ QUICK WIN (4-6 hours)
+**Difficulty:** ⭐ Easy | **Impact:** Medium
 
-### 7. **Multi-User Job Assignment**
-- [ ] Assign multiple users to a single job:
-  - Sales Rep
-  - Marketing Rep
-  - Sales Manager
-  - Project Manager
-- [ ] Role-specific commission splits per job
-- [ ] Per-job permissions (who can edit/view)
-- [ ] Activity log shows which user performed which action
+- [ ] Add notification settings to user profile
+- [ ] Opt-in toggles for push notifications
+- [ ] Opt-in toggles for email notifications
+- [ ] Save preferences to user settings
 
-### 8. **Automated Job Status Updates**
+**Why Easy:** Simple form with toggles, add columns to `users` table, use existing form patterns.
+
+---
+
+### 4. **Estimate Templates** (6-8 hours)
+**Difficulty:** ⭐⭐ Medium | **Impact:** High
+
+- [ ] Create estimate templates (similar to material/work order templates)
+- [ ] Pre-configured line items by service type
+- [ ] Template categories (repair, replacement, new construction)
+- [ ] Clone and customize templates
+- [ ] Admin-only template management
+
+**Why Medium:** Copy existing material template pattern, database schema already familiar.
+
+---
+
+### 5. **Automated Job Status Updates** (8-12 hours)
+**Difficulty:** ⭐⭐ Medium | **Impact:** High
+
 - [ ] Auto-triggers for status changes:
   - Lead → Estimate Sent (when estimate sent)
   - Estimate Sent → Approved (when signed)
@@ -76,23 +75,72 @@ These features must be completed before production launch:
 - [ ] Status change notifications to assigned users
 - [ ] Audit log of all status changes
 
-### 9. **Navigation Cleanup**
-- [ ] Remove unused navigation links
-- [ ] Role-based navigation (show/hide based on permissions)
-- [ ] Organize by user workflow:
-  - Sales: Leads, Estimates, Quotes, Follow-ups
-  - Production: Schedule, Work Orders, Projects
-  - Office: Invoicing, Payments, Reports
-  - Admin: Settings, Users, Permissions, Analytics
+**Why Medium:** Logic already exists in various places, just needs consolidation and triggers.
 
-### 10. **Estimate Templates**
-- [ ] Create estimate templates (similar to material/work order templates)
-- [ ] Pre-configured line items by service type
-- [ ] Template categories (repair, replacement, new construction)
-- [ ] Clone and customize templates
-- [ ] Admin-only template management
+---
 
-### 11. **Dashboard Upgrade**
+### 6. **Authentication & Middleware** (8-12 hours)
+**Difficulty:** ⭐⭐ Medium | **Impact:** Critical
+
+- [ ] Protect all admin routes with middleware
+- [ ] Session management (auto-logout on inactivity)
+- [ ] Role-based route access
+- [ ] Redirect unauthorized users
+- [ ] Password reset flow
+- [ ] Email verification on signup
+
+**Why Medium:** Next.js middleware is straightforward, Supabase Auth already configured.
+
+---
+
+### 7. **Global Search Functionality** (12-16 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** High
+
+- [ ] Search bar in header/navigation
+- [ ] Search across:
+  - Customer names
+  - Addresses
+  - Phone numbers
+  - Email addresses
+- [ ] Real-time search results
+- [ ] Navigate directly to customer/lead page from results
+
+**Why Medium-Hard:** Needs full-text search (Postgres), debouncing, result ranking, UI polish.
+
+---
+
+### 8. **Locations/Teams Management** (12-20 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** Medium
+
+- [ ] Create locations/teams in settings
+- [ ] Assign users to locations/teams
+- [ ] Filter leads/jobs by location
+- [ ] Location-specific permissions
+- [ ] "All locations" vs "specific location" views
+
+**Why Medium-Hard:** New database tables, RLS policies, filter logic across entire app.
+
+---
+
+### 9. **Multi-User Job Assignment** (16-24 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** High
+
+- [ ] Assign multiple users to a single job:
+  - Sales Rep
+  - Marketing Rep
+  - Sales Manager
+  - Project Manager
+- [ ] Role-specific commission splits per job
+- [ ] Per-job permissions (who can edit/view)
+- [ ] Activity log shows which user performed which action
+
+**Why Medium-Hard:** Junction table, complex commission calculations, permission checks everywhere.
+
+---
+
+### 10. **Dashboard Upgrade** (20-30 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** High
+
 - [ ] User-specific widgets:
   - My leads (sales reps)
   - My schedule (all users)
@@ -106,72 +154,114 @@ These features must be completed before production launch:
 - [ ] Customizable widget layout (drag-and-drop)
 - [ ] Real-time data updates
 
-### 12. **Authentication & Middleware**
-- [ ] Protect all admin routes with middleware
-- [ ] Session management (auto-logout on inactivity)
-- [ ] Role-based route access
-- [ ] Redirect unauthorized users
-- [ ] Password reset flow
-- [ ] Email verification on signup
+**Why Hard:** Many complex queries, chart components, real-time subscriptions, drag-drop library.
+
+---
+
+### 11. **Calendar System** (30-40 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** Critical
+
+- [ ] Basic calendar view (day/week/month)
+- [ ] Event types:
+  - Inspections
+  - Appointments
+  - Production schedules
+- [ ] Real-time updates (all reps see same schedule)
+- [ ] Drag-and-drop rescheduling
+- [ ] Color-coded by event type or user
+- [ ] Filter by user, team, or location
+
+**Why Hard:** Complex UI library (FullCalendar/react-big-calendar), real-time sync, drag-drop, conflicts.
+
+---
+
+### 12. **Push Notifications (OneSignal)** (16-24 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** Medium
+
+- [ ] Integrate OneSignal SDK
+- [ ] Set up notification triggers for key events
+- [ ] Test notification delivery across devices
+- [ ] Handle notification permissions
+- [ ] Deep linking from notifications
+
+**Why Medium-Hard:** Third-party SDK, device testing, notification strategy, edge cases.
 
 ---
 
 ## 💡 NICE-TO-HAVE FEATURES
 
-Features to implement after launch (ordered by priority):
+**Ordered by development complexity (easiest → hardest)**
 
-### **Phase 1: Customer Communication**
+---
 
-#### Email Drip Campaigns
-- [ ] Create campaign templates
-- [ ] Trigger-based campaigns (new lead, post-inspection, etc.)
-- [ ] Schedule delays between emails
-- [ ] Track open rates, click rates
-- [ ] Unsubscribe management
+### **1. Lead Form Address Autocomplete** ⚡ QUICK WIN (2-3 hours)
+**Difficulty:** ⭐ Easy | **Impact:** Medium
 
-#### Customizable Customer Emails
+- [ ] Google Maps API integration (already have API key)
+- [ ] Autocomplete as user types
+- [ ] Validate and format addresses
+- [ ] Extract city/state/zip automatically
+- [ ] Geocode for map display
+
+**Why Easy:** Google Places API straightforward, just add autocomplete component to form.
+
+---
+
+### **2. Customizable Customer Emails** ⚡ QUICK WIN (4-6 hours)
+**Difficulty:** ⭐ Easy | **Impact:** Medium
+
 - [ ] Email template editor
 - [ ] Variable placeholders (customer name, address, etc.)
 - [ ] Company branding (logo, colors)
 - [ ] Preview before sending
 - [ ] Save custom templates
 
-#### Two-Way Communication
+**Why Easy:** Rich text editor component (TipTap/Quill), variable replacement, store in DB.
+
+---
+
+### **3. Lead Detail Page Redesign** (6-10 hours)
+**Difficulty:** ⭐⭐ Medium | **Impact:** Medium
+
+- [ ] Reorganize sections for clarity
+- [ ] Collapsible sections
+- [ ] Quick actions at top
+- [ ] Timeline view of all activities
+- [ ] Related documents/photos gallery
+
+**Why Medium:** UI/UX work, existing components just need rearranging.
+
+---
+
+### **4. Two-Way Communication** (12-16 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** High
+
 - [ ] Add notes to activities
 - [ ] Respond to customer messages within CRM
 - [ ] Notifications when customer responds
-- [ ] SMS integration (Twilio)
+- [ ] SMS integration (Twilio already configured)
 - [ ] Email thread history
 
-### **Phase 2: Field Operations**
+**Why Medium-Hard:** Twilio integration, webhook handling, real-time notifications.
 
-#### Door Knocking Feature
-- [ ] Map view of neighborhoods
-- [ ] Mark houses as knocked/not home/interested
-- [ ] Route optimization
-- [ ] Territory assignment
-- [ ] Daily activity tracking
-- [ ] Lead capture from field
+---
 
-#### Subcontractor Dashboard
-- [ ] Sub-specific login
-- [ ] View assigned jobs on calendar
-- [ ] Access work orders
-- [ ] Upload progress photos
-- [ ] Mark tasks complete
-- [ ] Submit time/materials used
-- [ ] View payment history
+### **5. Email Drip Campaigns** (16-20 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** High
 
-#### Lead Form Address Autocomplete
-- [ ] Google Maps API integration
-- [ ] Autocomplete as user types
-- [ ] Validate and format addresses
-- [ ] Extract city/state/zip automatically
-- [ ] Geocode for map display
+- [ ] Create campaign templates
+- [ ] Trigger-based campaigns (new lead, post-inspection, etc.)
+- [ ] Schedule delays between emails
+- [ ] Track open rates, click rates
+- [ ] Unsubscribe management
 
-### **Phase 3: Reporting & Analytics**
+**Why Medium-Hard:** Scheduled jobs (cron/edge functions), email tracking pixels, campaign builder UI.
 
-#### Management Reports
+---
+
+### **6. Management Reports** (16-24 hours)
+**Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** High
+
 - [ ] Sales pipeline report
 - [ ] Conversion rate by source
 - [ ] Revenue by service type
@@ -181,35 +271,58 @@ Features to implement after launch (ordered by priority):
 - [ ] Custom date ranges
 - [ ] Export to PDF/Excel
 
-#### Lead Detail Page Redesign
-- [ ] Reorganize sections for clarity
-- [ ] Collapsible sections
-- [ ] Quick actions at top
-- [ ] Timeline view of all activities
-- [ ] Related documents/photos gallery
+**Why Medium-Hard:** Complex SQL queries, chart libraries, PDF generation, Excel export.
 
-### **Phase 4: Multi-Tenant & Monetization**
+---
 
-#### Marketing Pages
-- [ ] Public landing page
-- [ ] Features page
-- [ ] Pricing page
-- [ ] Demo request form
-- [ ] Customer testimonials
-- [ ] Blog/resources section
+### **7. Door Knocking Feature** (20-30 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** Medium
 
-#### Pricing & Billing System
-- [ ] Stripe integration (already in place)
-- [ ] Subscription tiers (Basic/Pro/Enterprise)
-- [ ] Company signup flow
-- [ ] Company admin onboarding wizard
-- [ ] Credit card capture
-- [ ] Invoice generation for subscriptions
-- [ ] Usage-based billing (optional)
+- [ ] Map view of neighborhoods (Google Maps)
+- [ ] Mark houses as knocked/not home/interested
+- [ ] Route optimization
+- [ ] Territory assignment
+- [ ] Daily activity tracking
+- [ ] Lead capture from field
 
-### **Phase 5: Workflow Automation**
+**Why Hard:** Google Maps integration, geofencing, route algorithms, mobile-optimized UI.
 
-#### Employee Onboarding Workflow
+---
+
+### **8. Progressive Web App (PWA)** (20-30 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** High
+
+- [ ] PWA manifest configuration
+- [ ] Offline capability (service worker)
+- [ ] Install prompt
+- [ ] Push notification support
+- [ ] Sticky action buttons (bottom navigation)
+- [ ] Touch-optimized UI
+- [ ] Camera access for photos
+- [ ] Geolocation for check-ins
+
+**Why Hard:** Service workers, offline data sync, cache strategies, extensive testing.
+
+---
+
+### **9. Subcontractor Dashboard** (30-40 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** Medium
+
+- [ ] Sub-specific login
+- [ ] View assigned jobs on calendar
+- [ ] Access work orders
+- [ ] Upload progress photos
+- [ ] Mark tasks complete
+- [ ] Submit time/materials used
+- [ ] View payment history
+
+**Why Hard:** Separate user type, different permission model, new workflows, photo uploads.
+
+---
+
+### **10. Employee Onboarding Workflow** (30-40 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** Medium
+
 - [ ] New user welcome screen
 - [ ] Required document review
 - [ ] E-signature on 1099 agreements
@@ -218,7 +331,13 @@ Features to implement after launch (ordered by priority):
 - [ ] Lock CRM access until complete
 - [ ] Admin approval step
 
-#### Subcontractor Onboarding
+**Why Hard:** Workflow engine, document storage, e-signature integration, video hosting.
+
+---
+
+### **11. Subcontractor Onboarding** (30-40 hours)
+**Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** Low
+
 - [ ] Sub-specific signup flow
 - [ ] Master sub agreement signature
 - [ ] W-2 upload
@@ -227,17 +346,40 @@ Features to implement after launch (ordered by priority):
 - [ ] Verification workflow
 - [ ] Admin approval before job access
 
-### **Phase 6: Progressive Web App (PWA)**
+**Why Hard:** Similar to employee onboarding, compliance requirements, document verification.
 
-#### Mobile Optimization
-- [ ] PWA manifest configuration
-- [ ] Offline capability
-- [ ] Install prompt
-- [ ] Push notification support
-- [ ] Sticky action buttons (bottom navigation)
-- [ ] Touch-optimized UI
-- [ ] Camera access for photos
-- [ ] Geolocation for check-ins
+---
+
+### **12. Marketing Pages** (40+ hours)
+**Difficulty:** ⭐⭐⭐⭐⭐ Very Hard | **Impact:** Critical (for SaaS growth)
+
+- [ ] Public landing page
+- [ ] Features page
+- [ ] Pricing page
+- [ ] Demo request form
+- [ ] Customer testimonials
+- [ ] Blog/resources section
+- [ ] SEO optimization
+- [ ] Analytics tracking
+
+**Why Very Hard:** Full marketing site, copywriting, design, SEO, separate from main app.
+
+---
+
+### **13. Pricing & Billing System** (40+ hours)
+**Difficulty:** ⭐⭐⭐⭐⭐ Very Hard | **Impact:** Critical (for SaaS monetization)
+
+- [ ] Stripe integration (enhance existing)
+- [ ] Subscription tiers (Basic/Pro/Enterprise)
+- [ ] Company signup flow
+- [ ] Company admin onboarding wizard
+- [ ] Credit card capture
+- [ ] Invoice generation for subscriptions
+- [ ] Usage-based billing (optional)
+- [ ] Dunning management (failed payments)
+- [ ] Upgrade/downgrade flows
+
+**Why Very Hard:** Payment processing, subscription logic, compliance, testing, edge cases.
 
 ---
 

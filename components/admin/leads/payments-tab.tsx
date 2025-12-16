@@ -17,13 +17,20 @@ import {
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { format } from 'date-fns'
-import { Plus, FileText, DollarSign, Download, Mail, Edit, Trash2 } from 'lucide-react'
+import { Plus, FileText, DollarSign, Download, Mail, Trash2, MoreVertical, Edit } from 'lucide-react'
 import { InvoiceStatus, PaymentMethod } from '@/lib/types/invoices'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { CreateInvoiceDialog } from './create-invoice-dialog'
 import { InvoiceBuilder } from '@/components/admin/invoices/invoice-builder'
+import { EditInvoiceDialog } from '@/components/admin/invoices/edit-invoice-dialog'
 import { RecordPaymentDialog } from './record-payment-dialog'
 import { SendInvoiceEmailDialog } from './send-invoice-email-dialog'
-import { EditInvoiceDialog } from './edit-invoice-dialog'
 import { EditPaymentDialog } from './edit-payment-dialog'
 import { toast } from 'sonner'
 import {
@@ -76,7 +83,7 @@ export function PaymentsTab({ leadId }: PaymentsTabProps) {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | undefined>()
   const [selectedInvoice, setSelectedInvoice] = useState<{ id: string; invoice_number: string; balance_due: number } | undefined>()
   const [selectedInvoiceForEmail, setSelectedInvoiceForEmail] = useState<any>()
-  const [selectedInvoiceForEdit, setSelectedInvoiceForEdit] = useState<any>()
+  const [editInvoiceId, setEditInvoiceId] = useState<string | null>(null)
   const [selectedPaymentForEdit, setSelectedPaymentForEdit] = useState<any>()
   const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string; invoice_number: string } | null>(null)
   const [paymentToDelete, setPaymentToDelete] = useState<{ id: string; payment_number: string } | null>(null)
@@ -295,72 +302,76 @@ export function PaymentsTab({ leadId }: PaymentsTabProps) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedInvoiceForEdit(invoice)
-                            setShowEditInvoice(true)
-                          }}
-                          title="Edit Invoice"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {invoice.balance_due > 0 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => {
-                              setSelectedInvoice({
-                                id: invoice.id,
-                                invoice_number: invoice.invoice_number,
-                                balance_due: invoice.balance_due,
-                              })
-                              setShowRecordPayment(true)
-                            }}
-                            title="Record Payment"
-                          >
-                            <DollarSign className="h-4 w-4" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                        )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDownloadPDF(invoice.id, invoice.invoice_number)}
-                          title="Download PDF"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedInvoiceForEmail(invoice)
-                            setShowSendEmail(true)
-                          }}
-                          title="Email Invoice"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        {isAdminOrOffice && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
                             onClick={() => {
-                              setInvoiceToDelete({
-                                id: invoice.id,
-                                invoice_number: invoice.invoice_number,
-                              })
-                              setShowDeleteInvoiceDialog(true)
+                              setEditInvoiceId(invoice.id)
+                              setShowEditInvoice(true)
                             }}
-                            title="Delete Invoice"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Edit Invoice
+                          </DropdownMenuItem>
+                          {invoice.balance_due > 0 && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedInvoice({
+                                    id: invoice.id,
+                                    invoice_number: invoice.invoice_number,
+                                    balance_due: invoice.balance_due,
+                                  })
+                                  setShowRecordPayment(true)
+                                }}
+                              >
+                                <DollarSign className="h-4 w-4 mr-2" />
+                                Record Payment
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDownloadPDF(invoice.id, invoice.invoice_number)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedInvoiceForEmail(invoice)
+                              setShowSendEmail(true)
+                            }}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Email Invoice
+                          </DropdownMenuItem>
+                          {isAdminOrOffice && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInvoiceToDelete({
+                                    id: invoice.id,
+                                    invoice_number: invoice.invoice_number,
+                                  })
+                                  setShowDeleteInvoiceDialog(true)
+                                }}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Invoice
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -521,11 +532,11 @@ export function PaymentsTab({ leadId }: PaymentsTabProps) {
         customerName={selectedInvoiceForEmail?.lead?.full_name}
       />
 
-      {selectedInvoiceForEdit && (
+      {editInvoiceId && (
         <EditInvoiceDialog
           open={showEditInvoice}
           onOpenChange={setShowEditInvoice}
-          invoice={selectedInvoiceForEdit}
+          invoiceId={editInvoiceId}
         />
       )}
 

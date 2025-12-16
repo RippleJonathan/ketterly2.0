@@ -33,15 +33,86 @@ CREATE TABLE IF NOT EXISTS public.invoice_line_items (
   deleted_at TIMESTAMPTZ
 );
 
+-- Add new columns if table already exists (migration update)
+DO $$ 
+BEGIN
+  -- Add unit column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invoice_line_items' 
+    AND column_name = 'unit'
+  ) THEN
+    ALTER TABLE public.invoice_line_items ADD COLUMN unit TEXT DEFAULT 'ea';
+  END IF;
+
+  -- Add source_type column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invoice_line_items' 
+    AND column_name = 'source_type'
+  ) THEN
+    ALTER TABLE public.invoice_line_items 
+    ADD COLUMN source_type TEXT DEFAULT 'additional' NOT NULL;
+    
+    -- Add check constraint
+    ALTER TABLE public.invoice_line_items 
+    ADD CONSTRAINT invoice_line_items_source_type_check 
+    CHECK (source_type IN ('contract', 'change_order', 'additional'));
+  END IF;
+
+  -- Add source_id column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invoice_line_items' 
+    AND column_name = 'source_id'
+  ) THEN
+    ALTER TABLE public.invoice_line_items ADD COLUMN source_id UUID;
+  END IF;
+
+  -- Add category column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invoice_line_items' 
+    AND column_name = 'category'
+  ) THEN
+    ALTER TABLE public.invoice_line_items ADD COLUMN category TEXT;
+  END IF;
+
+  -- Add notes column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invoice_line_items' 
+    AND column_name = 'notes'
+  ) THEN
+    ALTER TABLE public.invoice_line_items ADD COLUMN notes TEXT;
+  END IF;
+
+  -- Add deleted_at column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'invoice_line_items' 
+    AND column_name = 'deleted_at'
+  ) THEN
+    ALTER TABLE public.invoice_line_items ADD COLUMN deleted_at TIMESTAMPTZ;
+  END IF;
+END $$;
+
 -- Indexes
-CREATE INDEX idx_invoice_line_items_invoice_id ON public.invoice_line_items(invoice_id);
-CREATE INDEX idx_invoice_line_items_company_id ON public.invoice_line_items(company_id);
-CREATE INDEX idx_invoice_line_items_source_type ON public.invoice_line_items(source_type);
-CREATE INDEX idx_invoice_line_items_deleted_at ON public.invoice_line_items(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_invoice_line_items_invoice_id ON public.invoice_line_items(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_line_items_company_id ON public.invoice_line_items(company_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_line_items_source_type ON public.invoice_line_items(source_type);
+CREATE INDEX IF NOT EXISTS idx_invoice_line_items_deleted_at ON public.invoice_line_items(deleted_at);
 
 -- RLS
 ALTER TABLE public.invoice_line_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their company's invoice line items" ON public.invoice_line_items;
 CREATE POLICY "Users can view their company's invoice line items"
   ON public.invoice_line_items
   FOR SELECT
@@ -51,6 +122,7 @@ CREATE POLICY "Users can view their company's invoice line items"
     )
   );
 
+DROP POLICY IF EXISTS "Users can create invoice line items for their company" ON public.invoice_line_items;
 CREATE POLICY "Users can create invoice line items for their company"
   ON public.invoice_line_items
   FOR INSERT
@@ -60,6 +132,7 @@ CREATE POLICY "Users can create invoice line items for their company"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update their company's invoice line items" ON public.invoice_line_items;
 CREATE POLICY "Users can update their company's invoice line items"
   ON public.invoice_line_items
   FOR UPDATE
@@ -74,6 +147,7 @@ CREATE POLICY "Users can update their company's invoice line items"
     )
   );
 
+DROP POLICY IF EXISTS "Users can delete their company's invoice line items" ON public.invoice_line_items;
 CREATE POLICY "Users can delete their company's invoice line items"
   ON public.invoice_line_items
   FOR DELETE
@@ -84,6 +158,7 @@ CREATE POLICY "Users can delete their company's invoice line items"
   );
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_invoice_line_items_updated_at ON public.invoice_line_items;
 CREATE TRIGGER update_invoice_line_items_updated_at
   BEFORE UPDATE ON public.invoice_line_items
   FOR EACH ROW
@@ -127,11 +202,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Triggers to auto-update invoice totals when line items change
+DROP TRIGGER IF EXISTS update_invoice_totals_on_insert ON public.invoice_line_items;
 CREATE TRIGGER update_invoice_totals_on_insert
   AFTER INSERT ON public.invoice_line_items
   FOR EACH ROW
   EXECUTE FUNCTION calculate_invoice_totals();
 
+DROP TRIGGER IF EXISTS update_invoice_totals_on_update ON public.invoice_line_items;
 CREATE TRIGGER update_invoice_totals_on_update
   AFTER UPDATE ON public.invoice_line_items
   FOR EACH ROW
@@ -143,6 +220,7 @@ CREATE TRIGGER update_invoice_totals_on_update
   )
   EXECUTE FUNCTION calculate_invoice_totals();
 
+DROP TRIGGER IF EXISTS update_invoice_totals_on_delete ON public.invoice_line_items;
 CREATE TRIGGER update_invoice_totals_on_delete
   AFTER DELETE ON public.invoice_line_items
   FOR EACH ROW

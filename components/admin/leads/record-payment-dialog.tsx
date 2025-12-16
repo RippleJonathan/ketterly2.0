@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,13 +55,31 @@ export function RecordPaymentDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!company || !nextPaymentNumber?.data) return
+    
+    console.log('Form submitted', { company, nextPaymentNumber, data: nextPaymentNumber?.data })
+    
+    if (!company) {
+      console.error('No company found')
+      return
+    }
+    
+    // The query returns the payment number directly, not in a .data property
+    const paymentNumber = nextPaymentNumber
+    if (!paymentNumber) {
+      console.error('Payment number not available')
+      return
+    }
+    
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      console.error('Invalid payment amount')
+      return
+    }
 
     const payment: PaymentInsert = {
       company_id: company.id,
       lead_id: leadId,
       invoice_id: invoice?.id || null,
-      payment_number: nextPaymentNumber.data,
+      payment_number: paymentNumber,
       payment_date: formData.payment_date,
       amount: parseFloat(formData.amount),
       payment_method: formData.payment_method,
@@ -69,8 +87,13 @@ export function RecordPaymentDialog({
       notes: formData.notes || null,
     }
 
-    await createPayment.mutateAsync(payment)
-    onOpenChange(false)
+    console.log('Creating payment:', payment)
+    try {
+      await createPayment.mutateAsync(payment)
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Payment creation failed:', error)
+    }
     
     // Reset form
     setFormData({
@@ -84,9 +107,12 @@ export function RecordPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
+          <DialogDescription>
+            Record a payment for this invoice to update the balance.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,7 +132,7 @@ export function RecordPaymentDialog({
           <div>
             <Label>Payment Number</Label>
             <Input
-              value={nextPaymentNumber?.data || ''}
+              value={nextPaymentNumber || 'Loading...'}
               disabled
               className="bg-gray-50"
             />
@@ -197,7 +223,11 @@ export function RecordPaymentDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={createPayment.isPending}>
+            <Button 
+              type="submit" 
+              disabled={createPayment.isPending}
+              onClick={() => console.log('Button clicked!', { disabled: createPayment.isPending, paymentNumber: nextPaymentNumber })}
+            >
               {createPayment.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

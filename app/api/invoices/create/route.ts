@@ -56,8 +56,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (contractError || !contract) {
+      console.error('Contract fetch error:', contractError)
       return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
     }
+
+    console.log('Contract fetched:', {
+      contract_id: contract.id,
+      line_items_count: contract.line_items?.length || 0
+    })
 
     // Fetch selected change orders with line items
     let changeOrders: any[] = []
@@ -86,11 +92,14 @@ export async function POST(request: NextRequest) {
     )
 
     if (numberError || !invoiceNumber) {
+      console.error('Invoice number generation error:', numberError)
       return NextResponse.json(
-        { error: 'Failed to generate invoice number' },
+        { error: `Failed to generate invoice number: ${numberError?.message || 'Unknown error'}` },
         { status: 500 }
       )
     }
+
+    console.log('Generated invoice number:', invoiceNumber)
 
     // Create the invoice
     const { data: invoice, error: invoiceError } = await supabase
@@ -114,7 +123,7 @@ export async function POST(request: NextRequest) {
     if (invoiceError || !invoice) {
       console.error('Error creating invoice:', invoiceError)
       return NextResponse.json(
-        { error: 'Failed to create invoice' },
+        { error: `Failed to create invoice: ${invoiceError?.message || 'Unknown error'}` },
         { status: 500 }
       )
     }
@@ -135,7 +144,6 @@ export async function POST(request: NextRequest) {
           quantity: item.quantity,
           unit: item.unit || 'ea',
           unit_price: item.unit_price,
-          total: item.line_total,
           source_type: 'contract',
           source_id: item.id,
           category: item.category,
@@ -155,7 +163,6 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             unit: item.unit || 'ea',
             unit_price: item.unit_price,
-            total: item.total,
             source_type: 'change_order',
             source_id: item.id,
             category: item.category,
@@ -176,7 +183,6 @@ export async function POST(request: NextRequest) {
           quantity: item.quantity,
           unit: item.unit || 'ea',
           unit_price: item.unit_price,
-          total: item.total,
           source_type: 'additional',
           source_id: null,
           category: item.category,

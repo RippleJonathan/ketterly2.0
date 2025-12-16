@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
+import { getCurrentUser } from '@/lib/api/users'
 
 export interface CurrentUser {
   id: string
@@ -10,22 +10,9 @@ export interface CurrentUser {
 }
 
 export function useCurrentUser() {
-  const supabase = createClient()
-
   return useQuery({
     queryKey: ['current-user'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, company_id, email, full_name, role')
-        .eq('id', user.id)
-        .single()
-
-      return userData as CurrentUser | null
-    },
+    queryFn: getCurrentUser,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 }
@@ -34,6 +21,7 @@ export function useCurrentUser() {
  * Check if current user has admin or office role
  */
 export function useIsAdminOrOffice() {
-  const { data: user } = useCurrentUser()
+  const { data: userData } = useCurrentUser()
+  const user = userData?.data
   return user?.role === 'admin' || user?.role === 'office'
 }

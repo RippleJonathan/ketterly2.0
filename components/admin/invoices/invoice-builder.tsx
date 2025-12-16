@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tantml:function_calls>
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -274,8 +274,11 @@ export function InvoiceBuilder({
       return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lead-invoices'] })
+      // Invalidate all invoice queries for this company
+      queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['contract-comparison'] })
       toast.success('Invoice created successfully')
       onSuccess?.()
       onOpenChange(false)

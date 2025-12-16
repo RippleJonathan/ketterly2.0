@@ -1,6 +1,120 @@
 import { formatCurrency } from './formatting'
 import { format } from 'date-fns'
 
+// Helper function to generate line items table with source breakdown
+function generateLineItemsTable(lineItems: any[], primaryColor: string): string {
+  if (!lineItems || lineItems.length === 0) {
+    return `
+      <table>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th class="text-right">Qty</th>
+            <th class="text-right">Unit</th>
+            <th class="text-right">Unit Price</th>
+            <th class="text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="5">No line items</td></tr>
+        </tbody>
+      </table>
+    `
+  }
+
+  // Group items by source_type
+  const contractItems = lineItems.filter((item: any) => item.source_type === 'contract')
+  const changeOrderItems = lineItems.filter((item: any) => item.source_type === 'change_order')
+  const additionalItems = lineItems.filter((item: any) => item.source_type === 'additional')
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="text-right">Qty</th>
+          <th class="text-right">Unit</th>
+          <th class="text-right">Unit Price</th>
+          <th class="text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+  `
+
+  // Contract Base Items
+  if (contractItems.length > 0) {
+    html += `
+      <tr>
+        <td colspan="5" style="background: ${primaryColor}20; font-weight: 600; padding: 8px; color: ${primaryColor};">
+          Contract Base
+        </td>
+      </tr>
+    `
+    contractItems.forEach((item: any) => {
+      html += `
+        <tr>
+          <td>${item.description}</td>
+          <td class="text-right">${item.quantity}</td>
+          <td class="text-right">${item.unit || 'ea'}</td>
+          <td class="text-right">${formatCurrency(item.unit_price)}</td>
+          <td class="text-right">${formatCurrency(item.total)}</td>
+        </tr>
+      `
+    })
+  }
+
+  // Change Order Items
+  if (changeOrderItems.length > 0) {
+    html += `
+      <tr>
+        <td colspan="5" style="background: ${primaryColor}20; font-weight: 600; padding: 8px; color: ${primaryColor}; border-top: 2px solid ${primaryColor}40;">
+          Change Orders
+        </td>
+      </tr>
+    `
+    changeOrderItems.forEach((item: any) => {
+      html += `
+        <tr>
+          <td>${item.description}${item.notes ? ` <span style="color: #666; font-size: 9pt;">(${item.notes})</span>` : ''}</td>
+          <td class="text-right">${item.quantity}</td>
+          <td class="text-right">${item.unit || 'ea'}</td>
+          <td class="text-right">${formatCurrency(item.unit_price)}</td>
+          <td class="text-right">${formatCurrency(item.total)}</td>
+        </tr>
+      `
+    })
+  }
+
+  // Additional Items
+  if (additionalItems.length > 0) {
+    html += `
+      <tr>
+        <td colspan="5" style="background: ${primaryColor}20; font-weight: 600; padding: 8px; color: ${primaryColor}; border-top: 2px solid ${primaryColor}40;">
+          Additional Items
+        </td>
+      </tr>
+    `
+    additionalItems.forEach((item: any) => {
+      html += `
+        <tr>
+          <td>${item.description}${item.notes ? ` <span style="color: #666; font-size: 9pt;">(${item.notes})</span>` : ''}</td>
+          <td class="text-right">${item.quantity}</td>
+          <td class="text-right">${item.unit || 'ea'}</td>
+          <td class="text-right">${formatCurrency(item.unit_price)}</td>
+          <td class="text-right">${formatCurrency(item.total)}</td>
+        </tr>
+      `
+    })
+  }
+
+  html += `
+      </tbody>
+    </table>
+  `
+
+  return html
+}
+
 export function generateInvoicePDF(invoice: any): string {
   const company = invoice.companies
   const lead = invoice.leads
@@ -316,34 +430,9 @@ export function generateInvoicePDF(invoice: any): string {
     </div>
   </div>
 
-  <!-- Line Items Table -->
-  <table>
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th class="text-right">Qty</th>
-        <th class="text-right">Unit Price</th>
-        <th class="text-right">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${
-        invoice.invoice_line_items
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ?.map(
-            (item: any) => `
-        <tr>
-          <td>${item.description}</td>
-          <td class="text-right">${item.quantity}</td>
-          <td class="text-right">${formatCurrency(item.unit_price)}</td>
-          <td class="text-right">${formatCurrency(item.unit_price * item.quantity)}</td>
-        </tr>
-      `
-          )
-          .join('') || '<tr><td colspan="4">No line items</td></tr>'
-      }
-    </tbody>
-  </table>
+  <!-- Line Items Table with Source Breakdown -->
+  ${generateLineItemsTable(invoice.invoice_line_items, company?.primary_color || '#1e40af')}
+
 
   <!-- Totals -->
   <div class="totals-section">

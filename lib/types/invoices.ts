@@ -227,12 +227,17 @@ export interface InvoiceLineItem {
   invoice_id: string
   description: string
   quantity: number
+  unit: string
   unit_price: number
-  total: number // Generated column
-  quote_line_item_id: string | null
-  change_order_id: string | null
+  total: number
+  source_type: 'contract' | 'change_order' | 'additional'
+  source_id: string | null
+  category: string | null
+  notes: string | null
   sort_order: number
   created_at: string
+  updated_at: string
+  deleted_at: string | null
 }
 
 export interface InvoiceLineItemInsert {
@@ -240,14 +245,26 @@ export interface InvoiceLineItemInsert {
   invoice_id: string
   description: string
   quantity?: number
+  unit?: string
   unit_price: number
-  quote_line_item_id?: string | null
-  change_order_id?: string | null
+  total?: number
+  source_type: 'contract' | 'change_order' | 'additional'
+  source_id?: string | null
+  category?: string | null
+  notes?: string | null
   sort_order?: number
 }
 
 export interface InvoiceLineItemUpdate {
   description?: string
+  quantity?: number
+  unit?: string
+  unit_price?: number
+  total?: number
+  category?: string | null
+  notes?: string | null
+  sort_order?: number
+}
   quantity?: number
   unit_price?: number
   sort_order?: number

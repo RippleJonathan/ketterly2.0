@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useInvoices, usePayments, useUpdatePayment, useDeleteInvoice, useDeletePayment } from '@/lib/hooks/use-invoices'
 import { useIsAdminOrOffice } from '@/lib/hooks/use-current-user'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import { useQuery } from '@tanstack/react-query'
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import { format } from 'date-fns'
 import { Plus, FileText, DollarSign, Download, Mail, Edit, Trash2 } from 'lucide-react'
 import { InvoiceStatus, PaymentMethod } from '@/lib/types/invoices'
 import { CreateInvoiceDialog } from './create-invoice-dialog'
+import { InvoiceBuilder } from '@/components/admin/invoices/invoice-builder'
 import { RecordPaymentDialog } from './record-payment-dialog'
 import { SendInvoiceEmailDialog } from './send-invoice-email-dialog'
 import { EditInvoiceDialog } from './edit-invoice-dialog'
@@ -61,8 +63,10 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
 }
 
 export function PaymentsTab({ leadId }: PaymentsTabProps) {
+  const supabase = createClient()
   const [view, setView] = useState<'invoices' | 'payments'>('invoices')
   const [showCreateInvoice, setShowCreateInvoice] = useState(false)
+  const [showInvoiceBuilder, setShowInvoiceBuilder] = useState(false)
   const [showRecordPayment, setShowRecordPayment] = useState(false)
   const [showSendEmail, setShowSendEmail] = useState(false)
   const [showEditInvoice, setShowEditInvoice] = useState(false)
@@ -77,6 +81,35 @@ export function PaymentsTab({ leadId }: PaymentsTabProps) {
   const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string; invoice_number: string } | null>(null)
   const [paymentToDelete, setPaymentToDelete] = useState<{ id: string; payment_number: string } | null>(null)
   
+  // Fetch contract for this lead (if exists)
+  const { data: contract } = useQuery({
+    queryKey: ['lead-contract', leadId],
+    queryFn: async () => {
+      const { data: quotes } = await supabase
+        .from('quotes')
+        .select('id')
+        .eq('lead_id', leadId)
+        .eq('status', 'accepted')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!quotes) return null
+
+      const { data } = await supabase
+        .from('signed_contracts')
+        .select('id, contract_number, quote_id')
+        .eq('quote_id', quotes.id)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      return data
+    }
+  })
+
   const { data: invoicesResponse, isLoading: invoicesLoading } = useInvoices({ lead_id: leadId })
   const { data: paymentsResponse, isLoading: paymentsLoading } = usePayments({ lead_id: leadId })
   const updatePayment = useUpdatePayment()
@@ -181,9 +214,18 @@ export function PaymentsTab({ leadId }: PaymentsTabProps) {
 
         <div className="flex gap-2">
           {view === 'invoices' && (
-            <Button size="sm" onClick={() => setShowCreateInvoice(true)}>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                if (contract) {
+                  setShowInvoiceBuilder(true)
+                } else {
+                  setShowCreateInvoice(true)
+                }
+              }}
+            >
               <Plus className="h-4 w-4 mr-1" />
-              Create Invoice
+              {contract ? 'Create Invoice from Contract' : 'Create Invoice'}
             </Button>
           )}
           {view === 'payments' && (
@@ -452,6 +494,16 @@ export function PaymentsTab({ leadId }: PaymentsTabProps) {
         leadId={leadId}
         quoteId={selectedQuoteId}
       />
+
+      {contract && (
+        <InvoiceBuilder
+          open={showInvoiceBuilder}
+          onOpenChange={setShowInvoiceBuilder}
+          leadId={leadId}
+          quoteId={contract.quote_id}
+          contractId={contract.id}
+        />
+      )}
       
       <RecordPaymentDialog
         open={showRecordPayment}

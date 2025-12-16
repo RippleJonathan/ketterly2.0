@@ -32,6 +32,38 @@ export function useGenerateQuotePDF() {
   }
 
   /**
+   * Fetch approved change orders for a quote
+   */
+  const fetchChangeOrders = async (quoteId: string) => {
+    const { data: changeOrders } = await supabase
+      .from('change_orders')
+      .select(`
+        *,
+        line_items:change_order_line_items(*)
+      `)
+      .eq('quote_id', quoteId)
+      .eq('status', 'approved')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    
+    return changeOrders || []
+  }
+
+  /**
+   * Fetch signed contract for a quote
+   */
+  const fetchContract = async (quoteId: string) => {
+    const { data: contract } = await supabase
+      .from('signed_contracts')
+      .select('original_contract_price, current_contract_price, original_total, original_subtotal')
+      .eq('quote_id', quoteId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    
+    return contract
+  }
+
+  /**
    * Generate and download PDF
    */
   const generateAndDownload = async (quote: QuoteWithRelations) => {
@@ -42,8 +74,12 @@ export function useGenerateQuotePDF() {
 
     setIsGenerating(true)
     try {
-      // Fetch signatures
-      const signatures = await fetchSignatures(quote.id)
+      // Fetch signatures, change orders, and contract
+      const [signatures, changeOrders, contract] = await Promise.all([
+        fetchSignatures(quote.id),
+        fetchChangeOrders(quote.id),
+        fetchContract(quote.id),
+      ])
 
       // Build company address from parts, filtering out null/empty values
       const addressParts = [
@@ -64,6 +100,26 @@ export function useGenerateQuotePDF() {
           companyEmail: company.contact_email || undefined,
           contractTerms: company.contract_terms || undefined,
           signatures,
+          changeOrders: changeOrders.map(co => ({
+            id: co.id,
+            change_order_number: co.change_order_number,
+            title: co.title,
+            description: co.description,
+            amount: co.amount,
+            tax_amount: co.tax_amount,
+            total: co.total,
+            line_items: (co.line_items || []).map((item: any) => ({
+              id: item.id,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total: item.total,
+              notes: item.notes,
+            })),
+          })),
+          originalContractPrice: contract?.original_contract_price || contract?.original_total,
+          originalSubtotal: contract?.original_subtotal,
+          currentContractPrice: contract?.current_contract_price,
         },
         QuotePDFTemplate
       )
@@ -92,8 +148,12 @@ export function useGenerateQuotePDF() {
 
     setIsGenerating(true)
     try {
-      // Fetch signatures
-      const signatures = await fetchSignatures(quote.id)
+      // Fetch signatures, change orders, and contract
+      const [signatures, changeOrders, contract] = await Promise.all([
+        fetchSignatures(quote.id),
+        fetchChangeOrders(quote.id),
+        fetchContract(quote.id),
+      ])
 
       // Build company address from parts, filtering out null/empty values
       const addressParts = [
@@ -114,6 +174,26 @@ export function useGenerateQuotePDF() {
           companyEmail: company.contact_email || undefined,
           contractTerms: company.contract_terms || undefined,
           signatures,
+          changeOrders: changeOrders.map(co => ({
+            id: co.id,
+            change_order_number: co.change_order_number,
+            title: co.title,
+            description: co.description,
+            amount: co.amount,
+            tax_amount: co.tax_amount,
+            total: co.total,
+            line_items: (co.line_items || []).map((item: any) => ({
+              id: item.id,
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              total: item.total,
+              notes: item.notes,
+            })),
+          })),
+          originalContractPrice: contract?.original_contract_price || contract?.original_total,
+          originalSubtotal: contract?.original_subtotal,
+          currentContractPrice: contract?.current_contract_price,
         },
         QuotePDFTemplate
       )

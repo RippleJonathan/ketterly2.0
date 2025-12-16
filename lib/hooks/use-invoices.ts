@@ -59,7 +59,11 @@ export function useNextInvoiceNumber() {
 
   return useQuery({
     queryKey: ['next-invoice-number', company?.id],
-    queryFn: () => getNextInvoiceNumber(company!.id),
+    queryFn: async () => {
+      const result = await getNextInvoiceNumber(company!.id)
+      if (result.error) throw new Error(result.error.message)
+      return result.data
+    },
     enabled: !!company?.id,
   })
 }
@@ -151,7 +155,11 @@ export function useNextPaymentNumber() {
 
   return useQuery({
     queryKey: ['next-payment-number', company?.id],
-    queryFn: () => getNextPaymentNumber(company!.id),
+    queryFn: async () => {
+      const result = await getNextPaymentNumber(company!.id)
+      if (result.error) throw new Error(result.error.message)
+      return result.data
+    },
     enabled: !!company?.id,
   })
 }
@@ -245,7 +253,11 @@ export function useNextChangeOrderNumber() {
 
   return useQuery({
     queryKey: ['next-change-order-number', company?.id],
-    queryFn: () => getNextChangeOrderNumber(company!.id),
+    queryFn: async () => {
+      const result = await getNextChangeOrderNumber(company!.id)
+      if (result.error) throw new Error(result.error.message)
+      return result.data
+    },
     enabled: !!company?.id,
   })
 }

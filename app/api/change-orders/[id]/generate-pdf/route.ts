@@ -81,14 +81,14 @@ export async function GET(
 
     // Generate PDF using React PDF template
     const pdfDoc = pdf(
-      React.createElement(ChangeOrderPDF, {
+      createElement(ChangeOrderPDF, {
         changeOrder: changeOrderWithRelations,
         companyName: company.name,
         companyLogo: company.logo_url || undefined,
-        companyAddress,
+        companyAddress: companyAddress,
         companyPhone: company.contact_phone || undefined,
         companyEmail: company.contact_email || undefined,
-      })
+      }) as any
     )
 
     // Convert to blob/buffer

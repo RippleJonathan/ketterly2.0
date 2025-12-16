@@ -19,6 +19,7 @@
 5. **API-First**: All database operations go through consistent API layer
 6. **No Breaking Changes**: New features extend existing structure, never modify core tables
 7. **Company Branding Configurable**: No hardcoded company names - everything comes from `companies` table
+8. **Real-Time Updates**: ALWAYS invalidate React Query cache after mutations to ensure UI updates immediately without page refresh
 
 ---
 
@@ -365,7 +366,9 @@ export function useCreateLead() {
   return useMutation({
     mutationFn: (lead: LeadInsert) => createLead(company!.id, lead),
     onSuccess: () => {
+      // CRITICAL: Invalidate ALL related queries for instant UI updates
       queryClient.invalidateQueries({ queryKey: ['leads', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       toast.success('Lead created successfully')
     },
     onError: (error: Error) => {
@@ -374,6 +377,25 @@ export function useCreateLead() {
   })
 }
 ```
+
+**🚨 CRITICAL Cache Invalidation Rules:**
+
+When creating/updating/deleting ANY entity, ALWAYS invalidate all related query caches:
+
+```typescript
+// Example: Updating a quote's line items
+queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })         // Specific quote
+queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })     // All quotes
+queryClient.invalidateQueries({ queryKey: ['lead-financials'] })         // Financial summaries
+queryClient.invalidateQueries({ queryKey: ['contract-comparison'] })     // Contract comparisons
+```
+
+Common invalidation patterns:
+- **Leads**: `['leads']`, `['lead-financials']`
+- **Quotes**: `['quotes']`, `['quote']`, `['lead-financials']`, `['contract-comparison']`
+- **Projects**: `['projects']`, `['lead-financials']`
+- **Invoices**: `['invoices']`, `['lead-financials']`
+- **Change Orders**: `['change-orders']`, `['lead-financials']`, `['contract-comparison']`
 
 ### 3. Form Validation with Zod
 

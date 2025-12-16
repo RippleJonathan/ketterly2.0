@@ -257,6 +257,26 @@ interface QuotePDFTemplateProps {
     signature_data: string
     signed_at: string
   }>
+  changeOrders?: Array<{
+    id: string
+    change_order_number: string
+    title?: string | null
+    description?: string | null
+    amount: number
+    tax_amount: number
+    total: number
+    line_items: Array<{
+      id: string
+      description: string
+      quantity: number
+      unit_price: number
+      total: number
+      notes?: string | null
+    }>
+  }>
+  originalContractPrice?: number
+  originalSubtotal?: number
+  currentContractPrice?: number
 }
 
 export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
@@ -268,6 +288,10 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
   companyEmail,
   contractTerms,
   signatures = [],
+  changeOrders = [],
+  originalContractPrice,
+  originalSubtotal,
+  currentContractPrice,
 }) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -275,6 +299,13 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
       currency: 'USD',
     }).format(amount)
   }
+
+  // Calculate subtotal from line items (most reliable source)
+  const calculatedSubtotal = quote.line_items?.reduce((sum, item) => sum + item.line_total, 0) || 0
+  
+  // Use contract original price if available, otherwise calculated subtotal
+  const displaySubtotal = originalSubtotal || originalContractPrice || calculatedSubtotal
+  const displayTotal = originalContractPrice || (calculatedSubtotal + (quote.tax_amount || 0) - (quote.discount_amount || 0))
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -408,12 +439,90 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
           )}
         </View>
 
+        {/* Change Orders Section */}
+        {changeOrders && changeOrders.length > 0 && (
+          <>
+            <View style={{ marginTop: 20, marginBottom: 10 }}>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', borderBottom: '1px solid #000', paddingBottom: 5 }}>
+                Approved Change Orders
+              </Text>
+            </View>
+
+            {changeOrders.map((co, coIndex) => (
+              <View key={co.id} style={{ marginBottom: 15, border: '1px solid #ccc', padding: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 5, borderBottom: '0.5px solid #ccc' }}>
+                  <View>
+                    <Text style={{ fontSize: 9, fontWeight: 'bold' }}>
+                      {co.change_order_number}
+                      {co.title && ` - ${co.title}`}
+                    </Text>
+                    {co.description && (
+                      <Text style={{ fontSize: 7, color: '#555', marginTop: 2 }}>
+                        {co.description}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 9, fontWeight: 'bold' }}>
+                    +{formatCurrency(co.total)}
+                  </Text>
+                </View>
+
+                {co.line_items && co.line_items.length > 0 && (
+                  <View style={{ marginTop: 5 }}>
+                    <View style={[styles.tableHeader, { fontSize: 7, paddingVertical: 3 }]}>
+                      <Text style={styles.colDescription}>Description</Text>
+                      <Text style={styles.colQty}>Qty</Text>
+                      <Text style={styles.colPrice}>Unit Price</Text>
+                      <Text style={styles.colTotal}>Total</Text>
+                    </View>
+                    {co.line_items.map((item, itemIndex) => (
+                      <View
+                        key={item.id}
+                        style={[
+                          { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 5, borderBottom: '0.5px solid #eee' },
+                          itemIndex === co.line_items.length - 1 && { borderBottom: 0 }
+                        ]}
+                      >
+                        <View style={styles.colDescription}>
+                          <Text style={{ fontSize: 8 }}>{item.description}</Text>
+                          {item.notes && (
+                            <Text style={{ fontSize: 6, color: '#666', marginTop: 1 }}>{item.notes}</Text>
+                          )}
+                        </View>
+                        <Text style={[styles.colQty, { fontSize: 8 }]}>{item.quantity}</Text>
+                        <Text style={[styles.colPrice, { fontSize: 8 }]}>{formatCurrency(item.unit_price)}</Text>
+                        <Text style={[styles.colTotal, { fontSize: 8 }]}>{formatCurrency(item.total)}</Text>
+                      </View>
+                    ))}
+                    <View style={{ marginTop: 5, paddingTop: 5, borderTop: '0.5px solid #ccc' }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 7, width: 80, textAlign: 'right', paddingRight: 10 }}>Subtotal:</Text>
+                        <Text style={{ fontSize: 7, width: 60, textAlign: 'right' }}>{formatCurrency(co.amount)}</Text>
+                      </View>
+                      {co.tax_amount > 0 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 7, width: 80, textAlign: 'right', paddingRight: 10 }}>Tax:</Text>
+                          <Text style={{ fontSize: 7, width: 60, textAlign: 'right' }}>{formatCurrency(co.tax_amount)}</Text>
+                        </View>
+                      )}
+                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingVertical: 2, borderTop: '0.5px solid #000' }}>
+                        <Text style={{ fontSize: 8, fontWeight: 'bold', width: 80, textAlign: 'right', paddingRight: 10 }}>Change Order Total:</Text>
+                        <Text style={{ fontSize: 8, fontWeight: 'bold', width: 60, textAlign: 'right' }}>+{formatCurrency(co.total)}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ))}
+          </>
+        )}
+
         {/* Totals */}
         <View style={styles.totalsContainer}>
           <View style={styles.totalsTable}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>{formatCurrency(quote.subtotal)}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(calculatedSubtotal)}</Text>
             </View>
             {quote.discount_amount > 0 && (
               <View style={styles.totalRow}>
@@ -430,9 +539,29 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
               </View>
             )}
             <View style={[styles.totalRow, styles.totalRowGrand]}>
-              <Text style={styles.totalLabelGrand}>Total</Text>
-              <Text style={styles.totalValueGrand}>{formatCurrency(quote.total_amount)}</Text>
+              <Text style={styles.totalLabelGrand}>
+                {changeOrders && changeOrders.length > 0 ? 'Original Contract Total' : 'Total'}
+              </Text>
+              <Text style={styles.totalValueGrand}>{formatCurrency(displayTotal)}</Text>
             </View>
+            {changeOrders && changeOrders.length > 0 && (
+              <>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Approved Change Orders</Text>
+                  <Text style={styles.totalValue}>
+                    +{formatCurrency(changeOrders.reduce((sum, co) => sum + co.total, 0))}
+                  </Text>
+                </View>
+                <View style={[styles.totalRow, { backgroundColor: '#e8f5e9', borderTop: '2px solid #4caf50', borderBottom: '2px solid #4caf50' }]}>
+                  <Text style={[styles.totalLabelGrand, { color: '#2e7d32' }]}>
+                    Updated Contract Total
+                  </Text>
+                  <Text style={[styles.totalValueGrand, { color: '#2e7d32' }]}>
+                    {formatCurrency(displayTotal + changeOrders.reduce((sum, co) => sum + co.total, 0))}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 

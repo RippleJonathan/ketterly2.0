@@ -20,6 +20,7 @@ import { UserCircle } from 'lucide-react'
 interface AssignUserDropdownProps {
   leadId: string
   currentAssignedTo: string | null
+  compact?: boolean
 }
 
 interface User {
@@ -28,7 +29,7 @@ interface User {
   email: string
 }
 
-export function AssignUserDropdown({ leadId, currentAssignedTo }: AssignUserDropdownProps) {
+export function AssignUserDropdown({ leadId, currentAssignedTo, compact = false }: AssignUserDropdownProps) {
   const { data: company } = useCurrentCompany()
   const { data: currentUser } = useCurrentUser()
   const queryClient = useQueryClient()
@@ -106,7 +107,7 @@ export function AssignUserDropdown({ leadId, currentAssignedTo }: AssignUserDrop
 
   return (
     <Select value={currentAssignedTo || 'unassigned'} onValueChange={handleAssign}>
-      <SelectTrigger className="w-[180px]">
+      <SelectTrigger className={compact ? "w-[140px] h-7 text-sm" : "w-[180px]"}>
         <SelectValue placeholder="Assign to..." />
       </SelectTrigger>
       <SelectContent>

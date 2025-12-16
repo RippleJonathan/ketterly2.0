@@ -48,17 +48,24 @@ export async function GET(
     }
 
     // Fetch related data
-    const [lineItemsResult, leadResult, companyResult, signaturesResult] = await Promise.all([
+    const [lineItemsResult, leadResult, companyResult, signaturesResult, changeOrdersResult, contractResult] = await Promise.all([
       supabase.from('quote_line_items').select('*').eq('quote_id', quoteId),
       supabase.from('leads').select('*').eq('id', quote.lead_id).single(),
       supabase.from('companies').select('*').eq('id', quote.company_id).single(),
       supabase.from('quote_signatures').select('*').eq('quote_id', quoteId),
+      supabase.from('change_orders').select(`
+        *,
+        line_items:change_order_line_items(*)
+      `).eq('quote_id', quoteId).eq('status', 'approved').is('deleted_at', null),
+      supabase.from('signed_contracts').select('*').eq('quote_id', quoteId).is('deleted_at', null).maybeSingle(),
     ])
 
     const lead = leadResult.data
     const company = companyResult.data
     const lineItems = lineItemsResult.data || []
     const signatures = signaturesResult.data || []
+    const changeOrders = changeOrdersResult.data || []
+    const contract = contractResult.data
 
     if (!lead || !company) {
       return new NextResponse('Missing quote data', { status: 404 })
@@ -96,6 +103,26 @@ export async function GET(
           signature_data: s.signature_data,
           signed_at: s.signed_at,
         })),
+        changeOrders: changeOrders.map(co => ({
+          id: co.id,
+          change_order_number: co.change_order_number,
+          title: co.title,
+          description: co.description,
+          amount: co.amount,
+          tax_amount: co.tax_amount,
+          total: co.total,
+          line_items: (co.line_items || []).map((item: any) => ({
+            id: item.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total: item.total,
+            notes: item.notes,
+          })),
+        })),
+        originalContractPrice: contract?.original_contract_price || contract?.original_total,
+        originalSubtotal: contract?.original_subtotal,
+        currentContractPrice: contract?.current_contract_price,
       })
     )
     

@@ -36,13 +36,13 @@ export function useGenerateChangeOrderPDF() {
       // Generate PDF
       const blob = await pdf(
         createElement(ChangeOrderPDF, {
-          changeOrder,
+          changeOrder: changeOrder,
           companyName: company.name,
           companyLogo: company.logo_url || undefined,
-          companyAddress,
+          companyAddress: companyAddress,
           companyPhone: company.contact_phone || undefined,
           companyEmail: company.contact_email || undefined,
-        })
+        }) as any
       ).toBlob()
 
       // Create download link
@@ -86,13 +86,13 @@ export function useGenerateChangeOrderPDF() {
       // Generate PDF
       const blob = await pdf(
         createElement(ChangeOrderPDF, {
-          changeOrder,
+          changeOrder: changeOrder,
           companyName: company.name,
           companyLogo: company.logo_url || undefined,
-          companyAddress,
+          companyAddress: companyAddress,
           companyPhone: company.contact_phone || undefined,
           companyEmail: company.contact_email || undefined,
-        })
+        }) as any
       ).toBlob()
 
       // Upload to Supabase Storage

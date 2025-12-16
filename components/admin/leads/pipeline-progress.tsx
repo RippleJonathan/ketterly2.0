@@ -7,11 +7,12 @@ import { Check } from 'lucide-react'
 interface PipelineProgressProps {
   leadId: string
   currentStatus: string
+  compact?: boolean
 }
 
 const PIPELINE_STAGES = PIPELINE_STAGE_ORDER
 
-export function PipelineProgress({ leadId, currentStatus }: PipelineProgressProps) {
+export function PipelineProgress({ leadId, currentStatus, compact = false }: PipelineProgressProps) {
   const updateStatus = useUpdateLeadStatus()
   const currentIndex = PIPELINE_STAGES.indexOf(currentStatus as any)
 
@@ -22,7 +23,7 @@ export function PipelineProgress({ leadId, currentStatus }: PipelineProgressProp
   }
 
   return (
-    <div className="w-full py-4">
+    <div className={compact ? "w-full py-1" : "w-full py-4"}>
       <div className="flex items-center justify-between">
         {PIPELINE_STAGES.map((status, index) => {
           const isCompleted = index < currentIndex
@@ -36,7 +37,8 @@ export function PipelineProgress({ leadId, currentStatus }: PipelineProgressProp
                 onClick={() => handleStageClick(status)}
                 disabled={!isClickable}
                 className={`
-                  relative flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all
+                  relative flex items-center justify-center rounded-full border-2 transition-all
+                  ${compact ? 'w-6 h-6' : 'w-10 h-10'}
                   ${isCurrent ? 'border-blue-600 bg-blue-600 text-white' : ''}
                   ${isCompleted ? 'border-green-600 bg-green-600 text-white' : ''}
                   ${!isCurrent && !isCompleted ? 'border-gray-300 bg-white text-gray-400' : ''}
@@ -45,9 +47,9 @@ export function PipelineProgress({ leadId, currentStatus }: PipelineProgressProp
                 title={LEAD_STAGE_LABELS[status as keyof typeof LEAD_STAGE_LABELS]}
               >
                 {isCompleted ? (
-                  <Check className="w-5 h-5" />
+                  <Check className={compact ? "w-3 h-3" : "w-5 h-5"} />
                 ) : (
-                  <span className="text-xs font-semibold">{index + 1}</span>
+                  <span className={compact ? "text-[10px] font-semibold" : "text-xs font-semibold"}>{index + 1}</span>
                 )}
               </button>
 
@@ -55,7 +57,8 @@ export function PipelineProgress({ leadId, currentStatus }: PipelineProgressProp
               {index < PIPELINE_STAGES.length - 1 && (
                 <div
                   className={`
-                    flex-1 h-1 mx-1 transition-all
+                    flex-1 mx-1 transition-all
+                    ${compact ? 'h-0.5' : 'h-1'}
                     ${index < currentIndex ? 'bg-green-600' : 'bg-gray-300'}
                   `}
                 />
@@ -65,16 +68,18 @@ export function PipelineProgress({ leadId, currentStatus }: PipelineProgressProp
         })}
       </div>
 
-      {/* Labels */}
-      <div className="flex items-center justify-between mt-2">
-        {PIPELINE_STAGES.map((status) => (
-          <div key={status} className="flex-1 text-center">
-            <p className="text-xs text-gray-600 px-1">
-              {LEAD_STAGE_LABELS[status as keyof typeof LEAD_STAGE_LABELS]}
-            </p>
-          </div>
-        ))}
-      </div>
+      {/* Labels - hide in compact mode */}
+      {!compact && (
+        <div className="flex items-center justify-between mt-2">
+          {PIPELINE_STAGES.map((status) => (
+            <div key={status} className="flex-1 text-center">
+              <p className="text-xs text-gray-600 px-1">
+                {LEAD_STAGE_LABELS[status as keyof typeof LEAD_STAGE_LABELS]}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -21,6 +21,8 @@ export type PaymentMethod =
 
 export type ChangeOrderStatus = 
   | 'pending'
+  | 'sent'
+  | 'pending_company_signature'
   | 'approved'
   | 'declined'
   | 'cancelled'
@@ -60,6 +62,16 @@ export interface ChangeOrder {
   declined_reason: string | null
   customer_signature_url: string | null
   customer_signed_at: string | null
+  company_signature_date: string | null
+  company_signature_data: string | null
+  company_signer_name: string | null
+  company_signer_title: string | null
+  customer_signature_data: string | null
+  customer_signer_name: string | null
+  share_token: string | null
+  share_token_created_at: string | null
+  share_link_expires_at: string | null
+  sent_at: string | null
   notes: string | null
   created_by: string | null
   created_at: string

@@ -6,11 +6,10 @@ import { useQuotes, useQuote } from '@/lib/hooks/use-quotes'
 import { useGenerateQuotePDF } from '@/lib/hooks/use-generate-quote-pdf'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, FileText, Mail, Download, Check, X, Copy, Trash2, Link as LinkIcon, ExternalLink, PenTool, Lock, Unlock, FileDown, AlertCircle, TrendingUp, TrendingDown, Edit3 } from 'lucide-react'
+import { Plus, FileText, Mail, Download, Check, X, Copy, Trash2, Link as LinkIcon, ExternalLink, PenTool, Lock, Unlock, FileDown, AlertCircle, TrendingUp, TrendingDown, Edit3, Loader2, CheckCircle } from 'lucide-react'
 import { QuoteStatus } from '@/lib/types/quotes'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { format } from 'date-fns'
@@ -44,8 +43,11 @@ import {
 } from '@/components/ui/dialog'
 import { QuoteForm } from './quote-form'
 import { CompanySignatureDialog } from '@/components/admin/quotes/company-signature-dialog'
+import { ChangeOrderSignatureDialog } from '@/components/admin/change-orders/change-order-signature-dialog'
+import { ChangeOrderBuilder } from '@/components/admin/change-orders/change-order-builder'
+import { GenerateChangeOrderDialog } from './generate-change-order-dialog'
 import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { compareQuoteToContract } from '@/lib/api/contracts'
 
 interface EstimatesTabProps {
@@ -75,6 +77,62 @@ export function EstimatesTab({
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
+  const [changeOrderDialogOpen, setChangeOrderDialogOpen] = useState(false)
+  const [changeOrderData, setChangeOrderData] = useState<{
+    quoteId: string
+    totalChange: number
+    changeDescription: string
+  } | null>(null)
+  const queryClient = useQueryClient()
+
+  // Real-time subscription for quote and change order updates
+  useEffect(() => {
+    const supabase = createClient()
+    
+    // Subscribe to quote changes for this lead
+    const quotesChannel = supabase
+      .channel(`quotes-${leadId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'quotes',
+          filter: `lead_id=eq.${leadId}`,
+        },
+        () => {
+          // Invalidate quotes query when any quote changes
+          queryClient.invalidateQueries({ queryKey: ['quotes', leadId] })
+        }
+      )
+      .subscribe()
+
+    // Subscribe to change order updates for this lead
+    const changeOrdersChannel = supabase
+      .channel(`change-orders-${leadId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'change_orders',
+          filter: `lead_id=eq.${leadId}`,
+        },
+        () => {
+          // Invalidate all related queries
+          queryClient.invalidateQueries({ queryKey: ['quote-change-orders'] })
+          queryClient.invalidateQueries({ queryKey: ['approved-change-orders'] })
+          queryClient.invalidateQueries({ queryKey: ['contract'] })
+          queryClient.invalidateQueries({ queryKey: ['contract-comparison'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(quotesChannel)
+      supabase.removeChannel(changeOrdersChannel)
+    }
+  }, [leadId, queryClient])
   
   // Fetch full quote details when editing
   const { data: editingQuoteData } = useQuote(editingQuoteId || undefined)
@@ -191,7 +249,7 @@ export function EstimatesTab({
 
         {/* Quotes List */}
         <div className="space-y-4">
-          {quotes.map((quote) => (
+          {quotes?.map((quote: any) => (
             <QuoteCard
               key={quote.id}
               quote={quote}
@@ -203,10 +261,26 @@ export function EstimatesTab({
               }}
               isGenerating={isGenerating}
               onDownloadPDF={() => handleDownloadPDF(quote.id)}
+              onGenerateChangeOrder={(quoteId, totalChange, description) => {
+                setChangeOrderData({ quoteId, totalChange, changeDescription: description })
+                setChangeOrderDialogOpen(true)
+              }}
             />
           ))}
         </div>
       </div>
+
+      {/* Change Order Dialog */}
+      {changeOrderData && (
+        <GenerateChangeOrderDialog
+          open={changeOrderDialogOpen}
+          onOpenChange={setChangeOrderDialogOpen}
+          leadId={leadId}
+          quoteId={changeOrderData.quoteId}
+          totalChange={changeOrderData.totalChange}
+          changeDescription={changeOrderData.changeDescription}
+        />
+      )}
 
       <QuoteForm
         leadId={leadId}
@@ -229,18 +303,43 @@ interface QuoteCardProps {
   onEdit: () => void
   isGenerating: boolean
   onDownloadPDF: () => void
+  onGenerateChangeOrder: (quoteId: string, totalChange: number, description: string) => void
 }
 
-function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownloadPDF }: QuoteCardProps) {
+function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownloadPDF, onGenerateChangeOrder }: QuoteCardProps) {
   const { user } = useAuth()
   const sendQuoteEmail = useSendQuoteEmail()
   const duplicateQuote = useDuplicateQuote()
   const deleteQuote = useDeleteQuote()
+  const queryClient = useQueryClient()
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState<string>('')
   const [copied, setCopied] = useState(false)
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false)
+  const [changeOrderSignatureOpen, setChangeOrderSignatureOpen] = useState(false)
+  const [changeOrderBuilderOpen, setChangeOrderBuilderOpen] = useState(false)
+  const [editingChangeOrderId, setEditingChangeOrderId] = useState<string | null>(null)
+
+  // Get contract for this quote if it's accepted
+  const { data: contract } = useQuery({
+    queryKey: ['contract', quote.id],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('signed_contracts')
+        .select('*')
+        .eq('quote_id', quote.id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      
+      if (error) throw error
+      return data
+    },
+    enabled: quote.status === 'accepted',
+  })
 
   // Get contract comparison if quote is accepted
   const { data: comparisonData } = useQuery({
@@ -248,6 +347,56 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
     queryFn: () => compareQuoteToContract(quote.id),
     enabled: quote.status === 'accepted',
   })
+
+  // Get pending change orders for this quote
+  const { data: changeOrderData } = useQuery({
+    queryKey: ['quote-change-orders', quote.id],
+    queryFn: async () => {
+      console.log('Fetching pending change orders for quote:', quote.id)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('change_orders')
+        .select(`
+          *,
+          line_items:change_order_line_items(*)
+        `)
+        .eq('quote_id', quote.id)
+        .in('status', ['draft', 'pending', 'sent', 'pending_customer_signature', 'pending_company_signature'])
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      
+      if (error) throw error
+      console.log('Pending change order result:', data)
+      return data
+    },
+    enabled: quote.status === 'accepted',
+  })
+
+  // Get approved change orders for this quote (to display line items)
+  const { data: approvedChangeOrders } = useQuery({
+    queryKey: ['approved-change-orders', quote.id],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('change_orders')
+        .select(`
+          *,
+          line_items:change_order_line_items(*)
+        `)
+        .eq('quote_id', quote.id)
+        .eq('status', 'approved')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+      
+      if (error) throw error
+      return data || []
+    },
+    enabled: quote.status === 'accepted',
+  })
+
+  const pendingChangeOrder = changeOrderData
 
   const statusConfig = {
     draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800' },
@@ -307,8 +456,8 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               {quote.option_label && (
                 <Badge variant="outline">{quote.option_label}</Badge>
               )}
-              {/* Contract Change Indicators */}
-              {hasContractChanges && (
+              {/* Contract Change Indicators - Only show for non-accepted quotes */}
+              {hasContractChanges && quote.status !== 'accepted' && (
                 <Badge className={`flex items-center gap-1 ${totalChange > 0 ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}`}>
                   {totalChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {totalChange > 0 ? '+' : ''}{formatCurrency(totalChange)} from contract
@@ -330,7 +479,10 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
           </div>
           <div className="text-right ml-6">
             <p className="text-2xl font-bold text-gray-900">
-              {formatCurrency(quote.total_amount)}
+              {/* Show quoted amount before acceptance, then source of truth after */}
+              {quote.status === 'accepted' && contract?.current_total_with_change_orders
+                ? formatCurrency(contract.current_total_with_change_orders)  // Source of truth with change orders
+                : formatCurrency(quote.total_amount)}  {/* Original quote amount */}
             </p>
             {quote.line_items && (
               <p className="text-sm text-gray-500 mt-1">
@@ -345,8 +497,155 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
       {/* Expanded Details */}
       {isExpanded && (
         <div className="border-t border-gray-200 p-6 bg-gray-50">
-          {/* Contract Comparison */}
-          {comparison && (
+          {/* Pending Change Order Section */}
+          {pendingChangeOrder && (
+            <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <p className="text-sm font-medium text-gray-900">
+                      Change Order {pendingChangeOrder.change_order_number}
+                    </p>
+                  </div>
+                  {/* Signature Status */}
+                  <div className="flex items-center gap-3 mt-2 ml-6 text-xs">
+                    <div className={`flex items-center gap-1 ${pendingChangeOrder.customer_signature_data ? 'text-green-600' : 'text-gray-400'}`}>
+                      {pendingChangeOrder.customer_signature_data ? (
+                        <>
+                          <CheckCircle className="h-3 w-3" />
+                          <span>Customer Signed</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3 w-3" />
+                          <span>Customer Signature Pending</span>
+                        </>
+                      )}
+                    </div>
+                    <div className={`flex items-center gap-1 ${pendingChangeOrder.company_signature_data ? 'text-green-600' : 'text-gray-400'}`}>
+                      {pendingChangeOrder.company_signature_data ? (
+                        <>
+                          <CheckCircle className="h-3 w-3" />
+                          <span>Company Signed</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3 w-3" />
+                          <span>Company Signature Pending</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {pendingChangeOrder.status === 'draft' && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingChangeOrderId(pendingChangeOrder.id)
+                          setChangeOrderBuilderOpen(true)
+                        }}
+                      >
+                        <Edit3 className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={async () => {
+                          if (!confirm('Delete this change order? This action cannot be undone.')) return
+                          
+                          try {
+                            const response = await fetch(`/api/change-orders/${pendingChangeOrder.id}`, {
+                              method: 'DELETE',
+                            })
+                            if (!response.ok) throw new Error('Failed to delete')
+                            toast.success('Change order deleted')
+                            queryClient.invalidateQueries({ queryKey: ['quote-change-orders', quote.id] })
+                          } catch (error: any) {
+                            toast.error(error.message || 'Failed to delete')
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/change-orders/${pendingChangeOrder.id}/send-email`, {
+                              method: 'POST',
+                            })
+                            if (!response.ok) throw new Error('Failed to send')
+                            toast.success('Change order sent to customer')
+                            queryClient.invalidateQueries({ queryKey: ['quote-change-orders', quote.id] })
+                          } catch (error: any) {
+                            toast.error(error.message || 'Failed to send')
+                          }
+                        }}
+                      >
+                        <Mail className="h-4 w-4 mr-1" />
+                        Send to Customer
+                      </Button>
+                    </>
+                  )}
+                  
+                  {(pendingChangeOrder.status === 'sent' || pendingChangeOrder.status === 'pending_company_signature') && !pendingChangeOrder.company_signature_data && (
+                    <Button
+                      size="sm"
+                      onClick={() => setChangeOrderSignatureOpen(true)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <PenTool className="h-4 w-4 mr-1" />
+                      Sign as Company Rep
+                    </Button>
+                  )}
+                  
+                  {pendingChangeOrder.share_token && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        window.open(`${window.location.origin}/sign/change-order/${pendingChangeOrder.share_token}`, '_blank')
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      View E-Sign
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Change Order Amount */}
+              <div className="mt-3 pt-3 border-t border-blue-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">Change Order Amount:</span>
+                  <span className="text-lg font-bold text-blue-900">
+                    {formatCurrency(pendingChangeOrder.total || 0)}
+                  </span>
+                </div>
+                {contract && (
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="text-xs text-gray-600">New Contract Total:</span>
+                    <span className="text-sm font-semibold text-green-700">
+                      {formatCurrency(
+                        (contract.current_total_with_change_orders || contract.current_contract_price || contract.original_contract_price || contract.original_total) + 
+                        (pendingChangeOrder.total || 0)
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* OLD COMPARISON UI - HIDDEN FOR NOW */}
+          {false && comparison && (
             <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -358,13 +657,17 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                     </p>
                   </div>
                 </div>
-                {hasContractChanges && (
+                {!pendingChangeOrder && hasContractChanges && (
                   <Button
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700"
                     onClick={() => {
-                      // TODO: Generate change order
-                      toast.info('Change order generation coming soon!')
+                      const changeDesc = [
+                        comparison.added_items.length > 0 && `Added ${comparison.added_items.length} item(s)`,
+                        comparison.removed_items.length > 0 && `Removed ${comparison.removed_items.length} item(s)`,
+                        comparison.modified_items.length > 0 && `Modified ${comparison.modified_items.length} item(s)`,
+                      ].filter(Boolean).join(', ')
+                      onGenerateChangeOrder(quote.id, totalChange, changeDesc)
                     }}
                   >
                     <Edit3 className="h-4 w-4 mr-2" />
@@ -373,7 +676,7 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                 )}
               </div>
               
-              <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className={`grid ${pendingChangeOrder?.status === 'approved' ? 'grid-cols-4' : 'grid-cols-3'} gap-3 mt-4`}>
                 <div className="bg-white rounded-lg p-3">
                   <p className="text-xs text-gray-600 mb-1">Original Contract</p>
                   <p className="text-lg font-bold text-gray-900">
@@ -388,12 +691,21 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                   </p>
                 </div>
                 
-                <div className={`rounded-lg p-3 ${totalChange > 0 ? 'bg-green-100' : totalChange < 0 ? 'bg-orange-100' : 'bg-gray-100'}`}>
+                <div className={`rounded-lg p-3 ${totalChange > 0 ? 'bg-amber-100' : totalChange < 0 ? 'bg-orange-100' : 'bg-gray-100'}`}>
                   <p className="text-xs text-gray-700 mb-1">Change</p>
-                  <p className={`text-lg font-bold ${totalChange > 0 ? 'text-green-700' : totalChange < 0 ? 'text-orange-700' : 'text-gray-700'}`}>
+                  <p className={`text-lg font-bold ${totalChange > 0 ? 'text-amber-700' : totalChange < 0 ? 'text-orange-700' : 'text-gray-700'}`}>
                     {totalChange > 0 ? '+' : ''}{formatCurrency(totalChange)}
                   </p>
                 </div>
+
+                {pendingChangeOrder?.status === 'approved' && (
+                  <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <p className="text-xs text-green-700 mb-1">New Contract Price</p>
+                    <p className="text-lg font-bold text-green-900">
+                      {formatCurrency(quote.total_amount)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {hasContractChanges && (
@@ -414,12 +726,6 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                     </p>
                   )}
                 </div>
-              )}
-
-              {!hasContractChanges && (
-                <p className="text-sm text-green-700 mt-3">
-                  ✓ Estimate matches signed contract
-                </p>
               )}
             </div>
           )}
@@ -475,7 +781,7 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                         Subtotal
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">
-                        {formatCurrency(quote.subtotal)}
+                        {formatCurrency(contract?.original_contract_price || quote.subtotal)}
                       </td>
                     </tr>
                     {quote.discount_amount > 0 && (
@@ -500,15 +806,148 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
                     )}
                     <tr>
                       <td colSpan={3} className="px-4 py-3 text-right text-base font-bold text-gray-900">
-                        Total
+                        Original Contract Total
                       </td>
                       <td className="px-4 py-3 text-right text-base font-bold text-gray-900">
-                        {formatCurrency(quote.total_amount)}
+                        {formatCurrency(contract?.original_contract_price || quote.total_amount)}
                       </td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* Approved Change Orders */}
+          {approvedChangeOrders && approvedChangeOrders.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                Approved Change Orders
+              </h4>
+              <div className="space-y-4">
+                {approvedChangeOrders.map((co: any) => (
+                  <div key={co.id} className="bg-green-50 border border-green-200 rounded-lg overflow-hidden">
+                    <div className="bg-green-100 px-4 py-2 border-b border-green-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-600">
+                            {co.change_order_number}
+                          </Badge>
+                          <span className="text-sm font-medium text-green-900">
+                            {co.title || 'Change Order'}
+                          </span>
+                        </div>
+                        <span className="text-sm font-bold text-green-900">
+                          +{formatCurrency(co.total || 0)}
+                        </span>
+                      </div>
+                      {co.description && (
+                        <p className="text-xs text-green-700 mt-1">{co.description}</p>
+                      )}
+                    </div>
+                    {co.line_items && co.line_items.length > 0 && (
+                      <div className="bg-white">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Description
+                              </th>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                Qty
+                              </th>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                Unit Price
+                              </th>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {co.line_items.map((item: any) => (
+                              <tr key={item.id}>
+                                <td className="px-4 py-2">
+                                  <div className="text-sm text-gray-900">{item.description}</div>
+                                  {item.notes && (
+                                    <div className="text-xs text-gray-500 mt-0.5">{item.notes}</div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-right text-sm text-gray-900">
+                                  {item.quantity}
+                                </td>
+                                <td className="px-4 py-2 text-right text-sm text-gray-900">
+                                  {formatCurrency(item.unit_price)}
+                                </td>
+                                <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">
+                                  {formatCurrency(item.total)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-gray-50">
+                            <tr>
+                              <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-700">
+                                Subtotal
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">
+                                {formatCurrency(co.amount || 0)}
+                              </td>
+                            </tr>
+                            {co.tax_amount > 0 && (
+                              <tr>
+                                <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-700">
+                                  Tax
+                                </td>
+                                <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">
+                                  {formatCurrency(co.tax_amount)}
+                                </td>
+                              </tr>
+                            )}
+                            <tr className="font-semibold">
+                              <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-900">
+                                Change Order Total
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm font-bold text-green-700">
+                                +{formatCurrency(co.total || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {/* Updated Contract Total - Grand Total */}
+              {contract && (
+                <div className="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">Original Contract:</span>
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(contract.original_contract_price || contract.original_total)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">Approved Change Orders:</span>
+                      <span className="font-medium text-green-700">
+                        +{formatCurrency(approvedChangeOrders.reduce((sum: number, co: any) => sum + (co.total || 0), 0))}
+                      </span>
+                    </div>
+                    <div className="pt-3 border-t-2 border-green-300 flex items-center justify-between">
+                      <span className="text-lg font-bold text-green-900">Updated Contract Total</span>
+                      <span className="text-3xl font-bold text-green-900">
+                        {formatCurrency(
+                          (contract.original_contract_price || contract.original_total) + 
+                          approvedChangeOrders.reduce((sum: number, co: any) => sum + (co.total || 0), 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -613,28 +1052,17 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               </>
             )}
 
-            {quote.status === 'accepted' && (
+            {quote.status === 'accepted' && contract && (
               <>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={onEdit}
+                  onClick={() => setChangeOrderBuilderOpen(true)}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
                 >
-                  <Edit3 className="h-4 w-4 mr-2" />
-                  Edit Estimate
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Change Order
                 </Button>
-                {hasContractChanges && (
-                  <Button
-                    size="sm"
-                    className="bg-orange-600 hover:bg-orange-700"
-                    onClick={() => {
-                      toast.info('Change order generation coming soon!')
-                    }}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Generate Change Order
-                  </Button>
-                )}
                 <Button
                   size="sm"
                   className="bg-green-600 hover:bg-green-700"
@@ -767,9 +1195,46 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
         onOpenChange={setSignatureDialogOpen}
         quoteId={quote.id}
         quoteNumber={quote.quote_number}
-        defaultSignerName={user?.full_name}
         onSuccess={() => window.location.reload()}
       />
+
+      {/* Change Order Signature Dialog */}
+      {pendingChangeOrder && (
+        <ChangeOrderSignatureDialog
+          open={changeOrderSignatureOpen}
+          onOpenChange={setChangeOrderSignatureOpen}
+          changeOrderId={pendingChangeOrder.id}
+          changeOrderNumber={pendingChangeOrder.change_order_number}
+          onSuccess={() => {
+            console.log('Change order signature success - invalidating queries for quote:', quote.id)
+            queryClient.invalidateQueries({ queryKey: ['quote-change-orders', quote.id] })
+            queryClient.invalidateQueries({ queryKey: ['contract-comparison', quote.id] })
+            queryClient.invalidateQueries({ queryKey: ['contract'] })  // Invalidate ALL contracts to refresh source of truth
+            queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+            console.log('Queries invalidated')
+          }}
+        />
+      )}
+
+      {/* Change Order Builder Dialog */}
+      {contract && (
+        <ChangeOrderBuilder
+          open={changeOrderBuilderOpen}
+          onOpenChange={(open) => {
+            setChangeOrderBuilderOpen(open)
+            if (!open) setEditingChangeOrderId(null) // Reset editing state when closing
+          }}
+          leadId={quote.lead_id}
+          quoteId={quote.id}
+          contractId={contract.id}
+          changeOrderId={editingChangeOrderId}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['quote-change-orders', quote.id] })
+            queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+            setEditingChangeOrderId(null) // Reset editing state after success
+          }}
+        />
+      )}
     </div>
   )
 }

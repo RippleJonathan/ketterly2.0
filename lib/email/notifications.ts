@@ -40,6 +40,7 @@ interface NotificationSettings {
   quote_accepted_notify_team: boolean
   invoice_sent_to_customer: boolean
   payment_received_confirmation: boolean
+  change_order_sent_to_customer?: boolean
   notification_email?: string | null
   // ... other settings
 }
@@ -506,3 +507,174 @@ export async function sendDocumentToCustomer(
     }],
   })
 }
+
+/**
+ * Send change order to customer for signature
+ */
+export async function sendChangeOrderToCustomer(
+  changeOrder: any,
+  company: Company,
+  sender: User
+) {
+  const settings = await getNotificationSettings(company.id)
+  
+  // Use quote setting as default if change_order setting not available
+  if (!settings?.quote_sent_to_customer) {
+    console.log('Change order email notifications are disabled for this company')
+    return { success: false, reason: 'disabled' }
+  }
+
+  const customerEmail = changeOrder.lead?.email
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email found' }
+  }
+
+  const signUrl = `${process.env.NEXT_PUBLIC_APP_URL}/sign/change-order/${changeOrder.share_token}`
+
+  const html = emailLayout(
+    `
+      <h1 style="color: #111827; font-size: 24px; font-weight: bold; margin: 0 0 16px 0;">
+        Change Order Requires Your Signature
+      </h1>
+      
+      <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+        Hi ${changeOrder.lead?.full_name || 'there'},
+      </p>
+      
+      <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+        We've prepared a change order for your project that requires your review and signature.
+      </p>
+      
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Change Order #:</td>
+            <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${changeOrder.change_order_number}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Title:</td>
+            <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${changeOrder.title}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount:</td>
+            <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formatCurrency(changeOrder.total)}</td>
+          </tr>
+        </table>
+      </div>
+      
+      <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+        Please review and sign this change order to proceed with the modifications to your project.
+      </p>
+      
+      <table style="width: 100%; margin: 0 0 24px 0;">
+        <tr>
+          <td align="center">
+            <a href="${signUrl}" 
+               style="display: inline-block; background: #f59e0b; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+              Review & Sign Change Order
+            </a>
+          </td>
+        </tr>
+      </table>
+      
+      <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0 0 16px 0;">
+        If you have any questions, please don't hesitate to reach out.
+      </p>
+      
+      <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0;">
+        Best regards,<br>
+        ${sender?.full_name || company.name}<br>
+        ${company.name}${sender?.phone || company.contact_phone ? `<br>${sender?.phone || company.contact_phone}` : ''}
+      </p>
+    `,
+    {
+      companyName: company.name,
+      companyLogo: company.logo_url,
+      primaryColor: company.primary_color || '#1e40af',
+    }
+  )
+
+  return await sendEmail({
+    from: `${sender?.full_name || company.name} via ${company.name} <notifications@ketterly.com>`,
+    to: customerEmail,
+    replyTo: sender?.email || company.contact_email || 'hello@ketterly.com',
+    subject: `Change Order #${changeOrder.change_order_number} - Signature Required`,
+    html,
+  })
+}
+
+/**
+ * Send fully executed change order to customer
+ */
+export async function sendExecutedChangeOrder(
+  changeOrder: any,
+  company: Company
+) {
+  const customerEmail = changeOrder.lead?.email
+  if (!customerEmail) {
+    return { success: false, error: 'No customer email found' }
+  }
+
+  const html = emailLayout(
+    `
+      <h1 style="color: #111827; font-size: 24px; font-weight: bold; margin: 0 0 16px 0;">
+        Change Order Fully Executed
+      </h1>
+      
+      <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+        Hi ${changeOrder.lead?.full_name || 'there'},
+      </p>
+      
+      <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+        Your change order has been fully executed and approved by both parties.
+      </p>
+      
+      <div style="background: #f0fdf4; border: 1px solid #22c55e; border-radius: 8px; padding: 20px; margin: 0 0 24px 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px;">Change Order #:</td>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px; font-weight: 600; text-align: right;">${changeOrder.change_order_number}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px;">Title:</td>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px; font-weight: 600; text-align: right;">${changeOrder.title}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px;">Amount:</td>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px; font-weight: 600; text-align: right;">${formatCurrency(changeOrder.total)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px;">Status:</td>
+            <td style="padding: 8px 0; color: #166534; font-size: 14px; font-weight: 600; text-align: right;">Approved</td>
+          </tr>
+        </table>
+      </div>
+      
+      <p style="color: #374151; font-size: 16px; line-height: 1.5; margin: 0 0 24px 0;">
+        Your project contract has been updated to reflect these changes. We'll proceed with the work as outlined in the change order.
+      </p>
+      
+      <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0 0 16px 0;">
+        Thank you for your business!
+      </p>
+      
+      <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0;">
+        Best regards,<br>
+        ${company.name}
+      </p>
+    `,
+    {
+      companyName: company.name,
+      companyLogo: company.logo_url,
+      primaryColor: company.primary_color || '#1e40af',
+    }
+  )
+
+  return await sendEmail({
+    from: `${company.name} <notifications@ketterly.com>`,
+    to: customerEmail,
+    subject: `Change Order #${changeOrder.change_order_number} - Approved`,
+    html,
+  })
+}
+

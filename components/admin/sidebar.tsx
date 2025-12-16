@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { DynamicSidebarHeader } from './dynamic-sidebar-header'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -77,15 +78,8 @@ export function Sidebar() {
           w-64 flex flex-col
         `}
       >
-        {/* Company Header */}
-        <div className="p-6 border-b border-gray-200">
-          <Link href="/admin/dashboard" className="block">
-            <h1 className="text-xl font-bold text-gray-900">
-              {company?.name || 'Ketterly'}
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">CRM Dashboard</p>
-          </Link>
-        </div>
+        {/* Company Header / Dynamic Page Header */}
+        <DynamicSidebarHeader />
 
         {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">

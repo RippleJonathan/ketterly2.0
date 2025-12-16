@@ -194,9 +194,11 @@ export async function compareQuoteToContract(
 
     if (quoteError) throw quoteError
 
-    // Compare totals
-    const has_changes = quote.total_amount !== contract.original_total
-    const total_change = quote.total_amount - contract.original_total
+    // Compare totals - use current_contract_price (includes approved change orders) instead of original_total
+    // This prevents showing changes that have already been approved via change orders
+    const current_price = contract.current_contract_price || contract.original_total
+    const has_changes = quote.total_amount !== current_price
+    const total_change = quote.total_amount - current_price
 
     // Find added items (in quote but not in contract)
     const added_items = quote.line_items.filter((quoteItem: any) => {

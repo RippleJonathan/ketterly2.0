@@ -435,25 +435,56 @@ export const ChangeOrderPDF: React.FC<ChangeOrderPDFProps> = ({
           </View>
         )}
 
-        {/* Signature Section (for pending/approved) */}
-        {(changeOrder.status === 'pending' || changeOrder.status === 'approved') && (
+        {/* Signature Section (only show if signed) */}
+        {((changeOrder.customer_signature_data && changeOrder.customer_signed_at) || 
+          (changeOrder.company_signature_data && changeOrder.company_signature_date)) && (
           <View style={styles.signatureSection}>
-            <View style={styles.signatureBox}>
-              <Text style={styles.signatureLabel}>Customer Signature</Text>
-              {changeOrder.customer_signed_at && (
-                <Text style={{ fontSize: 7, marginTop: 5 }}>
+            {/* Customer Signature */}
+            {changeOrder.customer_signature_data && changeOrder.customer_signed_at && (
+              <View style={styles.signatureBox}>
+                {changeOrder.customer_signature_data && (
+                  <Image
+                    src={changeOrder.customer_signature_data}
+                    style={styles.signatureImage}
+                  />
+                )}
+                {changeOrder.customer_signer_name && (
+                  <Text style={{ fontSize: 8, fontWeight: 'bold' }}>
+                    {changeOrder.customer_signer_name}
+                  </Text>
+                )}
+                <Text style={styles.signatureLabel}>Customer Signature</Text>
+                <Text style={{ fontSize: 7, marginTop: 2 }}>
                   Signed: {formatDate(changeOrder.customer_signed_at)}
                 </Text>
-              )}
-            </View>
-            <View style={styles.signatureBox}>
-              <Text style={styles.signatureLabel}>Company Representative</Text>
-              {changeOrder.approved_at && (
-                <Text style={{ fontSize: 7, marginTop: 5 }}>
-                  Approved: {formatDate(changeOrder.approved_at)}
+              </View>
+            )}
+            
+            {/* Company Signature */}
+            {changeOrder.company_signature_data && changeOrder.company_signature_date && (
+              <View style={styles.signatureBox}>
+                {changeOrder.company_signature_data && (
+                  <Image
+                    src={changeOrder.company_signature_data}
+                    style={styles.signatureImage}
+                  />
+                )}
+                {changeOrder.company_signer_name && (
+                  <Text style={{ fontSize: 8, fontWeight: 'bold' }}>
+                    {changeOrder.company_signer_name}
+                  </Text>
+                )}
+                {changeOrder.company_signer_title && (
+                  <Text style={{ fontSize: 7, color: '#666' }}>
+                    {changeOrder.company_signer_title}
+                  </Text>
+                )}
+                <Text style={styles.signatureLabel}>Company Representative</Text>
+                <Text style={{ fontSize: 7, marginTop: 2 }}>
+                  Approved: {formatDate(changeOrder.company_signature_date)}
                 </Text>
-              )}
-            </View>
+              </View>
+            )}
           </View>
         )}
 

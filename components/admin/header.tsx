@@ -45,51 +45,53 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between px-4 lg:px-8 py-4">
-        {/* Left: Search (hidden on mobile, shown on larger screens) */}
-        <div className="flex-1 max-w-md hidden md:block">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-            />
+    <>
+      {/* Top Bar with Search and Profile */}
+      <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between px-4 lg:px-8 py-3">
+          {/* Left: Search (hidden on mobile, shown on larger screens) */}
+          <div className="flex-1 max-w-md hidden md:block">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="w-full pl-9 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Mobile: Company name */}
-        <div className="md:hidden flex-1">
-          <h2 className="text-lg font-semibold text-gray-900 ml-12">
-            {company?.name || 'Dashboard'}
-          </h2>
-        </div>
+          {/* Mobile: Company name */}
+          <div className="md:hidden flex-1">
+            <h2 className="text-base font-semibold text-gray-900 ml-12">
+              {company?.name || 'Dashboard'}
+            </h2>
+          </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-3">
-          {/* Notifications */}
-          <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2">
+            {/* Notifications */}
+            <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
 
-          {/* Profile Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.avatar_url || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {user?.full_name ? getInitials(user.full_name) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="hidden sm:inline text-sm font-medium text-gray-700">
-                  {user?.full_name || 'User'}
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            {/* Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={user?.avatar_url || undefined} />
+                    <AvatarFallback className="text-xs">
+                      {user?.full_name ? getInitials(user.full_name) : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden sm:inline text-sm font-medium text-gray-700">
+                    {user?.full_name || 'User'}
+                  </span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium">{user?.full_name || 'User'}</p>
@@ -114,10 +116,11 @@ export function Header() {
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   )
 }

@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { LeadForm } from '@/components/admin/leads/lead-form'
+import { DeleteLeadButton } from '@/components/admin/leads/delete-lead-button'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
@@ -52,19 +53,22 @@ export default async function EditLeadPage({ params }: EditLeadPageProps) {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href={`/admin/leads/${id}`}>
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Lead
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Lead</h1>
-          <p className="text-gray-600 mt-1">
-            Update information for {lead.full_name}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href={`/admin/leads/${id}`}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Lead
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Edit Lead</h1>
+            <p className="text-gray-600 mt-1">
+              Update information for {lead.full_name}
+            </p>
+          </div>
         </div>
+        <DeleteLeadButton leadId={id} leadName={lead.full_name} />
       </div>
       
       <LeadForm mode="edit" lead={lead as any} />

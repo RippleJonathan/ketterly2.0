@@ -116,19 +116,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/admin/leads/${id}/edit`}>
-            <Button variant="outline">
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </Link>
-          <DeleteLeadButton leadId={id} leadName={lead.full_name} />
-        </div>
       </div>
-
-      {/* Live-updating client components */}
-      <LeadDetailClient leadId={id} initialLead={lead} />
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">

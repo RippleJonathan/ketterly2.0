@@ -180,6 +180,8 @@ export function useUpdateQuoteLineItems() {
       // Invalidate all quotes lists to update totals on estimates tab
       queryClient.invalidateQueries({ queryKey: ['quotes', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      // Invalidate contract comparisons to update change detection
+      queryClient.invalidateQueries({ queryKey: ['contract-comparison'] })
       toast.success('Line items updated successfully')
     },
     onError: (error: Error) => {

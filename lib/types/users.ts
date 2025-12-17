@@ -55,6 +55,12 @@ export interface User {
   crew_role: 'foreman' | 'laborer' | 'none' | null
   foreman_id: string | null
   
+  // Notification Preferences
+  email_notifications: boolean
+  push_notifications: boolean
+  sms_notifications: boolean
+  notification_preferences: Record<string, boolean> | null
+  
   // Metadata
   created_at: string
   updated_at: string
@@ -588,7 +594,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_commission_reports: true,
     can_export_reports: true,
     // Commissions
-    can_view_commissions: true,
+    can_view_own_commissions: true,
     can_manage_commissions: true,
     can_mark_commissions_paid: true,
     // Users & Settings
@@ -649,7 +655,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_commission_reports: false,
     can_export_reports: true,
     // Commissions
-    can_view_commissions: true,
+    can_view_own_commissions: true,
     can_manage_commissions: true,
     can_mark_commissions_paid: true,
     // Users & Settings
@@ -710,7 +716,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_commission_reports: true,  // Can see team commissions
     can_export_reports: true,
     // Commissions
-    can_view_commissions: true,
+    can_view_own_commissions: true,
     can_manage_commissions: true,
     can_mark_commissions_paid: false,
     // Users & Settings
@@ -828,11 +834,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_commission_reports: false,
     can_export_reports: false,
     // Commissions
-    can_view_commissions: false,
-    can_manage_commissions: false,
-    can_mark_commissions_paid: false,
-    // Commissions
-    can_view_commissions: true,          // View own commissions
+    can_view_own_commissions: true,          // View own commissions
     can_manage_commissions: false,
     can_mark_commissions_paid: false,
     // Users & Settings
@@ -893,7 +895,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_commission_reports: false,
     can_export_reports: true,         // Export analytics
     // Commissions
-    can_view_commissions: false,
+    can_view_own_commissions: true,   // View own commissions
     can_manage_commissions: false,
     can_mark_commissions_paid: false,
     // Users & Settings

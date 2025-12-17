@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendQuoteToCustomer } from '@/lib/email/notifications'
+import { notifyQuoteSent } from '@/lib/email/user-notifications'
 
 export async function POST(
   request: NextRequest,
@@ -135,6 +136,21 @@ export async function POST(
         })
     } catch (e) {
       // ignore if table doesn't exist yet
+    }
+
+    // Send notification to team (if quote is assigned to someone)
+    if (quote.lead?.assigned_to && quote.lead.assigned_to !== userData.id) {
+      notifyQuoteSent({
+        userId: quote.lead.assigned_to,
+        companyId: userData.company_id,
+        leadId: quote.lead_id,
+        quoteId,
+        customerName: quote.lead.full_name,
+        quoteNumber: quote.quote_number || quoteId.slice(0, 8),
+        totalAmount: quote.grand_total || 0,
+        sentByUserId: userData.id,
+        sentAt: new Date().toISOString(),
+      }).catch(err => console.error('Failed to send quote notification:', err))
     }
 
     if (updateError) {

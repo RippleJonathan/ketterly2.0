@@ -1,3 +1,4 @@
+
 # Ketterly CRM - Product Roadmap
 
 **Last Updated:** December 16, 2024  
@@ -9,42 +10,51 @@
 
 **Ordered by development complexity (easiest → hardest)**
 
-### 1. **Navigation Cleanup** ⚡ QUICK WIN (2-4 hours)
+### 1. **Navigation Cleanup** ⚡ QUICK WIN (2-4 hours) ✅ COMPLETED
 **Difficulty:** ⭐ Easy | **Impact:** High
 
-- [ ] Remove unused navigation links
-- [ ] Role-based navigation (show/hide based on permissions)
-- [ ] Organize by user workflow:
-  - Sales: Leads, Estimates, Quotes, Follow-ups
-  - Production: Schedule, Work Orders, Projects
-  - Office: Invoicing, Payments, Reports
-  - Admin: Settings, Users, Permissions, Analytics
+- [x] Remove unused navigation links
+- [x] Role-based navigation (show/hide based on permissions)
+- [x] Organize by user workflow:
+  - Sales: Dashboard, Leads
+  - Production: Calendar (coming soon)
+  - Office: Estimates, Invoices, Reports (coming soon)
+  - Admin: Users, Commission Plans
+  - Settings: Profile, Settings, Role Permissions
 
-**Why Easy:** Just conditional rendering based on existing permissions system.
+**Completed:** December 16, 2024
+**Implementation:** Permission-based navigation with `useCheckPermission` hook, organized sections, "Coming Soon" badges for future features.
 
 ---
 
-### 2. **Quick Add Lead Button** ⚡ QUICK WIN (3-5 hours)
+### 2. **Quick Add Lead Button** ⚡ QUICK WIN (3-5 hours) ✅ COMPLETED
 **Difficulty:** ⭐ Easy | **Impact:** High
 
-- [ ] Add "+ Add Lead" button to main navigation/top bar
-- [ ] Modal-based form (doesn't navigate away from current page)
-- [ ] Accessible from any page in the app
-- [ ] Quick capture: name, phone, address, source
+- [x] Add "+ Add Lead" button to main navigation/top bar
+- [x] Modal-based form (doesn't navigate away from current page)
+- [x] Accessible from any page in the app
+- [x] Quick capture: name, phone, address, source
+- [x] Auto-navigate to lead detail page after creation
 
-**Why Easy:** Reuse existing `LeadForm` component, just add modal wrapper in layout.
+**Completed:** December 16, 2024
+**Implementation:** Floating action button (FAB) in bottom-right, reuses existing server actions, permission-based visibility.
 
 ---
 
-### 3. **Notification Preferences UI** ⚡ QUICK WIN (4-6 hours)
+### 3. **Notification Preferences UI** ⚡ QUICK WIN (4-6 hours) ✅ COMPLETED
 **Difficulty:** ⭐ Easy | **Impact:** Medium
 
-- [ ] Add notification settings to user profile
-- [ ] Opt-in toggles for push notifications
-- [ ] Opt-in toggles for email notifications
-- [ ] Save preferences to user settings
+- [x] Add notification settings to user profile
+- [x] Opt-in toggles for push notifications
+- [x] Opt-in toggles for email notifications
+- [x] Opt-in toggles for SMS notifications
+- [x] Granular preferences per notification type
+- [x] Grouped preferences (Leads, Sales, Payments, etc.)
+- [x] Save preferences to user_preferences
 
-**Why Easy:** Simple form with toggles, add columns to `users` table, use existing form patterns.
+**Completed:** Previously implemented
+**Location:** Profile → Notifications tab
+**Implementation:** Full UI with master toggles and 17 granular notification types grouped into 7 categories.
 
 ---
 
@@ -194,16 +204,21 @@
 
 ---
 
-### **1. Lead Form Address Autocomplete** ⚡ QUICK WIN (2-3 hours)
+### **1. Lead Form Address Autocomplete** ⚡ QUICK WIN (2-3 hours) ✅ COMPLETED
 **Difficulty:** ⭐ Easy | **Impact:** Medium
 
-- [ ] Google Maps API integration (already have API key)
-- [ ] Autocomplete as user types
-- [ ] Validate and format addresses
-- [ ] Extract city/state/zip automatically
-- [ ] Geocode for map display
+- [x] Google Maps API integration (using existing API key)
+- [x] Autocomplete as user types
+- [x] Validate and format addresses
+- [x] Extract city/state/zip automatically
+- [x] Geocode for map display (component ready)
+- [x] Added to main lead form
+- [x] Added to quick add lead modal
+- [x] Graceful fallback if API fails
 
-**Why Easy:** Google Places API straightforward, just add autocomplete component to form.
+**Completed:** December 16, 2024
+**Location:** Lead forms, Quick Add Lead modal
+**Implementation:** AddressAutocomplete component with Google Places API, auto-populates city/state/zip fields.
 
 ---
 
@@ -456,6 +471,19 @@ Long-term vision features (post-launch, 6-12+ months):
 ---
 
 ## ✅ COMPLETED FEATURES
+
+### **Email Notification System** ✅
+- Multi-channel notification infrastructure
+- 6/17 notification types fully integrated:
+  * New leads assigned
+  * Lead reassignment
+  * Quote sent to customer
+  * Quote approved by customer
+  * Contract fully signed
+  * Payment recorded
+- Notification preferences UI (17 types grouped into 7 categories)
+- Resend email integration
+- Server action pattern with automatic notifications
 
 ### **Core CRM** ✅
 - Multi-tenant architecture with RLS

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -16,11 +16,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import {
   LEAD_FILTER_OPTIONS,
   SERVICE_TYPE_OPTIONS,
 } from '@/lib/constants/leads'
-import { useCreateLead, useUpdateLead } from '@/lib/hooks/use-leads'
+import { createLeadAction, updateLeadAction } from '@/lib/actions/leads'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { createClient } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import type { Lead } from '@/lib/types'
 
 const leadFormSchema = z.object({
@@ -35,6 +41,7 @@ const leadFormSchema = z.object({
   source: z.string().min(1, 'Source is required'),
   status: z.string().min(1, 'Status is required'),
   priority: z.string().min(1, 'Priority is required'),
+  assigned_to: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -48,8 +55,11 @@ interface LeadFormProps {
 export function LeadForm({ lead, mode }: LeadFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const createLead = useCreateLead()
-  const updateLead = useUpdateLead()
+  const [users, setUsers] = useState<Array<{ id: string; full_name: string; email: string }>>([])
+  const { data: company } = useCurrentCompany()
+  const { data: userData } = useCurrentUser()
+  const user = userData?.data
+  const queryClient = useQueryClient()
 
   const {
     register,
@@ -72,6 +82,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           source: lead.source,
           status: lead.status,
           priority: lead.priority,
+          assigned_to: lead.assigned_to || '',
           notes: lead.notes || '',
         }
       : {
@@ -86,22 +97,75 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           source: 'website',
           status: 'new',
           priority: 'medium',
+          assigned_to: '',
           notes: '',
         },
   })
 
+  // Fetch users for assignment dropdown
+  useEffect(() => {
+    async function fetchUsers() {
+      if (!company?.id) return
+
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('company_id', company.id)
+        .order('full_name')
+
+      if (error) {
+        console.error('Error fetching users:', error)
+        return
+      }
+
+      setUsers(data || [])
+    }
+
+    fetchUsers()
+  }, [company?.id])
+
   const onSubmit = async (data: LeadFormData) => {
+    if (!company?.id || !user?.id) {
+      toast.error('Missing company or user information')
+      return
+    }
+
     setIsSubmitting(true)
     try {
+      // Convert empty string to null for assigned_to
+      const submitData = {
+        ...data,
+        assigned_to: data.assigned_to || null,
+      }
+      
       if (mode === 'create') {
-        await createLead.mutateAsync(data as any)
-        router.push('/admin/leads')
+        const result = await createLeadAction(company.id, submitData, user.id)
+        
+        if (result.success) {
+          queryClient.invalidateQueries({ queryKey: ['leads', company.id] })
+          queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+          toast.success('Lead created successfully!')
+          router.push('/admin/leads')
+        } else {
+          throw new Error(result.error || 'Failed to create lead')
+        }
       } else if (lead) {
-        await updateLead.mutateAsync({ leadId: lead.id, updates: data as any })
-        router.push(`/admin/leads/${lead.id}`)
+        const result = await updateLeadAction(company.id, lead.id, submitData, user.id)
+        
+        if (result.success) {
+          queryClient.invalidateQueries({ queryKey: ['leads', company.id] })
+          queryClient.invalidateQueries({ queryKey: ['leads', company.id, lead.id] })
+          queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+          toast.success('Lead updated successfully!')
+          router.push(`/admin/leads/${lead.id}`)
+        } else {
+          throw new Error(result.error || 'Failed to update lead')
+        }
       }
     } catch (error) {
       console.error('Form submission error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to save lead')
     } finally {
       setIsSubmitting(false)
     }
@@ -154,10 +218,15 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <Label htmlFor="address">Street Address</Label>
-            <Input
-              id="address"
-              {...register('address')}
+            <AddressAutocomplete
+              value={watch('address') || ''}
+              onChange={(value) => setValue('address', value)}
+              onAddressSelect={(components) => {
+                setValue('city', components.city)
+                setValue('state', components.state)
+                setValue('zip', components.zip)
+              }}
+              label="Street Address"
               placeholder="123 Main St"
             />
           </div>
@@ -169,12 +238,12 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
 
           <div>
             <Label htmlFor="state">State</Label>
-            <Input id="state" {...register('state')} placeholder="TX" />
+            <Input id="state" {...register('state')} placeholder="TX" maxLength={2} />
           </div>
 
           <div>
             <Label htmlFor="zip">ZIP Code</Label>
-            <Input id="zip" {...register('zip')} placeholder="78701" />
+            <Input id="zip" {...register('zip')} placeholder="78701" maxLength={10} />
           </div>
         </div>
       </div>
@@ -269,6 +338,26 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
             {errors.priority && (
               <p className="text-red-500 text-sm mt-1">{errors.priority.message}</p>
             )}
+          </div>
+
+          <div>
+            <Label htmlFor="assigned_to">Assigned To</Label>
+            <Select
+              value={watch('assigned_to') || 'unassigned'}
+              onValueChange={(value) => setValue('assigned_to', value === 'unassigned' ? '' : value)}
+            >
+              <SelectTrigger id="assigned_to">
+                <SelectValue placeholder="Select user" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

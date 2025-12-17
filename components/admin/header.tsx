@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Search, LogOut, User, Settings } from 'lucide-react'
+import { Bell, Search, LogOut, User, Settings, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -8,6 +8,8 @@ import { toast } from 'sonner'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-users'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { QuickAddLeadButton } from './quick-add-lead-button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,14 +50,19 @@ export function Header() {
     <>
       {/* Top Bar with Search and Profile */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between px-4 lg:px-8 py-3">
-          {/* Left: Search (hidden on mobile, shown on larger screens) */}
+        <div className="flex items-center gap-3 px-4 lg:px-8 py-3">
+          {/* Left: Add Lead Button */}
+          <div className="flex-shrink-0">
+            <QuickAddLeadButton variant="header" />
+          </div>
+
+          {/* Middle: Search (hidden on mobile, shown on larger screens) */}
           <div className="flex-1 max-w-md hidden md:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search customers, leads, addresses..."
                 className="w-full pl-9 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
               />
             </div>
@@ -63,7 +70,7 @@ export function Header() {
 
           {/* Mobile: Company name */}
           <div className="md:hidden flex-1">
-            <h2 className="text-base font-semibold text-gray-900 ml-12">
+            <h2 className="text-base font-semibold text-gray-900">
               {company?.name || 'Dashboard'}
             </h2>
           </div>

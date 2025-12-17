@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components/admin/sidebar'
 import { Header } from '@/components/admin/header'
+import { QuickAddLeadButton } from '@/components/admin/quick-add-lead-button'
 
 export default function AdminLayout({
   children,
@@ -22,6 +23,9 @@ export default function AdminLayout({
           </div>
         </main>
       </div>
+
+      {/* Quick Add Lead Button - Floating action button */}
+      <QuickAddLeadButton variant="fab" />
     </div>
   )
 }

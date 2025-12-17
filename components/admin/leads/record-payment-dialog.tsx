@@ -9,9 +9,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreatePayment, useNextPaymentNumber } from '@/lib/hooks/use-invoices'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { PaymentInsert, PaymentMethod } from '@/lib/types/invoices'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { Loader2 } from 'lucide-react'
+import { recordPaymentAction } from '@/lib/actions/invoices'
+import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface RecordPaymentDialogProps {
   open: boolean
@@ -42,8 +46,12 @@ export function RecordPaymentDialog({
   invoice,
 }: RecordPaymentDialogProps) {
   const { data: company } = useCurrentCompany()
+  const { data: userData } = useCurrentUser()
+  const user = userData?.data
   const { data: nextPaymentNumber } = useNextPaymentNumber()
   const createPayment = useCreatePayment()
+  const queryClient = useQueryClient()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [formData, setFormData] = useState({
     payment_date: new Date().toISOString().split('T')[0],
@@ -56,53 +64,61 @@ export function RecordPaymentDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    console.log('Form submitted', { company, nextPaymentNumber, data: nextPaymentNumber?.data })
-    
-    if (!company) {
-      console.error('No company found')
+    if (!company || !user) {
+      toast.error('Missing company or user information')
       return
     }
     
-    // The query returns the payment number directly, not in a .data property
     const paymentNumber = nextPaymentNumber
     if (!paymentNumber) {
-      console.error('Payment number not available')
+      toast.error('Payment number not available')
       return
     }
     
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      console.error('Invalid payment amount')
+      toast.error('Invalid payment amount')
       return
     }
 
-    const payment: PaymentInsert = {
-      company_id: company.id,
-      lead_id: leadId,
-      invoice_id: invoice?.id || null,
-      payment_number: paymentNumber,
-      payment_date: formData.payment_date,
-      amount: parseFloat(formData.amount),
-      payment_method: formData.payment_method,
-      reference_number: formData.reference_number || null,
-      notes: formData.notes || null,
-    }
-
-    console.log('Creating payment:', payment)
+    setIsSubmitting(true)
     try {
-      await createPayment.mutateAsync(payment)
-      onOpenChange(false)
+      // Use server action to record payment with notifications
+      const result = await recordPaymentAction({
+        companyId: company.id,
+        leadId,
+        invoiceId: invoice?.id,
+        amount: parseFloat(formData.amount),
+        paymentMethod: formData.payment_method,
+        paymentDate: formData.payment_date,
+        notes: formData.notes || undefined,
+        createdBy: user.id,
+      })
+
+      if (result.success) {
+        // Invalidate queries to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['invoices'] })
+        queryClient.invalidateQueries({ queryKey: ['payments'] })
+        queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+        
+        toast.success('Payment recorded successfully!')
+        onOpenChange(false)
+        
+        // Reset form
+        setFormData({
+          payment_date: new Date().toISOString().split('T')[0],
+          amount: '',
+          payment_method: 'check',
+          reference_number: '',
+          notes: '',
+        })
+      } else {
+        throw new Error(result.error || 'Failed to record payment')
+      }
     } catch (error) {
-      console.error('Payment creation failed:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to record payment')
+    } finally {
+      setIsSubmitting(false)
     }
-    
-    // Reset form
-    setFormData({
-      payment_date: new Date().toISOString().split('T')[0],
-      amount: '',
-      payment_method: 'check',
-      reference_number: '',
-      notes: '',
-    })
   }
 
   return (

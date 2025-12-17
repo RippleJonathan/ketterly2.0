@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendExecutedContractToCustomer } from '@/lib/email/notifications'
+import { notifyQuoteApproved, notifyContractSigned } from '@/lib/email/user-notifications'
 
 /**
  * POST /api/quotes/sign-pdf
@@ -127,6 +128,43 @@ export async function POST(request: NextRequest) {
 
     console.log('Signature created successfully:', signature.id)
 
+    // Notify team when customer signs (quote approved)
+    if (signer_type === 'customer') {
+      console.log('[NOTIFICATION] Customer signed - triggering quote approved notifications')
+      
+      // Fetch lead to get assigned user and creator
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('assigned_to, created_by, full_name')
+        .eq('id', quote.lead_id)
+        .single()
+      
+      if (lead) {
+        // Gather team members to notify (assigned + creator, deduplicated)
+        const userIdsToNotify = new Set<string>()
+        if (lead.assigned_to) userIdsToNotify.add(lead.assigned_to)
+        if (lead.created_by) userIdsToNotify.add(lead.created_by)
+        
+        // Send notification to each team member
+        for (const userId of userIdsToNotify) {
+          try {
+            await notifyQuoteApproved({
+              userId,
+              companyId: quote.company_id,
+              leadId: quote.lead_id,
+              quoteId: quote.id,
+              customerName: lead.full_name,
+              quoteNumber: quote.quote_number,
+              totalAmount: quote.total_amount,
+              approvedAt: new Date().toISOString(),
+            })
+          } catch (err) {
+            console.error('[NOTIFICATION] Failed to send quote approved notification:', err)
+          }
+        }
+      }
+    }
+
     // 4. Check if both signatures are now complete
     const { data: allSignatures, error: sigError } = await supabase
       .from('quote_signatures')
@@ -184,6 +222,32 @@ export async function POST(request: NextRequest) {
         } catch (emailError) {
           // Log error but don't fail the signature submission
           console.error('[DUAL SIGNATURE] ❌ Exception sending executed contract email:', emailError)
+        }
+        
+        // Notify team that contract is fully signed
+        console.log('[NOTIFICATION] Both signatures complete - triggering contract signed notifications')
+        
+        // Gather team members to notify (assigned + creator, deduplicated)
+        const userIdsToNotify = new Set<string>()
+        if (lead.assigned_to) userIdsToNotify.add(lead.assigned_to)
+        if (lead.created_by) userIdsToNotify.add(lead.created_by)
+        
+        // Send notification to each team member
+        for (const userId of userIdsToNotify) {
+          try {
+            await notifyContractSigned({
+              userId,
+              companyId: quote.company_id,
+              leadId: quote.lead_id,
+              quoteId: quote.id,
+              customerName: lead.full_name,
+              quoteNumber: quote.quote_number,
+              totalAmount: quote.total_amount,
+              signedAt: new Date().toISOString(),
+            })
+          } catch (err) {
+            console.error('[NOTIFICATION] Failed to send contract signed notification:', err)
+          }
         }
       } else {
         console.error('[DUAL SIGNATURE] Missing company or lead data - cannot send email')

@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
-import { updateLead } from '@/lib/api/leads'
+import { updateLeadAction } from '@/lib/actions/leads'
 import { autoCreateCommission } from '@/lib/utils/auto-commission'
 import {
   Select,
@@ -64,30 +64,31 @@ export function AssignUserDropdown({ leadId, currentAssignedTo, compact = false 
       toast.error('Missing company context')
       return
     }
+    
+    if (!currentUser?.id) {
+      toast.error('User not authenticated')
+      return
+    }
 
     const supabase = createClient()
     const assignedTo = userId === 'unassigned' ? null : userId
 
-    // Update lead assignment
-    const result = await updateLead(company.id, leadId, {
-      assigned_to: assignedTo,
-    })
+    // Update lead assignment using server action (triggers notifications)
+    const result = await updateLeadAction(
+      company.id,
+      leadId,
+      { assigned_to: assignedTo },
+      currentUser.id
+    )
 
-    if (result.error) {
+    if (!result.success) {
       console.error('Failed to assign user:', result.error)
-      toast.error('Failed to assign user')
+      toast.error(result.error || 'Failed to assign user')
       return
     }
 
-    // Get current user for commission tracking (optional)
-    let actorUserId = currentUser?.id
-    if (!actorUserId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      actorUserId = user?.id || null
-    }
-
     // Automatically create/update commission for assigned user (non-blocking)
-    await autoCreateCommission(leadId, assignedTo, company.id, actorUserId)
+    await autoCreateCommission(leadId, assignedTo, company.id, currentUser.id)
 
     queryClient.invalidateQueries({ queryKey: ['leads', company.id] })
     queryClient.invalidateQueries({ queryKey: ['leads', company.id, leadId] })

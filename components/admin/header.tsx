@@ -68,8 +68,9 @@ export function Header() {
           {/* Middle: Search (hidden on mobile, shown on larger screens) */}
           <div className="flex-1 max-w-md hidden md:block">
             <button
+              type="button"
               onClick={() => setCommandPaletteOpen(true)}
-              className="w-full flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors text-left text-sm text-gray-500"
+              className="w-full flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors text-left text-sm text-gray-500 cursor-pointer"
             >
               <Search className="w-4 h-4" />
               <span>Search customers, leads, addresses...</span>
@@ -90,6 +91,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             {/* Mobile Search Button */}
             <button 
+              type="button"
               onClick={() => setCommandPaletteOpen(true)}
               className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >

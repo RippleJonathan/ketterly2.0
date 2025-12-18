@@ -40,12 +40,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
+        e.stopPropagation()
         onOpenChange(!open)
       }
     }
 
-    document.addEventListener('keydown', down)
-    return () => document.removeEventListener('keydown', down)
+    // Use capture phase to intercept before browser default
+    document.addEventListener('keydown', down, { capture: true })
+    return () => document.removeEventListener('keydown', down, { capture: true })
   }, [open, onOpenChange])
 
   // Reset on close
@@ -89,6 +91,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ')
   }
+
+  if (!open) return null
 
   return (
     <Command.Dialog 

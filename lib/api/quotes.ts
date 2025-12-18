@@ -1,6 +1,8 @@
 // Quote API functions for Ketterly CRM
 import { createClient } from '@/lib/supabase/client'
 import { ApiResponse } from '@/lib/types/api'
+import { getStatusAfterQuoteCreated } from '@/lib/utils/status-transitions'
+import { applyStatusTransition } from '@/lib/api/leads'
 
 const supabase = createClient()
 import {
@@ -317,6 +319,14 @@ export async function createQuote(
       .insert(lineItemsInsert)
 
     if (lineItemsError) throw lineItemsError
+
+    // Automatically update lead status: NEW_LEAD -> QUOTE / ESTIMATING
+    await applyStatusTransition(
+      companyId,
+      leadId,
+      getStatusAfterQuoteCreated(),
+      createdBy
+    )
 
     // Fetch the complete quote with relations
     const completeQuote = await getQuote(companyId, quote.id)

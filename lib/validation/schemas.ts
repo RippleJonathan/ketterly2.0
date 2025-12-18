@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { LeadSource, ServiceType, LeadStatus, Priority } from '@/lib/types/enums'
+import { LeadSource, ServiceType, LeadStatus, LeadSubStatus, Priority } from '@/lib/types/enums'
 
 // Lead validation schema
 export const leadFormSchema = z.object({
@@ -12,7 +12,8 @@ export const leadFormSchema = z.object({
   zip: z.string().regex(/^\d{5}$/, 'ZIP must be 5 digits').optional().or(z.literal('')),
   source: z.nativeEnum(LeadSource),
   service_type: z.nativeEnum(ServiceType),
-  status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW),
+  status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW_LEAD),
+  sub_status: z.nativeEnum(LeadSubStatus).optional().nullable(),
   priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
   estimated_value: z.number().min(0).optional().nullable(),
   notes: z.string().optional(),

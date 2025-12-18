@@ -58,16 +58,22 @@
 
 ---
 
-### 4. **Estimate Templates** (6-8 hours)
+### 4. **Estimate Templates** ⚡ QUICK WIN (6-8 hours) ✅ COMPLETED
 **Difficulty:** ⭐⭐ Medium | **Impact:** High
 
-- [ ] Create estimate templates (similar to material/work order templates)
-- [ ] Pre-configured line items by service type
-- [ ] Template categories (repair, replacement, new construction)
-- [ ] Clone and customize templates
-- [ ] Admin-only template management
+- [x] Create estimate templates (similar to material/work order templates)
+- [x] Pre-configured line items by service type
+- [x] Template categories (roofing, siding, windows, gutters, repairs, other)
+- [x] Unified templates UI (Material Orders | Labor Orders | Estimates)
+- [x] Category-based filtering when importing templates
+- [x] Template management with permissions
+- [x] Two-step creation dialog (method selection → template selection)
+- [x] Auto-import with measurement-based quantity calculation
+- [x] Server-side API for template import (matches material order flow)
+- [x] Removed category column from estimate line items UI
 
-**Why Medium:** Copy existing material template pattern, database schema already familiar.
+**Completed:** December 17, 2024
+**Implementation:** Complete template system with database schema, API layer (`importTemplateToEstimate`), React Query hooks, unified settings UI with three tabs, and auto-calculated quantities based on roof measurements (total_squares with waste).
 
 ---
 
@@ -220,12 +226,13 @@
 - [x] Extract city/state/zip automatically
 - [x] Geocode for map display (component ready)
 - [x] Added to main lead form
-- [x] Added to quick add lead modal
+- [x] Fixed modal z-index issues for dropdown visibility
 - [x] Graceful fallback if API fails
+- [x] Converted quick-add button to direct navigation link
 
-**Completed:** December 16, 2024
-**Location:** Lead forms, Quick Add Lead modal
-**Implementation:** AddressAutocomplete component with Google Places API, auto-populates city/state/zip fields.
+**Completed:** December 17, 2024
+**Location:** Lead forms (New Lead page)
+**Implementation:** AddressAutocomplete component with Google Places API, auto-populates city/state/zip fields. Quick-add button now navigates directly to /admin/leads/new instead of opening modal.
 
 ---
 

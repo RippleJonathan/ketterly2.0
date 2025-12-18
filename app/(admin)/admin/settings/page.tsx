@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CompanySettingsForm } from '@/components/admin/settings/company-settings-form'
-import { MaterialTemplatesSettings } from '@/components/admin/settings/material-templates-settings'
+import { UnifiedTemplatesSettings } from '@/components/admin/settings/unified-templates-settings'
 import { MaterialsSettings } from '@/components/admin/settings/materials-settings'
 import { SuppliersSettings } from '@/components/admin/settings/suppliers-settings'
 import { Building2, ClipboardList, Package, Truck } from 'lucide-react'
@@ -16,7 +16,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-2">
-          Manage your company settings, materials, and templates
+          Manage your company settings, products, and templates
         </p>
       </div>
 
@@ -28,7 +28,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="materials" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Materials
+            Products
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex items-center gap-2">
             <ClipboardList className="h-4 w-4" />
@@ -49,7 +49,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-4">
-          <MaterialTemplatesSettings />
+          <UnifiedTemplatesSettings />
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-4">

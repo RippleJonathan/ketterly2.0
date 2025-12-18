@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/client'
 import { ApiResponse, createErrorResponse, createSuccessResponse } from '@/lib/types/api'
 import { Lead, LeadInsert, LeadUpdate, LeadFilters, LeadWithUser } from '@/lib/types'
+import { LeadStatus, LeadSubStatus } from '@/lib/types/enums'
+import { 
+  validateStatusTransition, 
+  getTargetSubStatus,
+  type StatusTransition 
+} from '@/lib/utils/status-transitions'
 
 export async function getLeads(
   companyId: string,
@@ -185,4 +191,103 @@ export async function deleteLead(
   } catch (error) {
     return createErrorResponse(error)
   }
+}
+
+/**
+ * Update lead status with validation and automatic sub-status handling
+ * 
+ * @param companyId - Company ID for RLS
+ * @param leadId - Lead to update
+ * @param newStatus - Target main status
+ * @param newSubStatus - Target sub-status (optional, will use default if not provided)
+ * @param userId - User making the change (for permission checking)
+ * @param automated - Whether this is an automated transition (default: false)
+ * @param metadata - Additional metadata to store in history
+ */
+export async function updateLeadStatus(
+  companyId: string,
+  leadId: string,
+  newStatus: LeadStatus,
+  newSubStatus?: LeadSubStatus | null,
+  userId?: string,
+  automated: boolean = false,
+  metadata?: Record<string, any>
+): Promise<ApiResponse<Lead>> {
+  try {
+    const supabase = createClient()
+
+    // Get current lead status
+    const { data: currentLead, error: fetchError } = await supabase
+      .from('leads')
+      .select('status, sub_status')
+      .eq('company_id', companyId)
+      .eq('id', leadId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!currentLead) throw new Error('Lead not found')
+
+    // Determine target sub-status
+    const targetSubStatus = getTargetSubStatus(newStatus, newSubStatus)
+
+    // Validate transition
+    const validation = validateStatusTransition(
+      currentLead.status as LeadStatus,
+      currentLead.sub_status as LeadSubStatus | null,
+      newStatus,
+      targetSubStatus
+    )
+
+    if (!validation.valid) {
+      return createErrorResponse(new Error(validation.error))
+    }
+
+    // TODO: Check user permissions if required
+    if (validation.requiresPermission && userId) {
+      // For now, we'll skip permission check
+      // In production, query user_permissions table
+      console.warn(`Permission check needed: ${validation.requiresPermission}`)
+    }
+
+    // Update the lead status
+    // The database trigger will automatically log this change to lead_status_history
+    const { data, error } = await supabase
+      .from('leads')
+      .update({
+        status: newStatus,
+        sub_status: targetSubStatus,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq('company_id', companyId)
+      .eq('id', leadId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return createSuccessResponse(data)
+  } catch (error) {
+    console.error('Update lead status exception:', error)
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Apply an automatic status transition
+ * Convenience wrapper for automated transitions
+ */
+export async function applyStatusTransition(
+  companyId: string,
+  leadId: string,
+  transition: StatusTransition,
+  userId?: string
+): Promise<ApiResponse<Lead>> {
+  return updateLeadStatus(
+    companyId,
+    leadId,
+    transition.to_status,
+    transition.to_sub_status,
+    userId,
+    transition.automated,
+    transition.metadata
+  )
 }

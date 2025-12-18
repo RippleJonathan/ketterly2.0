@@ -30,13 +30,54 @@ export enum ServiceType {
 }
 
 export enum LeadStatus {
-  NEW = 'new',
+  NEW_LEAD = 'new_lead',
+  QUOTE = 'quote',
+  PRODUCTION = 'production',
+  INVOICED = 'invoiced',
+  CLOSED = 'closed',
+}
+
+export enum LeadSubStatus {
+  // NEW LEAD sub-statuses
+  UNCONTACTED = 'uncontacted',
   CONTACTED = 'contacted',
   QUALIFIED = 'qualified',
+  NOT_QUALIFIED = 'not_qualified',
+  
+  // QUOTE sub-statuses
+  ESTIMATING = 'estimating',
   QUOTE_SENT = 'quote_sent',
-  FOLLOW_UP = 'follow_up',
-  WON = 'won',
+  QUOTE_VIEWED = 'quote_viewed',
+  NEGOTIATING = 'negotiating',
+  APPROVED = 'approved',
+  DECLINED = 'declined',
+  EXPIRED = 'expired',
+  
+  // PRODUCTION sub-statuses
+  CONTRACT_SIGNED = 'contract_signed',
+  SCHEDULED = 'scheduled',
+  MATERIALS_ORDERED = 'materials_ordered',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  INSPECTION_NEEDED = 'inspection_needed',
+  INSPECTION_PASSED = 'inspection_passed',
+  ON_HOLD = 'on_hold',
+  CANCELLED = 'cancelled',
+  
+  // INVOICED sub-statuses
+  DRAFT = 'draft',
+  SENT = 'sent',
+  VIEWED = 'viewed',
+  PARTIAL_PAYMENT = 'partial_payment',
+  PAID = 'paid',
+  OVERDUE = 'overdue',
+  COLLECTIONS = 'collections',
+  WRITTEN_OFF = 'written_off',
+  
+  // CLOSED sub-statuses (reuse some names but context is different)
+  // COMPLETED = 'completed', // Already defined above
   LOST = 'lost',
+  // CANCELLED = 'cancelled', // Already defined above
   ARCHIVED = 'archived',
 }
 

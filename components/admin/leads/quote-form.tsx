@@ -1,11 +1,12 @@
 // Quote Creation/Edit Form
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { quoteFormSchema, type QuoteFormValues } from '@/lib/validation/quote-schemas'
 import { useCreateQuote, useUpdateQuote, useUpdateQuoteLineItems } from '@/lib/hooks/use-quotes'
+import { useEstimateTemplates } from '@/lib/hooks/use-estimate-templates'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { calculateQuoteTotals } from '@/lib/api/quotes'
 import { LineItemCategory } from '@/lib/types/quotes'
@@ -28,12 +29,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Plus, Trash2, GripVertical, Database } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Database, FileText } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { MaterialPickerDialog } from './material-picker-dialog'
-import { Material } from '@/lib/types/materials'
+import { Material, calculateMaterialQuantity, RoofMeasurements } from '@/lib/types/materials'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { toast } from 'sonner'
 
 interface QuoteFormProps {
   leadId: string
@@ -41,15 +43,22 @@ interface QuoteFormProps {
   isOpen: boolean
   onClose: () => void
   existingQuote?: any // For editing
+  initialTemplateId?: string // Template to auto-import on open
 }
 
-export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: QuoteFormProps) {
+export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, initialTemplateId }: QuoteFormProps) {
   const { user } = useAuth()
   const { data: company } = useCurrentCompany()
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
   const updateLineItems = useUpdateQuoteLineItems()
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+  const hasImportedTemplate = useRef(false) // Track if we've imported the template
+  
+  // Fetch estimate templates
+  const { data: templatesData } = useEstimateTemplates()
+  const templates = templatesData?.data || []
   
   const isEditing = !!existingQuote
 
@@ -108,10 +117,109 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
     }
   }, [existingQuote, isOpen, form, leadName])
 
+  // Initialize field array BEFORE the auto-import useEffect
   const { fields, append, remove, move } = useFieldArray({
     control: form.control,
     name: 'line_items',
   })
+
+  // Auto-import template when initialTemplateId is provided
+  useEffect(() => {
+    const autoImportTemplate = async () => {
+      console.log('useEffect triggered:', {
+        isOpen,
+        initialTemplateId,
+        existingQuote: !!existingQuote,
+        hasImportedTemplate: hasImportedTemplate.current,
+      })
+
+      // Reset import flag when dialog closes
+      if (!isOpen) {
+        hasImportedTemplate.current = false
+        return
+      }
+      
+      // Don't import if no template, editing existing quote, or already imported
+      if (!initialTemplateId || existingQuote || hasImportedTemplate.current) {
+        console.log('Skipping import:', {
+          noTemplate: !initialTemplateId,
+          isEditing: !!existingQuote,
+          alreadyImported: hasImportedTemplate.current
+        })
+        return
+      }
+
+      // Don't need to wait for measurements - the API will handle it server-side
+      // Just pass the leadId and let the server fetch measurements
+      console.log('Auto-import triggered:', {
+        initialTemplateId,
+        companyId: company?.id,
+        leadId,
+      })
+
+      try {
+        const { importTemplateToEstimate } = await import('@/lib/api/estimate-templates')
+        const { getLeadMeasurements } = await import('@/lib/api/measurements')
+        
+        if (!company?.id) {
+          toast.error('Company not loaded')
+          return
+        }
+
+        // Fetch measurements server-side
+        const measurementsResult = await getLeadMeasurements(leadId, company.id)
+        if (measurementsResult.error || !measurementsResult.data) {
+          toast.error('Failed to load measurements')
+          return
+        }
+
+        const measurements = measurementsResult.data
+
+        console.log('Measurements loaded:', {
+          total_squares: measurements.total_squares,
+          actual_squares: measurements.actual_squares,
+        })
+
+        // Import template with calculated quantities
+        const result = await importTemplateToEstimate({
+          companyId: company.id,
+          templateId: initialTemplateId,
+          measurements,
+        })
+        
+        if (result.error || !result.data) {
+          toast.error('Failed to load template items')
+          return
+        }
+
+        const lineItems = result.data
+        console.log('Template line items loaded:', lineItems.length, lineItems)
+
+        if (lineItems.length === 0) {
+          toast.info('This template has no items')
+          return
+        }
+
+        // Mark as imported to prevent re-import
+        hasImportedTemplate.current = true
+
+        // Clear existing line items first
+        form.setValue('line_items', [])
+
+        // Add imported line items
+        lineItems.forEach((item: any) => {
+          append(item)
+        })
+
+        toast.success(`Imported ${lineItems.length} items from template with calculated quantities`)
+      } catch (error) {
+        console.error('Failed to import template:', error)
+        toast.error('Failed to import template')
+      }
+    }
+
+    autoImportTemplate()
+  }, [initialTemplateId, isOpen, existingQuote, append, form, company, leadId])
 
   // Watch all form values for live total calculation
   const watchedLineItems = form.watch('line_items')
@@ -129,9 +237,14 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
   )
 
   const onSubmit = async (data: QuoteFormValues) => {
-    if (!user) return
+    console.log('Form submitted:', data)
+    if (!user) {
+      console.error('No user found')
+      return
+    }
 
     try {
+      console.log('Creating/updating quote...')
       if (isEditing) {
         // Update existing quote
         await updateQuote.mutateAsync({
@@ -156,6 +269,11 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
         })
       } else {
         // Create new quote
+        console.log('Creating new quote with data:', {
+          leadId,
+          tax_rate: data.tax_rate / 100,
+          line_items_count: data.line_items.length
+        })
         await createQuote.mutateAsync({
           leadId,
           quoteData: {
@@ -175,6 +293,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
       onClose()
     } catch (error) {
       console.error('Failed to save quote:', error)
+      toast.error('Failed to save estimate')
     }
   }
 
@@ -210,8 +329,54 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
     })
   }
 
+  const importTemplate = async () => {
+    if (!selectedTemplateId) return
+
+    try {
+      // Fetch template items using the API directly
+      const { getTemplateEstimateItems } = await import('@/lib/api/estimate-templates')
+      const result = await getTemplateEstimateItems(selectedTemplateId)
+      
+      if (result.error || !result.data) {
+        toast.error('Failed to load template items')
+        return
+      }
+
+      const items = result.data
+
+      if (items.length === 0) {
+        toast.info('This template has no items')
+        return
+      }
+
+      // Add each template item as a line item
+      items.forEach((item: any) => {
+        const material = item.material
+        if (!material) return
+
+        append({
+          category: LineItemCategory.MATERIALS,
+          description: item.description || `${material.name}${material.manufacturer ? ` - ${material.manufacturer}` : ''}`,
+          quantity: item.per_square || material.default_per_square || 1,
+          unit: material.unit,
+          unit_price: material.current_cost || 0,
+          cost_per_unit: material.current_cost || 0,
+          supplier: '',
+          notes: material.product_line || '',
+        })
+      })
+
+      toast.success(`Imported ${items.length} items from template`)
+      setSelectedTemplateId('')
+    } catch (error) {
+      console.error('Failed to import template:', error)
+      toast.error('Failed to import template')
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
+      {isOpen && console.log('QuoteForm Dialog is rendering, isOpen:', isOpen)}
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -224,7 +389,16 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          console.log('Form validation errors:', errors)
+          console.log('Line items errors:', errors.line_items)
+          if (errors.line_items) {
+            errors.line_items.forEach((item, index) => {
+              console.log(`Line item ${index} errors:`, item)
+            })
+          }
+          toast.error('Please fill in all required fields')
+        })} className="space-y-6">
           {/* Quote Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -293,6 +467,30 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Line Items</h3>
               <div className="flex gap-2">
+                {/* Template Import */}
+                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Import template..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={importTemplate}
+                  disabled={!selectedTemplateId}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Import
+                </Button>
+                {/* Material Picker */}
                 <Button 
                   type="button" 
                   onClick={() => setMaterialPickerOpen(true)} 
@@ -300,11 +498,11 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
                   variant="outline"
                 >
                   <Database className="h-4 w-4 mr-2" />
-                  Add from Materials DB
+                  Add Material
                 </Button>
                 <Button type="button" onClick={addLineItem} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Blank Item
+                  Add Item
                 </Button>
               </div>
             </div>
@@ -337,43 +535,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote }: 
                               </div>
 
                               {/* Line Item Fields */}
-                              <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-3">
-                                {/* Category */}
-                                <div className="md:col-span-1">
-                                  <Label>Category</Label>
-                                  <Controller
-                                    name={`line_items.${index}.category`}
-                                    control={form.control}
-                                    render={({ field }) => (
-                                      <Select
-                                        value={field.value}
-                                        onValueChange={field.onChange}
-                                      >
-                                        <SelectTrigger>
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value={LineItemCategory.LABOR}>
-                                            Labor
-                                          </SelectItem>
-                                          <SelectItem value={LineItemCategory.MATERIALS}>
-                                            Materials
-                                          </SelectItem>
-                                          <SelectItem value={LineItemCategory.PERMITS}>
-                                            Permits
-                                          </SelectItem>
-                                          <SelectItem value={LineItemCategory.EQUIPMENT}>
-                                            Equipment
-                                          </SelectItem>
-                                          <SelectItem value={LineItemCategory.OTHER}>
-                                            Other
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    )}
-                                  />
-                                </div>
-
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-3">
                                 {/* Description */}
                                 <div className="md:col-span-2">
                                   <Label>Description</Label>

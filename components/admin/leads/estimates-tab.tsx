@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { QuoteForm } from './quote-form'
+import { CreateEstimateDialog } from './create-estimate-dialog'
 import { CompanySignatureDialog } from '@/components/admin/quotes/company-signature-dialog'
 import { ChangeOrderSignatureDialog } from '@/components/admin/change-orders/change-order-signature-dialog'
 import { ChangeOrderBuilder } from '@/components/admin/change-orders/change-order-builder'
@@ -74,8 +75,20 @@ export function EstimatesTab({
   const { data: quotes, isLoading } = useQuotes({ leadId })
   const { data: measurementsResponse } = useLeadMeasurements(leadId)
   const measurements = measurementsResponse?.data
+  
+  // Debug measurements
+  console.log('Estimates Tab - Measurements:', {
+    measurementsResponse,
+    measurements,
+    hasMeasurements: !!measurements,
+    total_squares: measurements?.total_squares,
+    actual_squares: measurements?.actual_squares,
+  })
+  
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined)
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [changeOrderDialogOpen, setChangeOrderDialogOpen] = useState(false)
   const [changeOrderData, setChangeOrderData] = useState<{
@@ -207,17 +220,44 @@ export function EstimatesTab({
             </div>
           )}
 
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button onClick={() => {
+            console.log('Create Estimate clicked, opening dialog')
+            setIsCreateDialogOpen(true)
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Create Estimate
           </Button>
         </div>
 
+        <CreateEstimateDialog
+          isOpen={isCreateDialogOpen}
+          onClose={() => {
+            console.log('Dialog closing')
+            setIsCreateDialogOpen(false)
+          }}
+          onSelectTemplate={(templateId) => {
+            console.log('Template selected:', templateId)
+            setSelectedTemplateId(templateId)
+            setIsFormOpen(true)
+            setIsCreateDialogOpen(false)
+          }}
+          onSelectBlank={() => {
+            console.log('Blank selected')
+            setSelectedTemplateId(undefined)
+            setIsFormOpen(true)
+            setIsCreateDialogOpen(false)
+          }}
+        />
+
         <QuoteForm
           leadId={leadId}
           leadName={leadName}
           isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false)
+            setSelectedTemplateId(undefined)
+          }}
+          initialTemplateId={selectedTemplateId}
         />
       </>
     )
@@ -240,7 +280,7 @@ export function EstimatesTab({
             )}
           </div>
           <div className="flex gap-3">
-            <Button onClick={() => setIsFormOpen(true)}>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Estimate
             </Button>
@@ -282,6 +322,19 @@ export function EstimatesTab({
         />
       )}
 
+      <CreateEstimateDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onSelectTemplate={(templateId) => {
+          setSelectedTemplateId(templateId)
+          setIsFormOpen(true)
+        }}
+        onSelectBlank={() => {
+          setSelectedTemplateId(undefined)
+          setIsFormOpen(true)
+        }}
+      />
+
       <QuoteForm
         leadId={leadId}
         leadName={leadName}
@@ -289,8 +342,10 @@ export function EstimatesTab({
         onClose={() => {
           setIsFormOpen(false)
           setEditingQuoteId(null)
+          setSelectedTemplateId(undefined)
         }}
         existingQuote={editingQuoteData}
+        initialTemplateId={selectedTemplateId}
       />
     </>
   )

@@ -111,7 +111,7 @@ const settingsNavigation: NavItem[] = [
     name: 'Settings', 
     href: '/admin/settings', 
     icon: Settings,
-    // Everyone can access their own settings
+    roles: ['admin', 'office'] // Only admins and office users can manage settings
   },
   { 
     name: 'Role Permissions', 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendExecutedContractToCustomer } from '@/lib/email/notifications'
 import { notifyQuoteApproved, notifyContractSigned } from '@/lib/email/user-notifications'
+import { getStatusAfterQuoteApproved, getStatusAfterContractSigned } from '@/lib/utils/status-transitions'
+import { applyStatusTransition } from '@/lib/api/leads'
 
 /**
  * POST /api/quotes/sign-pdf
@@ -132,6 +134,13 @@ export async function POST(request: NextRequest) {
     if (signer_type === 'customer') {
       console.log('[NOTIFICATION] Customer signed - triggering quote approved notifications')
       
+      // Automatically update lead status: QUOTE/* -> QUOTE/APPROVED
+      await applyStatusTransition(
+        quote.company_id,
+        quote.lead_id,
+        getStatusAfterQuoteApproved()
+      )
+      
       // Fetch lead to get assigned user and creator
       const { data: lead } = await supabase
         .from('leads')
@@ -183,6 +192,13 @@ export async function POST(request: NextRequest) {
     // 5. If both signatures are complete, send executed contract email to customer
     if (hasCustomerSig && hasCompanySig) {
       console.log('[DUAL SIGNATURE] Both signatures complete - sending executed contract email')
+      
+      // Automatically update lead status: QUOTE/APPROVED -> PRODUCTION/CONTRACT_SIGNED
+      await applyStatusTransition(
+        quote.company_id,
+        quote.lead_id,
+        getStatusAfterContractSigned()
+      )
       
       // Fetch company and lead data for email
       const { data: company, error: companyError } = await supabase

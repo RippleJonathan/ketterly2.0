@@ -8,7 +8,7 @@ import { MapPin } from 'lucide-react'
 declare global {
   interface Window {
     google: any
-    initAutocomplete?: () => void
+    googleMapsLoaded?: boolean
   }
 }
 
@@ -30,6 +30,83 @@ interface AddressAutocompleteProps {
   disabled?: boolean
 }
 
+// Global flag to track script loading
+let isLoadingScript = false
+const loadCallbacks: Array<() => void> = []
+
+function loadGoogleMapsScript(apiKey: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Already loaded
+    if (window.google?.maps?.places) {
+      resolve()
+      return
+    }
+
+    // Currently loading, add to callback queue
+    if (isLoadingScript) {
+      loadCallbacks.push(() => resolve())
+      return
+    }
+
+    // Check if script tag already exists
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+    if (existingScript) {
+      // Wait for it to load
+      const checkInterval = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkInterval)
+          resolve()
+        }
+      }, 100)
+      
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        if (!window.google?.maps?.places) {
+          reject(new Error('Script load timeout'))
+        }
+      }, 10000)
+      return
+    }
+
+    // Start loading
+    isLoadingScript = true
+    
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
+    script.async = true
+    script.defer = true
+    
+    script.onload = () => {
+      // Wait a bit for places library to be ready
+      const checkPlaces = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkPlaces)
+          isLoadingScript = false
+          window.googleMapsLoaded = true
+          resolve()
+          // Call all queued callbacks
+          loadCallbacks.forEach(cb => cb())
+          loadCallbacks.length = 0
+        }
+      }, 50)
+      
+      setTimeout(() => {
+        clearInterval(checkPlaces)
+        if (!window.google?.maps?.places) {
+          reject(new Error('Places library not available'))
+        }
+      }, 5000)
+    }
+    
+    script.onerror = () => {
+      isLoadingScript = false
+      reject(new Error('Failed to load Google Maps script'))
+    }
+    
+    document.head.appendChild(script)
+  })
+}
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -44,21 +121,8 @@ export function AddressAutocomplete({
   const autocompleteRef = useRef<any>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadError, setLoadError] = useState(false)
-  const scriptLoadedRef = useRef(false) // Track if script is already loaded
 
   useEffect(() => {
-    // Check if Google Maps is already loaded
-    if (window.google && window.google.maps && window.google.maps.places) {
-      setIsLoaded(true)
-      return
-    }
-
-    // Check if script is already being loaded
-    if (scriptLoadedRef.current) {
-      return
-    }
-
-    // Check if API key is configured
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
       console.warn('Google Maps API key not configured')
@@ -66,49 +130,33 @@ export function AddressAutocomplete({
       return
     }
 
-    // Check if script already exists in DOM
-    const existingScript = document.querySelector(
-      `script[src*="maps.googleapis.com"]`
-    )
-    
-    if (existingScript) {
-      // Script exists, wait for it to load
-      const checkLoaded = setInterval(() => {
-        if (window.google && window.google.maps && window.google.maps.places) {
-          setIsLoaded(true)
-          clearInterval(checkLoaded)
-        }
-      }, 100)
-      
-      setTimeout(() => clearInterval(checkLoaded), 5000) // Timeout after 5s
+    // Check if already loaded
+    if (window.google?.maps?.places) {
+      setIsLoaded(true)
       return
     }
 
-    // Mark as loading
-    scriptLoadedRef.current = true
-
-    // Load Google Maps script
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
-    script.async = true
-    script.defer = true
-    script.onload = () => setIsLoaded(true)
-    script.onerror = () => {
-      console.error('Failed to load Google Maps script')
-      setLoadError(true)
-      scriptLoadedRef.current = false
-    }
-    document.head.appendChild(script)
-
-    return () => {
-      // Don't remove script on unmount - keep it for other components
-    }
+    // Load the script
+    loadGoogleMapsScript(apiKey)
+      .then(() => {
+        setIsLoaded(true)
+      })
+      .catch((err) => {
+        console.error('Error loading Google Maps:', err)
+        setLoadError(true)
+      })
   }, [])
 
   useEffect(() => {
     if (!isLoaded || !inputRef.current || disabled || loadError) return
 
     try {
+      // Double-check that places API is available
+      if (!window.google?.maps?.places) {
+        console.error('Google Places API not available')
+        return
+      }
+
       // Initialize autocomplete
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
         inputRef.current,
@@ -116,14 +164,22 @@ export function AddressAutocomplete({
           types: ['address'],
           componentRestrictions: { country: 'us' }, // Restrict to US addresses
           fields: ['address_components', 'formatted_address', 'geometry'],
+          // Don't set bounds - let it search anywhere
         }
       )
 
+      // Set dropdown to append to body to avoid clipping in modals/dialogs
+      const pacContainer = document.querySelector('.pac-container') as HTMLElement
+      if (pacContainer) {
+        pacContainer.style.zIndex = '99999'
+      }
+
       // Listen for place selection
-      autocompleteRef.current.addListener('place_changed', () => {
+      const listener = autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current.getPlace()
         
         if (!place.address_components) {
+          console.warn('AddressAutocomplete: No address components found')
           return
         }
 
@@ -169,18 +225,18 @@ export function AddressAutocomplete({
           })
         }
       })
+
+      return () => {
+        // Cleanup listener on unmount
+        if (listener) {
+          window.google.maps.event.removeListener(listener)
+        }
+      }
     } catch (error) {
       console.error('Error initializing Google Maps Autocomplete:', error)
       setLoadError(true)
     }
-
-    return () => {
-      // Cleanup autocomplete listener
-      if (autocompleteRef.current && window.google?.maps?.event) {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current)
-      }
-    }
-  }, [isLoaded, disabled, onChange, onAddressSelect, loadError])
+  }, [isLoaded, disabled, loadError]) // Removed onChange and onAddressSelect from deps to prevent re-initialization
 
   // If Google Maps failed to load, show regular input
   if (loadError) {

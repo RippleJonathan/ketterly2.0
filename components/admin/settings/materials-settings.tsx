@@ -100,14 +100,14 @@ export function MaterialsSettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Materials Library</h2>
+          <h2 className="text-2xl font-bold">Product Catalog</h2>
           <p className="text-muted-foreground mt-1">
-            Manage your reusable material catalog
+            Manage your catalog of materials, labor items, and estimates
           </p>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Material
+          Add Item
         </Button>
       </div>
 

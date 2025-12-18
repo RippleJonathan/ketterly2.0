@@ -1,10 +1,12 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLeads, getLead, createLead, updateLead, deleteLead } from '@/lib/api/leads'
+import { getLeads, getLead, createLead, updateLead, deleteLead, updateLeadStatus, applyStatusTransition } from '@/lib/api/leads'
 import { createStatusChangeActivity } from '@/lib/api/activities'
 import { useCurrentCompany } from './use-current-company'
 import { LeadFilters, LeadInsert, LeadUpdate } from '@/lib/types'
+import { LeadStatus, LeadSubStatus } from '@/lib/types/enums'
+import { type StatusTransition } from '@/lib/utils/status-transitions'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -28,9 +30,11 @@ export function useLead(leadId: string) {
     queryKey: ['leads', company?.id, leadId],
     queryFn: async () => {
       if (!company?.id) return { data: null, error: null }
+      // Don't query database if leadId is 'new' (creating new lead)
+      if (leadId === 'new') return { data: null, error: null }
       return await getLead(company.id, leadId)
     },
-    enabled: !!company?.id && !!leadId,
+    enabled: !!company?.id && !!leadId && leadId !== 'new',
   })
 }
 
@@ -142,6 +146,98 @@ export function useUpdateLeadStatus() {
     onError: (error: Error) => {
       console.error('Status update error:', error)
       toast.error(`Failed to update status: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Hook for manually updating lead status with new status system
+ */
+export function useUpdateLeadStatusV2() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ 
+      leadId, 
+      newStatus, 
+      newSubStatus,
+      userId 
+    }: { 
+      leadId: string
+      newStatus: LeadStatus
+      newSubStatus?: LeadSubStatus | null
+      userId?: string
+    }) => {
+      if (!company?.id) throw new Error('No company found')
+      
+      const result = await updateLeadStatus(
+        company.id,
+        leadId,
+        newStatus,
+        newSubStatus,
+        userId,
+        false // manual change
+      )
+      
+      if (result.error) {
+        throw new Error(result.error || 'Failed to update status')
+      }
+      
+      return result
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leads', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead', variables.leadId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-status-history', variables.leadId] })
+    },
+    onError: (error: Error) => {
+      console.error('Status update error:', error)
+      toast.error(`Failed to update status: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Hook for applying automatic status transitions
+ */
+export function useApplyStatusTransition() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      leadId,
+      transition,
+      userId
+    }: {
+      leadId: string
+      transition: StatusTransition
+      userId?: string
+    }) => {
+      if (!company?.id) throw new Error('No company found')
+      
+      const result = await applyStatusTransition(
+        company.id,
+        leadId,
+        transition,
+        userId
+      )
+      
+      if (result.error) {
+        throw new Error(result.error || 'Failed to apply status transition')
+      }
+      
+      return result
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leads', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead', variables.leadId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-status-history', variables.leadId] })
+    },
+    onError: (error: Error) => {
+      console.error('Status transition error:', error)
+      // Silent error for automatic transitions
     },
   })
 }

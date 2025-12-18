@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendQuoteToCustomer } from '@/lib/email/notifications'
 import { notifyQuoteSent } from '@/lib/email/user-notifications'
+import { getStatusAfterQuoteSent } from '@/lib/utils/status-transitions'
+import { applyStatusTransition } from '@/lib/api/leads'
 
 export async function POST(
   request: NextRequest,
@@ -122,6 +124,14 @@ export async function POST(
         sent_at: new Date().toISOString(),
       })
       .eq('id', quoteId)
+
+    // Automatically update lead status: QUOTE/ESTIMATING -> QUOTE/QUOTE_SENT
+    await applyStatusTransition(
+      userData.company_id,
+      quote.lead_id,
+      getStatusAfterQuoteSent(),
+      userData.id
+    )
 
     // Log activity (best-effort)
     try {

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { LineItemCategory } from '@/lib/types/quotes'
 
 export const lineItemSchema = z.object({
-  category: z.nativeEnum(LineItemCategory),
+  category: z.nativeEnum(LineItemCategory).optional().default(LineItemCategory.MATERIALS),
   description: z.string().min(3, 'Description must be at least 3 characters'),
   quantity: z.number().positive('Quantity must be greater than 0'),
   unit: z.string().min(1, 'Unit is required (e.g., sqft, hours, each)'),

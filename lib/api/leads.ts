@@ -89,7 +89,10 @@ export async function getLead(
       .from('leads')
       .select(`
         *,
-        assigned_user:assigned_to(id, full_name, email, avatar_url),
+        sales_rep_user:sales_rep_id(id, full_name, email, avatar_url),
+        marketing_rep_user:marketing_rep_id(id, full_name, email, avatar_url),
+        sales_manager_user:sales_manager_id(id, full_name, email, avatar_url),
+        production_manager_user:production_manager_id(id, full_name, email, avatar_url),
         created_user:created_by(id, full_name, email, avatar_url)
       `)
       .eq('company_id', companyId)
@@ -98,7 +101,15 @@ export async function getLead(
       .single()
 
     if (error) throw error
-    return createSuccessResponse(data)
+    
+    // Add backward compatibility for assigned_to
+    const leadData = {
+      ...data,
+      assigned_to: (data as any).sales_rep_id,
+      assigned_user: (data as any).sales_rep_user,
+    }
+    
+    return createSuccessResponse(leadData)
   } catch (error) {
     return createErrorResponse(error)
   }

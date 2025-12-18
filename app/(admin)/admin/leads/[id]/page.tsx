@@ -64,11 +64,11 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     .from('leads')
     .select(`
       *,
-      assigned_to_user:users!leads_assigned_to_fkey(
-        id,
-        full_name,
-        email
-      )
+      sales_rep_user:sales_rep_id(id, full_name, email),
+      marketing_rep_user:marketing_rep_id(id, full_name, email),
+      sales_manager_user:sales_manager_id(id, full_name, email),
+      production_manager_user:production_manager_id(id, full_name, email),
+      created_user:created_by(id, full_name, email)
     `)
     .eq('id', id)
     .eq('company_id', userData.company_id)

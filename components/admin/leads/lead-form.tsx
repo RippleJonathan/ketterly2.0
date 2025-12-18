@@ -41,7 +41,10 @@ const leadFormSchema = z.object({
   source: z.string().min(1, 'Source is required'),
   status: z.string().min(1, 'Status is required'),
   priority: z.string().min(1, 'Priority is required'),
-  assigned_to: z.string().optional(),
+  sales_rep_id: z.string().optional(),
+  marketing_rep_id: z.string().optional(),
+  sales_manager_id: z.string().optional(),
+  production_manager_id: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -55,7 +58,7 @@ interface LeadFormProps {
 export function LeadForm({ lead, mode }: LeadFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [users, setUsers] = useState<Array<{ id: string; full_name: string; email: string }>>([])
+  const [users, setUsers] = useState<Array<{ id: string; full_name: string; email: string; role: string }>>([])
   const { data: company } = useCurrentCompany()
   const { data: userData } = useCurrentUser()
   const user = userData?.data
@@ -82,7 +85,10 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           source: lead.source,
           status: lead.status,
           priority: lead.priority,
-          assigned_to: lead.assigned_to || '',
+          sales_rep_id: (lead as any).sales_rep_id || (lead as any).assigned_to || '',
+          marketing_rep_id: (lead as any).marketing_rep_id || '',
+          sales_manager_id: (lead as any).sales_manager_id || '',
+          production_manager_id: (lead as any).production_manager_id || '',
           notes: lead.notes || '',
         }
       : {
@@ -97,10 +103,29 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           source: 'website',
           status: 'new',
           priority: 'medium',
-          assigned_to: '',
+          sales_rep_id: '',
+          marketing_rep_id: '',
+          sales_manager_id: '',
+          production_manager_id: '',
           notes: '',
         },
   })
+
+  // Auto-fill assignment based on current user's role
+  useEffect(() => {
+    if (mode === 'create' && user?.id && user?.role) {
+      const role = user.role as string
+      if (role === 'sales' && !watch('sales_rep_id')) {
+        setValue('sales_rep_id', user.id)
+      } else if (role === 'marketing' && !watch('marketing_rep_id')) {
+        setValue('marketing_rep_id', user.id)
+      } else if (role === 'sales_manager' && !watch('sales_manager_id')) {
+        setValue('sales_manager_id', user.id)
+      } else if (role === 'production' && !watch('production_manager_id')) {
+        setValue('production_manager_id', user.id)
+      }
+    }
+  }, [mode, user, setValue, watch])
 
   // Fetch users for assignment dropdown
   useEffect(() => {
@@ -110,7 +135,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, full_name, email, role')
         .eq('company_id', company.id)
         .order('full_name')
 
@@ -133,10 +158,13 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
 
     setIsSubmitting(true)
     try {
-      // Convert empty string to null for assigned_to
+      // Convert empty strings to null for all assignment fields
       const submitData = {
         ...data,
-        assigned_to: data.assigned_to || null,
+        sales_rep_id: data.sales_rep_id || null,
+        marketing_rep_id: data.marketing_rep_id || null,
+        sales_manager_id: data.sales_manager_id || null,
+        production_manager_id: data.production_manager_id || null,
       }
       
       if (mode === 'create') {
@@ -341,13 +369,73 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="assigned_to">Assigned To</Label>
+            <Label htmlFor="sales_rep_id">Sales Rep</Label>
             <Select
-              value={watch('assigned_to') || 'unassigned'}
-              onValueChange={(value) => setValue('assigned_to', value === 'unassigned' ? '' : value)}
+              value={watch('sales_rep_id') || 'unassigned'}
+              onValueChange={(value) => setValue('sales_rep_id', value === 'unassigned' ? '' : value)}
             >
-              <SelectTrigger id="assigned_to">
-                <SelectValue placeholder="Select user" />
+              <SelectTrigger id="sales_rep_id">
+                <SelectValue placeholder="Select sales rep" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="marketing_rep_id">Marketing Rep (Optional)</Label>
+            <Select
+              value={watch('marketing_rep_id') || 'unassigned'}
+              onValueChange={(value) => setValue('marketing_rep_id', value === 'unassigned' ? '' : value)}
+            >
+              <SelectTrigger id="marketing_rep_id">
+                <SelectValue placeholder="Select marketing rep" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="sales_manager_id">Sales Manager (Optional)</Label>
+            <Select
+              value={watch('sales_manager_id') || 'unassigned'}
+              onValueChange={(value) => setValue('sales_manager_id', value === 'unassigned' ? '' : value)}
+            >
+              <SelectTrigger id="sales_manager_id">
+                <SelectValue placeholder="Select sales manager" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="production_manager_id">Production Manager (Optional)</Label>
+            <Select
+              value={watch('production_manager_id') || 'unassigned'}
+              onValueChange={(value) => setValue('production_manager_id', value === 'unassigned' ? '' : value)}
+            >
+              <SelectTrigger id="production_manager_id">
+                <SelectValue placeholder="Select production manager" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>

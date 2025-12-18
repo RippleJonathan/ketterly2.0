@@ -1,7 +1,7 @@
 'use client'
 
 import { PipelineProgress } from './pipeline-progress'
-import { AssignUserDropdown } from './assign-user-dropdown'
+import { MultiUserAssignments } from './multi-user-assignments'
 import { useLead } from '@/lib/hooks/use-leads'
 import {
   LEAD_SOURCE_LABELS,
@@ -49,11 +49,19 @@ export function LeadDetailClient({ leadId, initialLead }: LeadDetailClientProps)
               {LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS]}
             </p>
           </div>
-          <div>
-            <p className="text-sm text-gray-500 mb-1">Assigned To</p>
-            <AssignUserDropdown leadId={leadId} currentAssignedTo={lead.assigned_to} />
-          </div>
         </div>
+      </div>
+
+      {/* Team Assignments */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Team Assignments</h2>
+        <MultiUserAssignments 
+          leadId={leadId}
+          salesRepId={(lead as any).sales_rep_id || (lead as any).assigned_to || null}
+          marketingRepId={(lead as any).marketing_rep_id || null}
+          salesManagerId={(lead as any).sales_manager_id || null}
+          productionManagerId={(lead as any).production_manager_id || null}
+        />
       </div>
     </>
   )

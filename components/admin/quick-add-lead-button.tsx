@@ -42,7 +42,10 @@ const quickLeadSchema = z.object({
   zip: z.string().optional().or(z.literal('')),
   source: z.string(),
   service_type: z.string(),
-  assigned_to: z.string().optional().or(z.literal('')),
+  sales_rep_id: z.string().optional().or(z.literal('')),
+  marketing_rep_id: z.string().optional().or(z.literal('')),
+  sales_manager_id: z.string().optional().or(z.literal('')),
+  production_manager_id: z.string().optional().or(z.literal('')),
   notes: z.string().optional(),
 })
 
@@ -55,7 +58,7 @@ interface QuickAddLeadButtonProps {
 export function QuickAddLeadButton({ variant = 'fab' }: QuickAddLeadButtonProps) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [users, setUsers] = useState<Array<{ id: string; full_name: string; email: string }>>([])
+  const [users, setUsers] = useState<Array<{ id: string; full_name: string; email: string; role: string }>>([])
   const { data: userData } = useCurrentUser()
   const { data: company } = useCurrentCompany()
   const user = userData?.data
@@ -69,7 +72,7 @@ export function QuickAddLeadButton({ variant = 'fab' }: QuickAddLeadButtonProps)
       const supabase = createClient()
       const { data } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, full_name, email, role')
         .eq('company_id', company.id)
         .eq('is_active', true)
         .order('full_name')
@@ -94,10 +97,29 @@ export function QuickAddLeadButton({ variant = 'fab' }: QuickAddLeadButtonProps)
       zip: '',
       source: 'phone',
       service_type: 'repair',
-      assigned_to: '',
+      sales_rep_id: '',
+      marketing_rep_id: '',
+      sales_manager_id: '',
+      production_manager_id: '',
       notes: '',
     },
   })
+
+  // Auto-fill assignment based on current user's role
+  useEffect(() => {
+    if (!user?.id || !user?.role) return
+
+    const role = user.role
+    if (role === 'sales' && !form.watch('sales_rep_id')) {
+      form.setValue('sales_rep_id', user.id)
+    } else if (role === 'marketing' && !form.watch('marketing_rep_id')) {
+      form.setValue('marketing_rep_id', user.id)
+    } else if (role === 'sales_manager' && !form.watch('sales_manager_id')) {
+      form.setValue('sales_manager_id', user.id)
+    } else if (role === 'production' && !form.watch('production_manager_id')) {
+      form.setValue('production_manager_id', user.id)
+    }
+  }, [user, form])
 
   const onSubmit = async (data: QuickLeadFormData) => {
     if (!company?.id || !user?.id) {
@@ -114,7 +136,10 @@ export function QuickAddLeadButton({ variant = 'fab' }: QuickAddLeadButtonProps)
         state: data.state || null,
         zip: data.zip || null,
         status: 'new',
-        assigned_to: data.assigned_to || null,
+        sales_rep_id: data.sales_rep_id || null,
+        marketing_rep_id: data.marketing_rep_id || null,
+        sales_manager_id: data.sales_manager_id || null,
+        production_manager_id: data.production_manager_id || null,
       }
 
       const result = await createLeadAction(
@@ -318,12 +343,12 @@ export function QuickAddLeadButton({ variant = 'fab' }: QuickAddLeadButtonProps)
               </Select>
             </div>
 
-            {/* Assign To */}
+            {/* Sales Rep */}
             <div>
-              <Label htmlFor="assigned_to">Assign To</Label>
+              <Label htmlFor="sales_rep_id">Sales Rep</Label>
               <Select
-                value={form.watch('assigned_to') || ''}
-                onValueChange={(value) => form.setValue('assigned_to', value)}
+                value={form.watch('sales_rep_id') || ''}
+                onValueChange={(value) => form.setValue('sales_rep_id', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Unassigned" />
@@ -337,9 +362,69 @@ export function QuickAddLeadButton({ variant = 'fab' }: QuickAddLeadButtonProps)
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500 mt-1">
-                Leave unassigned to add to the general pool
-              </p>
+            </div>
+
+            {/* Marketing Rep */}
+            <div>
+              <Label htmlFor="marketing_rep_id">Marketing Rep (Optional)</Label>
+              <Select
+                value={form.watch('marketing_rep_id') || ''}
+                onValueChange={(value) => form.setValue('marketing_rep_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sales Manager */}
+            <div>
+              <Label htmlFor="sales_manager_id">Sales Manager (Optional)</Label>
+              <Select
+                value={form.watch('sales_manager_id') || ''}
+                onValueChange={(value) => form.setValue('sales_manager_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Production Manager */}
+            <div>
+              <Label htmlFor="production_manager_id">Production Manager (Optional)</Label>
+              <Select
+                value={form.watch('production_manager_id') || ''}
+                onValueChange={(value) => form.setValue('production_manager_id', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Notes */}

@@ -24,19 +24,37 @@ export async function createLeadAction(
   lead: LeadInsert,
   currentUserId: string
 ) {
-  console.log('[CREATE LEAD ACTION] Called with:', { companyId, leadName: lead.full_name, assignedTo: lead.assigned_to, currentUserId })
+  console.log('[CREATE LEAD ACTION] Called with:', { 
+    companyId, 
+    leadName: lead.full_name, 
+    sales_rep_id: (lead as any).sales_rep_id || (lead as any).assigned_to,
+    marketing_rep_id: (lead as any).marketing_rep_id,
+    sales_manager_id: (lead as any).sales_manager_id,
+    production_manager_id: (lead as any).production_manager_id,
+    currentUserId 
+  })
   
   try {
     const supabase = await createClient()
     
+    // Map assigned_to to sales_rep_id for backward compatibility
+    const leadData = {
+      ...lead,
+      company_id: companyId,
+      created_by: currentUserId,
+      sales_rep_id: (lead as any).sales_rep_id || (lead as any).assigned_to || null,
+      marketing_rep_id: (lead as any).marketing_rep_id || null,
+      sales_manager_id: (lead as any).sales_manager_id || null,
+      production_manager_id: (lead as any).production_manager_id || null,
+    }
+    
+    // Remove old assigned_to field
+    delete (leadData as any).assigned_to
+    
     // Create the lead
     const { data, error } = await supabase
       .from('leads')
-      .insert({ 
-        ...lead, 
-        company_id: companyId,
-        created_by: currentUserId 
-      } as any)
+      .insert(leadData as any)
       .select()
       .single()
 
@@ -47,12 +65,21 @@ export async function createLeadAction(
 
     console.log('[CREATE LEAD ACTION] Lead created successfully:', data.id)
 
-    // Send notification to assigned user (if different from creator)
-    if (data && lead.assigned_to) {
-      if (lead.assigned_to !== currentUserId) {
-        console.log('[CREATE LEAD ACTION] Sending notification to:', lead.assigned_to)
+    // Send notifications to all assigned users (except current user)
+    const assignedUserIds = [
+      (data as any).sales_rep_id,
+      (data as any).marketing_rep_id,
+      (data as any).sales_manager_id,
+      (data as any).production_manager_id,
+    ].filter((id): id is string => !!id && id !== currentUserId)
+
+    if (assignedUserIds.length > 0) {
+      console.log('[CREATE LEAD ACTION] Sending notifications to:', assignedUserIds)
+      
+      // Send notification to each assigned user
+      for (const userId of assignedUserIds) {
         await notifyNewLead({
-          userId: lead.assigned_to,
+          userId,
           companyId,
           leadId: data.id,
           leadName: lead.full_name,
@@ -62,12 +89,10 @@ export async function createLeadAction(
           address: lead.address,
           source: lead.source || 'Unknown',
           createdAt: data.created_at,
-        }).catch(err => console.error('Failed to send new lead notification:', err))
-      } else {
-        console.log('[CREATE LEAD ACTION] Skipping notification - user assigned lead to themselves')
+        }).catch(err => console.error(`Failed to send new lead notification to ${userId}:`, err))
       }
     } else {
-      console.log('[CREATE LEAD ACTION] No assigned user - skipping notification')
+      console.log('[CREATE LEAD ACTION] No other users assigned - skipping notifications')
     }
 
     revalidatePath('/admin/leads')
@@ -93,15 +118,27 @@ export async function updateLeadAction(
     // Get current lead state for comparison
     const { data: currentLead } = await supabase
       .from('leads')
-      .select('assigned_to, status, full_name')
+      .select('sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id, status, full_name, assigned_to')
       .eq('id', leadId)
       .eq('company_id', companyId)
       .single()
 
+    // Map assigned_to to sales_rep_id for backward compatibility
+    const updateData = {
+      ...updates,
+      sales_rep_id: (updates as any).sales_rep_id || (updates as any).assigned_to || null,
+      marketing_rep_id: (updates as any).marketing_rep_id || null,
+      sales_manager_id: (updates as any).sales_manager_id || null,
+      production_manager_id: (updates as any).production_manager_id || null,
+    }
+    
+    // Remove old assigned_to field
+    delete (updateData as any).assigned_to
+
     // Update the lead
     const { data, error } = await supabase
       .from('leads')
-      .update(updates as any)
+      .update(updateData as any)
       .eq('company_id', companyId)
       .eq('id', leadId)
       .select()
@@ -109,33 +146,61 @@ export async function updateLeadAction(
 
     if (error) throw error
 
-    // Check if assignment changed
-    if (currentLead && updates.assigned_to && updates.assigned_to !== currentLead.assigned_to) {
-      await notifyLeadAssigned({
-        assignedToUserId: updates.assigned_to,
-        assignedByUserId: currentUserId,
-        companyId,
-        leadId,
-        leadName: data.full_name,
-        serviceType: data.service_type || 'Unknown',
-        address: data.address,
-      }).catch(err => console.error('Failed to send lead assigned notification:', err))
+    // Check for any assignment changes and notify newly assigned users
+    if (currentLead) {
+      const assignmentChanges = [
+        { field: 'sales_rep_id', old: (currentLead as any).sales_rep_id, new: (data as any).sales_rep_id },
+        { field: 'marketing_rep_id', old: (currentLead as any).marketing_rep_id, new: (data as any).marketing_rep_id },
+        { field: 'sales_manager_id', old: (currentLead as any).sales_manager_id, new: (data as any).sales_manager_id },
+        { field: 'production_manager_id', old: (currentLead as any).production_manager_id, new: (data as any).production_manager_id },
+      ]
+
+      // Also check old assigned_to field for backward compatibility
+      if (currentLead.assigned_to && (updateData as any).sales_rep_id && 
+          currentLead.assigned_to !== (updateData as any).sales_rep_id) {
+        assignmentChanges.push({ 
+          field: 'sales_rep_id', 
+          old: currentLead.assigned_to, 
+          new: (updateData as any).sales_rep_id 
+        })
+      }
+
+      for (const change of assignmentChanges) {
+        if (change.new && change.new !== change.old && change.new !== currentUserId) {
+          await notifyLeadAssigned({
+            assignedToUserId: change.new,
+            assignedByUserId: currentUserId,
+            companyId,
+            leadId,
+            leadName: data.full_name,
+            serviceType: data.service_type || 'Unknown',
+            address: data.address,
+          }).catch(err => console.error(`Failed to send lead assigned notification for ${change.field}:`, err))
+        }
+      }
     }
 
     // Check if status changed
-    if (currentLead && updates.status && updates.status !== currentLead.status) {
-      // Notify the assigned user (if exists)
-      if (data.assigned_to) {
+    if (currentLead && (updates as any).status && (updates as any).status !== currentLead.status) {
+      // Notify all assigned users
+      const assignedUserIds = [
+        (data as any).sales_rep_id,
+        (data as any).marketing_rep_id,
+        (data as any).sales_manager_id,
+        (data as any).production_manager_id,
+      ].filter((id): id is string => !!id)
+
+      for (const userId of assignedUserIds) {
         await notifyLeadStatusChanged({
-          userId: data.assigned_to,
+          userId,
           companyId,
           leadId,
           leadName: data.full_name,
           oldStatus: currentLead.status,
-          newStatus: updates.status,
+          newStatus: (updates as any).status,
           changedByUserId: currentUserId,
           changedAt: new Date().toISOString(),
-        }).catch(err => console.error('Failed to send status change notification:', err))
+        }).catch(err => console.error(`Failed to send status change notification to ${userId}:`, err))
       }
     }
 

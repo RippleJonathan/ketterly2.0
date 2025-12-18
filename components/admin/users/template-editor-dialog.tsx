@@ -143,10 +143,9 @@ export function TemplateEditorDialog({
         await updateTemplate.mutateAsync({
           templateId,
           updates: {
-            template_name: templateName.trim(),
             description: description.trim() || null,
             ...permissions,
-          },
+          } as any,
         })
       }
       onOpenChange(false)

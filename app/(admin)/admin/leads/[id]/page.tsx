@@ -14,7 +14,7 @@ import { PaymentsTab } from '@/components/admin/leads/payments-tab'
 import { FinancialsTab } from '@/components/admin/leads/financials-tab'
 import { CommissionsTab } from '@/components/admin/leads/commissions-tab'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image, TrendingUp, Banknote } from 'lucide-react'
+import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image, TrendingUp, Banknote, Calendar } from 'lucide-react'
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -115,6 +115,21 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
               Created {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href={`/admin/calendar?leadId=${id}`}>
+            <Button variant="outline">
+              <Calendar className="h-4 w-4 mr-2" />
+              Schedule Appointment
+            </Button>
+          </Link>
+          <Link href={`/admin/leads/${id}/edit`}>
+            <Button variant="outline">
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Lead
+            </Button>
+          </Link>
+          <DeleteLeadButton leadId={id} />
         </div>
       </div>
 

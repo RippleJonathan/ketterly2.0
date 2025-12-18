@@ -279,6 +279,13 @@ export interface UserPermissions {
   can_update_project_status: boolean
   can_view_project_timeline: boolean
   
+  // Calendar & Scheduling
+  can_view_calendar: boolean
+  can_create_consultations: boolean
+  can_create_production_events: boolean
+  can_edit_all_events: boolean
+  can_manage_recurring_events: boolean
+  
   // Metadata
   created_at: string
   updated_at: string
@@ -354,6 +361,13 @@ export interface UserPermissionsUpdate {
   can_upload_photos?: boolean
   can_update_project_status?: boolean
   can_view_project_timeline?: boolean
+  
+  // Calendar & Scheduling
+  can_view_calendar?: boolean
+  can_create_consultations?: boolean
+  can_create_production_events?: boolean
+  can_edit_all_events?: boolean
+  can_manage_recurring_events?: boolean
 }
 
 // Helper to convert permissions object to array of permission names
@@ -410,6 +424,11 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'can_upload_photos',
   'can_update_project_status',
   'can_view_project_timeline',
+  'can_view_calendar',
+  'can_create_consultations',
+  'can_create_production_events',
+  'can_edit_all_events',
+  'can_manage_recurring_events',
 ]
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -463,6 +482,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   can_upload_photos: 'Upload Project Photos',
   can_update_project_status: 'Update Project Status',
   can_view_project_timeline: 'View Project Timeline',
+  can_view_calendar: 'View Calendar',
+  can_create_consultations: 'Schedule Consultations & Meetings',
+  can_create_production_events: 'Schedule Production Events',
+  can_edit_all_events: 'Edit All Calendar Events',
+  can_manage_recurring_events: 'Manage Recurring Events',
 }
 
 // Group permissions by category for UI
@@ -537,6 +561,13 @@ export const PERMISSION_CATEGORIES = {
     'can_update_project_status',
     'can_view_project_timeline',
   ],
+  'Calendar & Scheduling': [
+    'can_view_calendar',
+    'can_create_consultations',
+    'can_create_production_events',
+    'can_edit_all_events',
+    'can_manage_recurring_events',
+  ],
 } as const
 
 // =====================================================
@@ -608,6 +639,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_upload_photos: true,
     can_update_project_status: true,
     can_view_project_timeline: true,
+    // Calendar & Scheduling
+    can_view_calendar: true,
+    can_create_consultations: true,
+    can_create_production_events: true,
+    can_edit_all_events: true,
+    can_manage_recurring_events: true,
   },
 
   // Office - Office Staff (Quotes, Invoices, Customers, Scheduling)
@@ -669,6 +706,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_upload_photos: false,
     can_update_project_status: true,
     can_view_project_timeline: true,
+    // Calendar & Scheduling
+    can_view_calendar: true,
+    can_create_consultations: true,
+    can_create_production_events: true,
+    can_edit_all_events: false,  // Can only edit own events
+    can_manage_recurring_events: false,
   },
 
   // Sales Manager - Sales Team Lead (Manage Sales Team & Leads)
@@ -730,6 +773,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_upload_photos: false,
     can_update_project_status: false,
     can_view_project_timeline: true,
+    // Calendar & Scheduling
+    can_view_calendar: true,
+    can_create_consultations: true,
+    can_create_production_events: false,
+    can_edit_all_events: false,
+    can_manage_recurring_events: false,
   },
 
   // Sales - Sales Representative (Leads, Quotes, Customer-Facing)
@@ -787,6 +836,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_upload_photos: false,
     can_update_project_status: false,
     can_view_project_timeline: true,
+    // Calendar & Scheduling
+    can_view_calendar: true,
+    can_create_consultations: true,
+    can_create_production_events: false,
+    can_edit_all_events: false,
+    can_manage_recurring_events: false,
   },
 
   // Production - Production/Crew (Work Orders, Photos, Status Updates)
@@ -848,6 +903,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_upload_photos: true,          // Upload project photos
     can_update_project_status: true,  // Update project progress
     can_view_project_timeline: true,  // See project schedule
+    // Calendar & Scheduling
+    can_view_calendar: true,
+    can_create_consultations: false,
+    can_create_production_events: true,  // Schedule materials/labor
+    can_edit_all_events: false,
+    can_manage_recurring_events: false,
   },
 
   // Marketing - Marketing Team (Leads, Analytics, Reports)
@@ -909,6 +970,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_upload_photos: false,
     can_update_project_status: false,
     can_view_project_timeline: false,
+    // Calendar & Scheduling
+    can_view_calendar: true,
+    can_create_consultations: true,
+    can_create_production_events: false,
+    can_edit_all_events: false,
+    can_manage_recurring_events: false,
   },
 }
 

@@ -98,8 +98,13 @@ export async function createLeadAction(
     revalidatePath('/admin/leads')
     return { success: true, data }
   } catch (error) {
-    console.error('Create lead action error:', error)
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    console.error('[CREATE LEAD ACTION] Error caught:', error)
+    console.error('[CREATE LEAD ACTION] Error type:', typeof error)
+    console.error('[CREATE LEAD ACTION] Error details:', JSON.stringify(error, null, 2))
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : (typeof error === 'object' && error !== null ? JSON.stringify(error) : String(error))
+    }
   }
 }
 

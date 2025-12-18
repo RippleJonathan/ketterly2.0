@@ -167,8 +167,13 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
         production_manager_id: data.production_manager_id || null,
       }
       
+      console.log('[LEAD FORM] Submit data:', submitData)
+      console.log('[LEAD FORM] Status value:', submitData.status)
+      
       if (mode === 'create') {
         const result = await createLeadAction(company.id, submitData, user.id)
+        
+        console.log('[LEAD FORM] Create result:', result)
         
         if (result.success) {
           queryClient.invalidateQueries({ queryKey: ['leads', company.id] })
@@ -176,6 +181,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           toast.success('Lead created successfully!')
           router.push('/admin/leads')
         } else {
+          console.error('[LEAD FORM] Create failed:', result.error)
           throw new Error(result.error || 'Failed to create lead')
         }
       } else if (lead) {

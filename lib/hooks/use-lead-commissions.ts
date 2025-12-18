@@ -212,7 +212,7 @@ export function useMarkCommissionPaid() {
     }) => {
       // Get company/user with fallback to avoid blocking
       let companyId = company?.id
-      let userId = currentUser?.id
+      let userId = currentUser?.data?.id
       
       if (!companyId || !userId) {
         const supabase = createClient()

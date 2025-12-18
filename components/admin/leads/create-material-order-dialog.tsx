@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useTemplates } from '@/lib/hooks/use-material-templates'
 import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
+import { useCreateEventFromMaterialOrder, useCreateEventFromLaborOrder } from '@/lib/hooks/use-calendar'
 import { importTemplateToOrder } from '@/lib/api/material-orders'
 import { MaterialTemplate } from '@/lib/types/material-templates'
 import type { OrderType } from '@/lib/types/material-orders'
@@ -47,6 +48,10 @@ export function CreateMaterialOrderDialog({
   // Conditional labels based on order type
   const isMaterial = orderType === 'material'
   const orderLabel = isMaterial ? 'Material Order' : 'Work Order'
+
+  // Calendar event creation hooks
+  const createMaterialEvent = useCreateEventFromMaterialOrder()
+  const createLaborEvent = useCreateEventFromLaborOrder()
 
   const { data: templatesResponse } = useTemplates({ is_active: true })
   const templates = templatesResponse?.data || []
@@ -121,6 +126,23 @@ export function CreateMaterialOrderDialog({
       toast.success(
         `Created order with ${result.data?.items?.length || 0} items`
       )
+
+      // Automatically create calendar event for the order
+      if (result.data?.order?.id) {
+        try {
+          if (orderType === 'material') {
+            await createMaterialEvent.mutateAsync(result.data.order.id)
+            toast.success('Calendar event created for material delivery')
+          } else if (orderType === 'work') {
+            await createLaborEvent.mutateAsync(result.data.order.id)
+            toast.success('Calendar event created for work order')
+          }
+        } catch (eventError: any) {
+          // Don't block the flow if calendar event creation fails
+          console.error('Failed to create calendar event:', eventError)
+          toast.warning('Order created but calendar event could not be added')
+        }
+      }
 
       onSuccess?.()
       onClose()

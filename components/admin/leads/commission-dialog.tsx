@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCreateLeadCommission, useUpdateLeadCommission } from '@/lib/hooks/use-lead-commissions'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
-import { CommissionFormData, CommissionType, CommissionPaidWhen, LeadCommission } from '@/lib/types/commissions'
+import { CommissionFormData, CommissionType, CommissionPaidWhen, LeadCommission, LeadCommissionInsert } from '@/lib/types/commissions'
 import { calculateCommission } from '@/lib/api/lead-commissions'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { Loader2 } from 'lucide-react'
@@ -203,7 +203,7 @@ export function CommissionDialog({
       base_amount: formData.base_amount ?? 0,
       paid_when: formData.paid_when,
       notes: formData.notes || null,
-      created_by: currentUser?.id || null,
+      created_by: currentUser?.data?.id || null,
     }
 
     if (mode === 'create') {

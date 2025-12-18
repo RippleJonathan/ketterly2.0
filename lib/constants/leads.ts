@@ -11,11 +11,8 @@
 
 export const LEAD_STATUSES = {
   NEW: 'new',
-  CONTACTED: 'contacted',
-  QUALIFIED: 'qualified',
-  QUOTE_SENT: 'quote_sent',
-  FOLLOW_UP: 'follow_up',
-  WON: 'won',
+  QUOTE: 'quote',
+  PRODUCTION: 'production',
   INVOICED: 'invoiced',
   CLOSED: 'closed',
   LOST: 'lost',
@@ -26,11 +23,8 @@ export type LeadStatus = typeof LEAD_STATUSES[keyof typeof LEAD_STATUSES]
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   new: 'New',
-  contacted: 'Contacted',
-  qualified: 'Qualified',
-  quote_sent: 'Quote Sent',
-  follow_up: 'Follow Up',
-  won: 'Won',
+  quote: 'Quote',
+  production: 'Production',
   invoiced: 'Invoiced',
   closed: 'Closed',
   lost: 'Lost',
@@ -39,11 +33,8 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
 
 export const LEAD_STATUS_COLORS: Record<LeadStatus, string> = {
   new: 'bg-blue-100 text-blue-700 border-blue-200',
-  contacted: 'bg-purple-100 text-purple-700 border-purple-200',
-  qualified: 'bg-green-100 text-green-700 border-green-200',
-  quote_sent: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  follow_up: 'bg-orange-100 text-orange-700 border-orange-200',
-  won: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  quote: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  production: 'bg-green-100 text-green-700 border-green-200',
   invoiced: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   closed: 'bg-teal-100 text-teal-700 border-teal-200',
   lost: 'bg-gray-100 text-gray-700 border-gray-200',
@@ -53,11 +44,8 @@ export const LEAD_STATUS_COLORS: Record<LeadStatus, string> = {
 // Status order for pipeline progress
 export const LEAD_STATUS_ORDER: LeadStatus[] = [
   'new',
-  'contacted',
-  'qualified',
-  'quote_sent',
-  'follow_up',
-  'won',
+  'quote',
+  'production',
   'invoiced',
   'closed',
   // Note: 'lost' and 'archived' are terminal states, not shown in linear progression

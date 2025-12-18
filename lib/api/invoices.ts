@@ -19,6 +19,8 @@ import {
   InvoiceLineItem,
   InvoiceLineItemInsert,
 } from '@/lib/types/invoices'
+import { applyStatusTransition } from './leads'
+import { LeadStatus, LeadSubStatus } from '@/lib/types/enums'
 
 const supabase = createClient()
 
@@ -125,6 +127,40 @@ export async function createInvoice(
         .insert(lineItems.map(item => ({ ...item, invoice_id: data.id })))
 
       if (lineItemsError) throw lineItemsError
+    }
+
+    // AUTO-TRANSITION: Invoice created → INVOICED/INVOICE_SENT
+    if (invoice.lead_id && invoice.company_id) {
+      try {
+        // Get current lead status
+        const { data: leadData } = await supabase
+          .from('leads')
+          .select('status, sub_status')
+          .eq('id', invoice.lead_id)
+          .single()
+
+        if (leadData) {
+          await applyStatusTransition(
+            invoice.lead_id,
+            invoice.company_id,
+            {
+              from_status: leadData.status as LeadStatus,
+              from_sub_status: leadData.sub_status as LeadSubStatus,
+              to_status: LeadStatus.INVOICED,
+              to_sub_status: LeadSubStatus.INVOICE_SENT,
+              automated: true,
+              metadata: {
+                trigger: 'invoice_created',
+                invoice_id: data.id,
+                invoice_number: data.invoice_number,
+              },
+            }
+          )
+        }
+      } catch (statusError) {
+        // Don't fail invoice creation if status update fails
+        console.error('Failed to update lead status after invoice creation:', statusError)
+      }
     }
 
     return { data: data as CustomerInvoice, error: null }
@@ -252,6 +288,64 @@ export async function getPayments(
     }
     if (filters?.invoice_id) {
       query = query.eq('invoice_id', filters.invoice_id)
+
+    // AUTO-TRANSITION: Payment recorded → Update invoice status
+    if (payment.invoice_id && payment.lead_id && payment.company_id) {
+      try {
+        // Get invoice and calculate balance
+        const { data: invoiceData } = await supabase
+          .from('customer_invoices')
+          .select('total, balance_due')
+          .eq('id', payment.invoice_id)
+          .single()
+
+        if (invoiceData) {
+          // Get current lead status
+          const { data: leadData } = await supabase
+            .from('leads')
+            .select('status, sub_status')
+            .eq('id', payment.lead_id)
+            .single()
+
+          if (leadData) {
+            const newBalance = (invoiceData.balance_due || invoiceData.total) - payment.amount
+            const isPaidInFull = newBalance <= 0
+            const isPartialPayment = newBalance > 0 && newBalance < invoiceData.total
+
+            // Determine target sub-status based on payment
+            const targetSubStatus = isPaidInFull 
+              ? LeadSubStatus.PAID 
+              : isPartialPayment 
+              ? LeadSubStatus.PARTIAL_PAYMENT 
+              : LeadSubStatus.INVOICE_SENT
+
+            await applyStatusTransition(
+              payment.lead_id,
+              payment.company_id,
+              {
+                from_status: leadData.status as LeadStatus,
+                from_sub_status: leadData.sub_status as LeadSubStatus,
+                to_status: LeadStatus.INVOICED,
+                to_sub_status: targetSubStatus,
+                automated: true,
+                metadata: {
+                  trigger: 'payment_recorded',
+                  payment_id: data.id,
+                  payment_amount: payment.amount,
+                  payment_method: payment.payment_method,
+                  balance_remaining: newBalance,
+                  paid_in_full: isPaidInFull,
+                },
+              }
+            )
+          }
+        }
+      } catch (statusError) {
+        // Don't fail payment creation if status update fails
+        console.error('Failed to update lead status after payment:', statusError)
+      }
+    }
+
     }
     if (filters?.cleared !== undefined) {
       query = query.eq('cleared', filters.cleared)

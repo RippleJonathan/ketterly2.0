@@ -46,34 +46,16 @@ const salesNavigation: NavItem[] = [
     icon: Users,
     permission: 'can_view_leads'
   },
-]
-
-// Production workflow navigation (coming soon)
-const productionNavigation: NavItem[] = [
   { 
     name: 'Calendar', 
     href: '/admin/calendar', 
     icon: Calendar,
-    comingSoon: true
+    permission: 'can_view_calendar'
   },
 ]
 
 // Office workflow navigation
 const officeNavigation: NavItem[] = [
-  { 
-    name: 'Estimates', 
-    href: '/admin/estimates', 
-    icon: FileText,
-    permission: 'can_view_quotes',
-    comingSoon: true
-  },
-  { 
-    name: 'Invoices', 
-    href: '/admin/invoices', 
-    icon: DollarSign,
-    permission: 'can_view_invoices',
-    comingSoon: true
-  },
   { 
     name: 'Reports', 
     href: '/admin/reports', 
@@ -235,21 +217,6 @@ export function Sidebar() {
           </p>
           <ul className="space-y-1 mb-6">
             {salesNavigation.map((item) => (
-              <NavItemWithPermission
-                key={item.name}
-                item={item}
-                isActive={pathname === item.href}
-                onClick={closeMenu}
-              />
-            ))}
-          </ul>
-
-          {/* Production Section */}
-          <p className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Production
-          </p>
-          <ul className="space-y-1 mb-6">
-            {productionNavigation.map((item) => (
               <NavItemWithPermission
                 key={item.name}
                 item={item}

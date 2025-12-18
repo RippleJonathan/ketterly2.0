@@ -44,17 +44,17 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const { data: summaryData } = useLeadCommissionSummary(lead.id)
   
   // New granular permissions
-  const { data: canViewOwn } = useCheckPermission(currentUser?.id || '', 'can_view_own_commissions')
-  const { data: canViewAll } = useCheckPermission(currentUser?.id || '', 'can_view_all_commissions')
-  const { data: canCreate } = useCheckPermission(currentUser?.id || '', 'can_create_commissions')
-  const { data: canEdit } = useCheckPermission(currentUser?.id || '', 'can_edit_commissions')
-  const { data: canDelete } = useCheckPermission(currentUser?.id || '', 'can_delete_commissions')
-  const { data: canMarkPaid } = useCheckPermission(currentUser?.id || '', 'can_mark_commissions_paid')
+  const { data: canViewOwn } = useCheckPermission(currentUser?.data?.id || '', 'can_view_own_commissions')
+  const { data: canViewAll } = useCheckPermission(currentUser?.data?.id || '', 'can_view_all_commissions')
+  const { data: canCreate } = useCheckPermission(currentUser?.data?.id || '', 'can_create_commissions')
+  const { data: canEdit } = useCheckPermission(currentUser?.data?.id || '', 'can_edit_commissions')
+  const { data: canDelete } = useCheckPermission(currentUser?.data?.id || '', 'can_delete_commissions')
+  const { data: canMarkPaid } = useCheckPermission(currentUser?.data?.id || '', 'can_mark_commissions_paid')
   const deleteCommission = useDeleteLeadCommission()
   
   // Determine if user can view at all (own or all)
   // If permissions haven't loaded (undefined) and user exists, allow access
-  const isAdmin = currentUser?.role === 'admin'
+  const isAdmin = currentUser?.data?.role === 'admin'
   const permissionsNotLoaded = canViewOwn === undefined && canViewAll === undefined
   const canView = canViewOwn || canViewAll || (permissionsNotLoaded && !!currentUser)
   

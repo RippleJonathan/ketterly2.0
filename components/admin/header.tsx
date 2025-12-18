@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Bell, Search, LogOut, User, Settings, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -10,6 +11,7 @@ import { useCurrentUser } from '@/lib/hooks/use-users'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { QuickAddLeadButton } from './quick-add-lead-button'
+import { CommandPalette } from './command-palette'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +26,7 @@ export function Header() {
   const supabase = createClient()
   const { data: company } = useCurrentCompany()
   const { data: userResponse } = useCurrentUser()
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   
   const user = userResponse?.data
 
@@ -48,6 +51,12 @@ export function Header() {
 
   return (
     <>
+      {/* Command Palette */}
+      <CommandPalette 
+        open={commandPaletteOpen} 
+        onOpenChange={setCommandPaletteOpen} 
+      />
+
       {/* Top Bar with Search and Profile */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
         <div className="flex items-center gap-3 px-4 lg:px-8 py-3">
@@ -58,14 +67,16 @@ export function Header() {
 
           {/* Middle: Search (hidden on mobile, shown on larger screens) */}
           <div className="flex-1 max-w-md hidden md:block">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search customers, leads, addresses..."
-                className="w-full pl-9 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-              />
-            </div>
+            <button
+              onClick={() => setCommandPaletteOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors text-left text-sm text-gray-500"
+            >
+              <Search className="w-4 h-4" />
+              <span>Search customers, leads, addresses...</span>
+              <kbd className="ml-auto hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-xs font-medium text-muted-foreground opacity-100">
+                <span className="text-xs">Ctrl</span>K
+              </kbd>
+            </button>
           </div>
 
           {/* Mobile: Company name */}
@@ -77,6 +88,14 @@ export function Header() {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2">
+            {/* Mobile Search Button */}
+            <button 
+              onClick={() => setCommandPaletteOpen(true)}
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+
             {/* Notifications */}
             <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
               <Bell className="w-5 h-5" />

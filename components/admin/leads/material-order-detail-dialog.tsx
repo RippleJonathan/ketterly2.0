@@ -19,6 +19,7 @@ import { updateMaterialOrder, addMaterialOrderItem, updateMaterialOrderItem, del
 import { getSuppliers } from '@/lib/api/suppliers'
 import { getMaterials } from '@/lib/api/materials'
 import { getMaterialVariants } from '@/lib/api/material-variants'
+import { useCreateEventFromMaterialOrder, useCreateEventFromLaborOrder } from '@/lib/hooks/use-calendar'
 import { toast } from 'sonner'
 
 interface MaterialOrderDetailDialogProps {
@@ -35,6 +36,9 @@ export function MaterialOrderDetailDialog({
   onUpdate,
 }: MaterialOrderDetailDialogProps) {
   const { data: company } = useCurrentCompany()
+  const createMaterialEvent = useCreateEventFromMaterialOrder()
+  const createLaborEvent = useCreateEventFromLaborOrder()
+  
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -45,6 +49,7 @@ export function MaterialOrderDetailDialog({
   const [supplierId, setSupplierId] = useState<string | null>(null)
   const [orderDate, setOrderDate] = useState('')
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('')
+  const [previousDeliveryDate, setPreviousDeliveryDate] = useState('') // Track previous value
   const [notes, setNotes] = useState('')
   
   // Data states
@@ -108,6 +113,7 @@ export function MaterialOrderDetailDialog({
     setSupplierId(order.supplier_id || null)
     setOrderDate(order.order_date || new Date().toISOString().split('T')[0])
     setExpectedDeliveryDate(order.expected_delivery_date || '')
+    setPreviousDeliveryDate(order.expected_delivery_date || '') // Save initial value
     setNotes(order.notes || '')
     setIsEditing(true)
   }
@@ -134,6 +140,27 @@ export function MaterialOrderDetailDialog({
       if (error) throw new Error(error.message)
       
       toast.success('Order updated successfully')
+      
+      // Check if delivery/scheduled date was just added (was empty, now has value)
+      const wasEmpty = !previousDeliveryDate || previousDeliveryDate.trim() === ''
+      const nowHasDate = expectedDeliveryDate && expectedDeliveryDate.trim() !== ''
+      
+      if (wasEmpty && nowHasDate) {
+        // Delivery date was just added - create calendar event
+        try {
+          if (order.order_type === 'material') {
+            await createMaterialEvent.mutateAsync(order.id)
+            toast.success('Calendar event created for material delivery')
+          } else if (order.order_type === 'work') {
+            await createLaborEvent.mutateAsync(order.id)
+            toast.success('Calendar event created for work order')
+          }
+        } catch (eventError: any) {
+          console.error('Failed to create calendar event:', eventError)
+          toast.warning('Order updated but calendar event could not be created')
+        }
+      }
+      
       setIsEditing(false)
       onUpdate?.()
     } catch (error: any) {

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useLead } from '@/lib/hooks/use-leads'
 import { LEAD_SOURCE_LABELS } from '@/lib/constants/leads'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { Button } from '@/components/ui/button'
 import { Pencil, Phone, Mail, MapPin, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import { PipelineProgress } from '@/components/admin/leads/pipeline-progress'
@@ -15,6 +16,7 @@ import { useState } from 'react'
 export function DynamicSidebarHeader() {
   const pathname = usePathname()
   const { data: company } = useCurrentCompany()
+  const { data: currentUser } = useCurrentUser()
   const [isExpanded, setIsExpanded] = useState(true)
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   
@@ -26,9 +28,9 @@ export function DynamicSidebarHeader() {
   const { data: leadResponse } = useLead(leadId || '')
   const lead = leadResponse?.data
   
-  // Check permissions for calendar events
-  const { data: canCreateConsultations } = useCheckPermission(company?.id || '', 'can_create_consultations')
-  const { data: canCreateProductionEvents } = useCheckPermission(company?.id || '', 'can_create_production_events')
+  // Check permissions for calendar events using user ID
+  const { data: canCreateConsultations } = useCheckPermission(currentUser?.id || '', 'can_create_consultations')
+  const { data: canCreateProductionEvents } = useCheckPermission(currentUser?.id || '', 'can_create_production_events')
 
   // Lead detail page
   if (leadId && lead) {
@@ -143,11 +145,11 @@ export function DynamicSidebarHeader() {
         )}
         
         {/* Appointment Modal */}
-        {leadId && lead && (
+        {leadId && lead && currentUser && (
           <EventQuickAddModal
             open={showAppointmentModal}
             onClose={() => setShowAppointmentModal(false)}
-            userId={company?.id || ''}
+            userId={currentUser.id}
             canCreateConsultations={canCreateConsultations || false}
             canCreateProductionEvents={canCreateProductionEvents || false}
             defaultLeadId={leadId}

@@ -98,9 +98,14 @@ export function EventDetailModal({
   }
 
   const handleDelete = async () => {
-    await deleteEvent.mutateAsync(event.id)
-    setShowDeleteConfirm(false)
-    onClose()
+    try {
+      await deleteEvent.mutateAsync(event.id)
+      setShowDeleteConfirm(false)
+      onClose()
+    } catch (error) {
+      // Error already handled by mutation onError
+      setShowDeleteConfirm(false)
+    }
   }
 
   return (
@@ -287,74 +292,34 @@ export function EventDetailModal({
             )}
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            {/* Status Actions */}
-            {!isCancelled && !isCompleted && (
-              <div className="flex gap-2 flex-1">
-                {!isConfirmed && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleConfirm}
-                    disabled={confirmEvent.isPending}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Confirm
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleComplete}
-                  disabled={completeEvent.isPending}
-                  className="text-green-600 hover:text-green-700"
-                >
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Complete
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={cancelEvent.isPending}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  Cancel Event
-                </Button>
-              </div>
-            )}
-
-            {/* Edit/Delete Actions */}
-            <div className="flex gap-2">
-              {canEdit && onEdit && !isCancelled && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    onEdit(event)
-                    onClose()
-                  }}
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-              )}
-              {canEdit && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              )}
-              <Button variant="outline" onClick={onClose}>
-                Close
+          <DialogFooter className="flex gap-2">
+            {canEdit && onEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onEdit(event)
+                  onClose()
+                }}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                Edit
               </Button>
-            </div>
+            )}
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            )}
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

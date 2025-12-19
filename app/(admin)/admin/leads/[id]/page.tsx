@@ -117,12 +117,6 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/admin/calendar?leadId=${id}`}>
-            <Button variant="outline">
-              <Calendar className="h-4 w-4 mr-2" />
-              Schedule Appointment
-            </Button>
-          </Link>
           <Link href={`/admin/leads/${id}/edit`}>
             <Button variant="outline">
               <Pencil className="h-4 w-4 mr-2" />

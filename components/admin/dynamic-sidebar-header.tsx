@@ -6,14 +6,17 @@ import { useLead } from '@/lib/hooks/use-leads'
 import { LEAD_SOURCE_LABELS } from '@/lib/constants/leads'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { Button } from '@/components/ui/button'
-import { Pencil, Phone, Mail, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
+import { Pencil, Phone, Mail, MapPin, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import { PipelineProgress } from '@/components/admin/leads/pipeline-progress'
+import { EventQuickAddModal } from '@/components/admin/calendar/event-quick-add-modal'
+import { useCheckPermission } from '@/lib/hooks/use-permissions'
 import { useState } from 'react'
 
 export function DynamicSidebarHeader() {
   const pathname = usePathname()
   const { data: company } = useCurrentCompany()
   const [isExpanded, setIsExpanded] = useState(true)
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   
   // Extract lead ID from pathname if we're on a lead detail page
   const leadIdMatch = pathname.match(/\/admin\/leads\/([^\/\?]+)/)
@@ -22,6 +25,10 @@ export function DynamicSidebarHeader() {
   // Only fetch lead data if we're on a lead detail page
   const { data: leadResponse } = useLead(leadId || '')
   const lead = leadResponse?.data
+  
+  // Check permissions for calendar events
+  const { data: canCreateConsultations } = useCheckPermission(company?.id || '', 'can_create_consultations')
+  const { data: canCreateProductionEvents } = useCheckPermission(company?.id || '', 'can_create_production_events')
 
   // Lead detail page
   if (leadId && lead) {
@@ -114,14 +121,38 @@ export function DynamicSidebarHeader() {
             <PipelineProgress leadId={leadId} currentStatus={lead.status} compact />
           </div>
 
-          {/* Edit Lead Button */}
-          <Link href={`/admin/leads/${leadId}/edit`} className="block">
-            <Button variant="outline" size="sm" className="w-full">
-              <Pencil className="h-3 w-3 mr-2" />
-              Edit Lead
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            <Link href={`/admin/leads/${leadId}/edit`}>
+              <Button variant="outline" size="sm" className="w-full">
+                <Pencil className="h-3 w-3 mr-2" />
+                Edit Lead
+              </Button>
+            </Link>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full"
+              onClick={() => setShowAppointmentModal(true)}
+            >
+              <Calendar className="h-3 w-3 mr-2" />
+              Schedule
             </Button>
-          </Link>
+          </div>
         </div>
+        )}
+        
+        {/* Appointment Modal */}
+        {leadId && lead && (
+          <EventQuickAddModal
+            open={showAppointmentModal}
+            onClose={() => setShowAppointmentModal(false)}
+            userId={company?.id || ''}
+            canCreateConsultations={canCreateConsultations || false}
+            canCreateProductionEvents={canCreateProductionEvents || false}
+            defaultLeadId={leadId}
+            defaultDate={new Date().toISOString().split('T')[0]}
+          />
         )}
       </div>
     )

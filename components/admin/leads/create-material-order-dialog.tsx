@@ -128,13 +128,13 @@ export function CreateMaterialOrderDialog({
       )
 
       // Automatically create calendar event for the order
-      if (result.data?.order?.id) {
+      if (result.data?.order_id) {
         try {
           if (orderType === 'material') {
-            await createMaterialEvent.mutateAsync(result.data.order.id)
+            await createMaterialEvent.mutateAsync(result.data.order_id)
             toast.success('Calendar event created for material delivery')
           } else if (orderType === 'work') {
-            await createLaborEvent.mutateAsync(result.data.order.id)
+            await createLaborEvent.mutateAsync(result.data.order_id)
             toast.success('Calendar event created for work order')
           }
         } catch (eventError: any) {

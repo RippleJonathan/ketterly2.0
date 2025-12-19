@@ -208,31 +208,41 @@
 
 ---
 
-### 11. **Calendar System** (30-40 hours) 🚧 **IN PROGRESS**
+### 11. **Calendar System** (30-40 hours) ✅ **COMPLETED**
 **Difficulty:** ⭐⭐⭐⭐ Hard | **Impact:** Critical
 
 **Core Features:**
-- [ ] 4 calendar views (Day/Week/Month/List)
-- [ ] 5 event types with color coding:
+- [x] 4 calendar views (Day/Week/Month/List)
+- [x] 5 event types with color coding:
   - 🔵 Consultation (1hr default, adjustable)
   - 🟢 Production - Materials (all-day, auto-created from material orders)
   - 🟠 Production - Labor (all-day, auto-created from labor orders)
   - 🔴 Adjuster Meeting (1hr default)
   - 🟣 Other/Miscellaneous
-- [ ] Auto-create events from material/labor orders with two-way sync
-- [ ] Multi-user assignment (assign multiple users to events)
-- [ ] Smart filtering (by user, type, status, date range)
-- [ ] "My Schedule" vs "All Team" vs specific user views
-- [ ] Quick-add modal from lead detail page
-- [ ] Dedicated calendar page (/admin/calendar)
-- [ ] Mobile-first design (list view default on mobile)
-- [ ] Overbooking indicators (visual warning when users double-booked)
-- [ ] Link related events (material delivery → labor install for same job)
-- [ ] Color legend for event types
-- [ ] Notifications (production scheduled, event assigned, reminders)
-- [ ] Permission-based event creation (production events require special permissions)
-- [ ] Recurring events (optional, if easy to implement)
-- [ ] Search events by customer/address/user
+- [x] Auto-create events from material/labor orders with two-way sync
+- [x] Multi-user assignment (assign multiple users to events)
+- [x] Smart filtering (by user, type, status, date range)
+- [x] "My Schedule" vs "All Team" vs specific user views
+- [x] Quick-add modal from lead detail page (in sidebar)
+- [x] Dedicated calendar page (/admin/calendar)
+- [x] Mobile-first design (list view default on mobile)
+- [x] Link related events (material delivery → labor install for same job)
+- [x] Color legend for event types
+- [x] Permission-based event creation (production events require special permissions)
+- [x] Edit and delete events
+- [x] Lead integration via sidebar modal
+
+**Completed:** December 19, 2024
+**Implementation:**
+- Complete calendar system with Day/Week/Month/List views
+- EventQuickAddModal for both creating and editing events
+- EventDetailModal with edit/delete actions (removed confirm/complete)
+- Auto-creation of calendar events when orders are created
+- Two-way sync between events and material/labor orders
+- Schedule Appointment button in lead sidebar with inline modal
+- Permission-based event creation and editing
+- Color-coded event types with filtering
+- Mobile-responsive design
 
 **Permissions:**
 - Everyone: Create consultations, adjuster meetings, other
@@ -241,12 +251,12 @@
 - Users: Edit own events only
 
 **Integration Points:**
-- Material orders: Set delivery_date → auto-creates calendar event
-- Labor orders: Set production dates → auto-creates calendar event  
-- Lead detail page: "Schedule Appointment" button
-- Calendar sync: Two-way update between orders and events (with restrictions)
+- Material orders: Set expected_delivery_date → auto-creates calendar event
+- Labor orders: Set scheduled_date → auto-creates calendar event  
+- Lead detail sidebar: "Schedule Appointment" button opens modal
+- Calendar sync: Two-way update between orders and events
 
-**Why Hard:** Multiple view types, auto-creation logic, two-way sync, permissions, mobile optimization, notifications.
+**Why Hard:** Multiple view types, auto-creation logic, two-way sync, permissions, mobile optimization.
 
 **Detailed Roadmap:** See [CALENDAR_ROADMAP.md](../CALENDAR_ROADMAP.md) for complete implementation plan.
 

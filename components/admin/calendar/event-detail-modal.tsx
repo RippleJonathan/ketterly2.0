@@ -83,6 +83,11 @@ export function EventDetailModal({
   const isCompleted = event.status === EventStatus.COMPLETED
   const isConfirmed = event.status === EventStatus.CONFIRMED
 
+  // Fix title if it says "Unknown Lead" but we have lead data
+  const displayTitle = event.title.includes('Unknown Lead') && event.lead?.full_name
+    ? event.title.replace('Unknown Lead', event.lead.full_name)
+    : event.title
+
   const handleCancel = async () => {
     await cancelEvent.mutateAsync(event.id)
     onClose()
@@ -119,7 +124,7 @@ export function EventDetailModal({
                   "text-xl mb-2",
                   isCancelled && "line-through text-gray-500"
                 )}>
-                  {event.title}
+                  {displayTitle}
                 </DialogTitle>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge 
@@ -249,9 +254,6 @@ export function EventDetailModal({
                     <div className="flex items-center gap-2 text-sm">
                       <LinkIcon className="h-4 w-4 text-gray-400" />
                       <span>Material Order #{event.material_order.order_number}</span>
-                      <span className="text-gray-500">
-                        (Delivery: {format(parseISO(event.material_order.delivery_date), 'MMM d, yyyy')})
-                      </span>
                     </div>
                   )}
                   {event.labor_order && (

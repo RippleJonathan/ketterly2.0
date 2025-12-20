@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { MaterialOrder } from '@/lib/types/material-orders'
 import { deleteMaterialOrder } from '@/lib/api/material-orders'
 import { useUploadDocument, useDocuments } from '@/lib/hooks/use-documents'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,7 +32,6 @@ import { MaterialOrderDetailDialog } from './material-order-detail-dialog'
 import { SendEmailDialog } from './send-email-dialog'
 import { toast } from 'sonner'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf-generator'
-import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { getDocumentSignedUrl } from '@/lib/api/documents'
 
 interface MaterialOrderCardProps {
@@ -72,6 +73,8 @@ const statusConfig = {
 }
 
 export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
+  const queryClient = useQueryClient()
+  const { data: company } = useCurrentCompany()
   const [showDetails, setShowDetails] = useState(false)
   const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -80,7 +83,6 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { data: company } = useCurrentCompany()
   const uploadDocument = useUploadDocument()
   
   // Get documents for this lead to check for invoice
@@ -125,7 +127,11 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
         return
       }
 
-      toast.success('Order deleted successfully')
+      // Invalidate calendar queries to remove associated events
+      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-lead', order.lead_id] })
+
+      toast.success('Order and associated calendar events deleted')
       onUpdate?.()
     } catch (error) {
       toast.error('Failed to delete order')
@@ -215,6 +221,8 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
     recipientName: string
     includeMaterialList: boolean
     materialOrderIds?: string[]
+    deliveryDate?: string
+    scheduledDate?: string
   }) => {
     if (!company) {
       toast.error('Company information not loaded')
@@ -223,6 +231,27 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
 
     setIsSendingEmail(true)
     try {
+      // Step 1: Update order with delivery/scheduled date if provided
+      const isWorkOrder = order.order_type === 'work'
+      const dateToSave = isWorkOrder ? emailData.scheduledDate : emailData.deliveryDate
+      
+      if (dateToSave) {
+        const supabase = (await import('@/lib/supabase/client')).createClient()
+        const updateField = isWorkOrder ? 'scheduled_date' : 'expected_delivery_date'
+        
+        const { error: updateError } = await supabase
+          .from(isWorkOrder ? 'work_orders' : 'material_orders')
+          .update({ [updateField]: dateToSave })
+          .eq('id', order.id)
+        
+        if (updateError) {
+          console.error('Failed to update order date:', updateError)
+          toast.error('Failed to save date')
+          return
+        }
+      }
+
+      // Step 2: Send email
       const response = await fetch('/api/material-orders/send-email', {
         method: 'POST',
         headers: {
@@ -244,6 +273,39 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
       }
 
       toast.success(`Email sent to ${emailData.recipientEmails.length} recipient(s)`)
+      
+      // Step 3: Create calendar event if date was provided
+      if (dateToSave && order.lead_id) {
+        try {
+          const { createEventFromMaterialOrder } = await import('@/lib/api/calendar')
+          const { data: user } = await (await import('@/lib/supabase/client')).createClient().auth.getUser()
+          
+          // Get lead name from the loaded relationship
+          const leadName = order.lead?.full_name || 'Unknown Lead'
+          
+          const eventResult = await createEventFromMaterialOrder(
+            company.id,
+            order.id,
+            dateToSave,
+            order.lead_id,
+            leadName,
+            isWorkOrder ? (order as any).work_order_number : order.order_number,
+            user.user?.id || '',
+            []
+          )
+          
+          if (eventResult.error) {
+            console.error('Failed to create calendar event:', eventResult.error)
+            toast.error('Email sent, but calendar event creation failed')
+          } else {
+            toast.success('📅 Calendar event created')
+          }
+        } catch (calendarError) {
+          console.error('Calendar event creation error:', calendarError)
+          // Don't fail the whole operation if calendar fails
+        }
+      }
+      
       onUpdate?.()
     } catch (error: any) {
       console.error('Email send error:', error)

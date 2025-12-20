@@ -127,22 +127,7 @@ export function CreateMaterialOrderDialog({
         `Created order with ${result.data?.items?.length || 0} items`
       )
 
-      // Automatically create calendar event for the order
-      if (result.data?.order_id) {
-        try {
-          if (orderType === 'material') {
-            await createMaterialEvent.mutateAsync(result.data.order_id)
-            toast.success('Calendar event created for material delivery')
-          } else if (orderType === 'work') {
-            await createLaborEvent.mutateAsync(result.data.order_id)
-            toast.success('Calendar event created for work order')
-          }
-        } catch (eventError: any) {
-          // Don't block the flow if calendar event creation fails
-          console.error('Failed to create calendar event:', eventError)
-          toast.warning('Order created but calendar event could not be added')
-        }
-      }
+      // Note: Calendar events are created when sending Email PO with delivery date
 
       onSuccess?.()
       onClose()

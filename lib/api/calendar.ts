@@ -444,23 +444,18 @@ export async function deleteEvent(
   try {
     const supabase = createClient()
     
-    // First verify we can access this event
-    const { data: event, error: fetchError } = await supabase
-      .from('calendar_events')
-      .select('id')
-      .eq('id', eventId)
-      .single()
-
-    if (fetchError) throw fetchError
-    if (!event) throw new Error('Event not found')
-
-    // Now soft delete it
+    // Soft delete the event directly (RLS will ensure user has access)
     const { error } = await supabase
       .from('calendar_events')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', eventId)
+      .is('deleted_at', null) // Only delete if not already deleted
 
-    if (error) throw error
+    if (error) {
+      console.error('Delete event error:', error)
+      throw error
+    }
+    
     return { data: undefined, error: null }
   } catch (error) {
     return createErrorResponse(error)

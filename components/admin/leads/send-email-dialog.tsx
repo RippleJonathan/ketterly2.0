@@ -23,6 +23,8 @@ interface SendEmailDialogProps {
     recipientName: string
     includeMaterialList: boolean
     materialOrderIds?: string[]
+    deliveryDate?: string // ISO date string for material orders
+    scheduledDate?: string // ISO date string for work orders
   }) => Promise<void>
 }
 
@@ -37,6 +39,8 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
   const [materialOrders, setMaterialOrders] = useState<MaterialOrder[]>([])
   const [selectedMaterialOrders, setSelectedMaterialOrders] = useState<string[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+  const [deliveryDate, setDeliveryDate] = useState('')
+  const [scheduledDate, setScheduledDate] = useState('')
 
   // Initialize email fields based on order type
   useEffect(() => {
@@ -97,6 +101,9 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
 
   const handleSend = async () => {
     if (!primaryEmail.trim()) return
+    
+    const matOrder = order as MaterialOrder
+    const isWorkOrder = matOrder.order_type === 'work'
 
     setIsSending(true)
     try {
@@ -106,6 +113,8 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
         recipientName: recipientName.trim(),
         includeMaterialList: selectedMaterialOrders.length > 0, // Auto-enable if material orders selected
         materialOrderIds: selectedMaterialOrders.length > 0 ? selectedMaterialOrders : undefined,
+        deliveryDate: isWorkOrder ? undefined : (deliveryDate || undefined),
+        scheduledDate: isWorkOrder ? (scheduledDate || undefined) : undefined,
       })
       onOpenChange(false)
       // Reset form
@@ -113,6 +122,8 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
       setNewEmail('')
       setIncludeMaterialList(false)
       setSelectedMaterialOrders([])
+      setDeliveryDate('')
+      setScheduledDate('')
     } finally {
       setIsSending(false)
     }
@@ -155,6 +166,27 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
             />
+          </div>
+
+          {/* Delivery/Install Date */}
+          <div className="space-y-2">
+            <Label htmlFor="delivery-date">
+              {orderType === 'work' ? 'Scheduled Install Date' : 'Expected Delivery Date'}
+              {' '}
+              <span className="text-xs text-gray-500">(Optional - Creates calendar event)</span>
+            </Label>
+            <Input
+              id="delivery-date"
+              type="date"
+              value={orderType === 'work' ? scheduledDate : deliveryDate}
+              onChange={(e) => orderType === 'work' ? setScheduledDate(e.target.value) : setDeliveryDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]} // Can't schedule in the past
+            />
+            {(deliveryDate || scheduledDate) && (
+              <p className="text-xs text-blue-600">
+                📅 A calendar event will be automatically created on this date
+              </p>
+            )}
           </div>
 
           {/* Additional Recipients */}
@@ -272,6 +304,17 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
             )}
             {orderType === 'work' && (order as WorkOrder).subcontractor_name && (
               <div><strong>Subcontractor:</strong> {(order as WorkOrder).subcontractor_name}</div>
+            )}
+            {(deliveryDate || scheduledDate) && (
+              <div className="mt-2 pt-2 border-t border-blue-200">
+                <div className="flex items-center gap-1">
+                  <strong>📅 {orderType === 'work' ? 'Install' : 'Delivery'} Date:</strong>
+                  <span>{new Date(orderType === 'work' ? scheduledDate : deliveryDate).toLocaleDateString()}</span>
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  Calendar event will be created automatically
+                </div>
+              </div>
             )}
             {selectedMaterialOrders.length > 0 && (
               <div className="mt-2 pt-2 border-t border-blue-200">

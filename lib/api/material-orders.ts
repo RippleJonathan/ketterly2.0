@@ -36,6 +36,7 @@ export async function getMaterialOrders(
       .from('material_orders')
       .select(`
         *,
+        lead:leads(id, full_name),
         supplier:suppliers(*),
         items:material_order_items(*),
         invoices:order_invoices(*)
@@ -96,6 +97,7 @@ export async function getMaterialOrder(
       .from('material_orders')
       .select(`
         *,
+        lead:leads(id, full_name),
         supplier:suppliers(*),
         items:material_order_items(*),
         invoices:order_invoices(*)
@@ -802,12 +804,27 @@ export async function deleteMaterialOrder(
 ): Promise<ApiResponse<void>> {
   try {
     const supabase = createClient()
-    const { error } = await supabase
+    
+    // Soft delete the material order
+    const { error: orderError } = await supabase
       .from('material_orders')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', orderId)
 
-    if (error) throw error
+    if (orderError) throw orderError
+    
+    // Also delete any associated calendar events
+    const { error: eventError } = await supabase
+      .from('calendar_events')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('material_order_id', orderId)
+      .is('deleted_at', null)
+    
+    if (eventError) {
+      console.warn('Failed to delete associated calendar events:', eventError)
+      // Don't fail the whole operation if calendar deletion fails
+    }
+
     return { data: undefined, error: null }
   } catch (error: any) {
     console.error('Failed to delete material order:', error)

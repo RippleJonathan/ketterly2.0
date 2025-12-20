@@ -4,6 +4,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { format, formatDistanceToNow } from 'date-fns'
 import {
@@ -81,6 +82,7 @@ const statusConfig = {
 }
 
 export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
+  const queryClient = useQueryClient()
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -159,7 +161,22 @@ export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
 
       if (error) throw error
 
-      toast.success('Work order deleted')
+      // Invalidate calendar queries to remove associated events
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('company_id')
+          .eq('id', user.id)
+          .single()
+        
+        if (userData) {
+          queryClient.invalidateQueries({ queryKey: ['calendar-events', userData.company_id] })
+          queryClient.invalidateQueries({ queryKey: ['calendar-events-lead', workOrder.lead_id] })
+        }
+      }
+
+      toast.success('Work order and associated calendar events deleted')
       onUpdate?.()
     } catch (error) {
       toast.error('Failed to delete work order')

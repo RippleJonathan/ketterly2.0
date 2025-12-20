@@ -152,13 +152,28 @@ export async function deleteWorkOrder(
 ): Promise<ApiResponse<void>> {
   try {
     const supabase = createClient()
-    const { error } = await supabase
+    
+    // Soft delete the work order
+    const { error: orderError } = await supabase
       .from('work_orders')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', workOrderId)
       .eq('company_id', companyId)
 
-    if (error) throw error
+    if (orderError) throw orderError
+    
+    // Also delete any associated calendar events
+    const { error: eventError } = await supabase
+      .from('calendar_events')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('labor_order_id', workOrderId)
+      .is('deleted_at', null)
+    
+    if (eventError) {
+      console.warn('Failed to delete associated calendar events:', eventError)
+      // Don't fail the whole operation if calendar deletion fails
+    }
+
     return { data: null, error: null }
   } catch (error: any) {
     console.error('Failed to delete work order:', error)

@@ -42,28 +42,23 @@ interface MaterialOrderCardProps {
 const statusConfig = {
   draft: {
     label: 'Draft',
-    icon: Edit,
+    icon: Clock,
     color: 'bg-gray-100 text-gray-700',
   },
-  ordered: {
-    label: 'Ordered',
-    icon: Clock,
+  scheduled: {
+    label: 'Scheduled',
+    icon: Package,
     color: 'bg-blue-100 text-blue-700',
   },
-  confirmed: {
-    label: 'Confirmed',
+  completed: {
+    label: 'Completed',
     icon: CheckCircle2,
-    color: 'bg-indigo-100 text-indigo-700',
-  },
-  in_transit: {
-    label: 'In Transit',
-    icon: Truck,
-    color: 'bg-purple-100 text-purple-700',
-  },
-  delivered: {
-    label: 'Delivered',
-    icon: Package,
     color: 'bg-green-100 text-green-700',
+  },
+  paid: {
+    label: 'Paid',
+    icon: CheckCircle2,
+    color: 'bg-purple-100 text-purple-700',
   },
   cancelled: {
     label: 'Cancelled',

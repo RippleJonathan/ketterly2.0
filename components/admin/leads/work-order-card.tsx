@@ -46,33 +46,23 @@ interface WorkOrderCardProps {
 const statusConfig = {
   draft: {
     label: 'Draft',
-    icon: Edit,
+    icon: Clock,
     color: 'bg-gray-100 text-gray-700',
-  },
-  sent: {
-    label: 'Sent',
-    icon: Send,
-    color: 'bg-blue-100 text-blue-700',
-  },
-  accepted: {
-    label: 'Accepted',
-    icon: CheckCircle2,
-    color: 'bg-green-100 text-green-700',
   },
   scheduled: {
     label: 'Scheduled',
     icon: Calendar,
-    color: 'bg-purple-100 text-purple-700',
-  },
-  in_progress: {
-    label: 'In Progress',
-    icon: PlayCircle,
-    color: 'bg-orange-100 text-orange-700',
+    color: 'bg-blue-100 text-blue-700',
   },
   completed: {
     label: 'Completed',
     icon: CheckCircle2,
     color: 'bg-green-100 text-green-700',
+  },
+  paid: {
+    label: 'Paid',
+    icon: DollarSign,
+    color: 'bg-purple-100 text-purple-700',
   },
   cancelled: {
     label: 'Cancelled',

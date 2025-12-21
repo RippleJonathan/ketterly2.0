@@ -3,12 +3,11 @@
 export type OrderType = 'material' | 'work'
 
 export type MaterialOrderStatus = 
-  | 'draft'
-  | 'ordered'
-  | 'confirmed'
-  | 'in_transit'
-  | 'delivered'
-  | 'cancelled'
+  | 'draft'        // Order created, no date set
+  | 'scheduled'    // Date set, order scheduled for delivery
+  | 'completed'    // Materials delivered/received
+  | 'paid'         // Invoice paid in full
+  | 'cancelled'    // Order cancelled (manual)
 
 export interface MaterialOrder {
   id: string

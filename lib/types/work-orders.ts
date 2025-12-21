@@ -2,13 +2,11 @@
 // Mirrors the structure of material-orders.ts
 
 export type WorkOrderStatus = 
-  | 'draft'
-  | 'sent'
-  | 'accepted'
-  | 'scheduled'
-  | 'in_progress'
-  | 'completed'
-  | 'cancelled'
+  | 'draft'        // Order created, no date set
+  | 'scheduled'    // Date set, work scheduled
+  | 'completed'    // Work finished
+  | 'paid'         // Invoice paid in full
+  | 'cancelled'    // Order cancelled (manual)
 
 export type WorkOrderItemType = 'labor' | 'materials' | 'equipment' | 'other'
 

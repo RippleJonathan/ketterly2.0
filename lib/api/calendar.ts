@@ -218,6 +218,54 @@ export async function getEventsByUser(
   }
 }
 
+/**
+ * Find existing calendar event for a material order
+ * Used to prevent duplicate event creation
+ */
+export async function findEventByMaterialOrderId(
+  companyId: string,
+  materialOrderId: string
+): Promise<ApiResponse<CalendarEvent | null>> {
+  try {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('material_order_id', materialOrderId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error) throw error
+    return { data: data || null, error: null }
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Find existing calendar event for a work order
+ * Used to prevent duplicate event creation
+ */
+export async function findEventByLaborOrderId(
+  companyId: string,
+  laborOrderId: string
+): Promise<ApiResponse<CalendarEvent | null>> {
+  try {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('labor_order_id', laborOrderId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error) throw error
+    return { data: data || null, error: null }
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+}
+
 // =============================================
 // CALENDAR EVENTS - CREATE
 // =============================================
@@ -254,7 +302,8 @@ export async function createEvent(
 }
 
 /**
- * Create calendar event from material order
+ * Create or update calendar event from material order
+ * Checks for existing event first to prevent duplicates
  */
 export async function createEventFromMaterialOrder(
   companyId: string,
@@ -267,6 +316,34 @@ export async function createEventFromMaterialOrder(
   assignedUsers: string[] = []
 ): Promise<ApiResponse<CalendarEvent>> {
   try {
+    // Check if event already exists for this material order
+    const existingEventResult = await findEventByMaterialOrderId(companyId, materialOrderId)
+    
+    if (existingEventResult.error) {
+      throw existingEventResult.error
+    }
+
+    // If event exists, update it
+    if (existingEventResult.data) {
+      const updateData: CalendarEventUpdate = {
+        event_date: deliveryDate,
+        title: `Material Delivery - ${leadName}`,
+        description: `Order #${orderNumber}`,
+        assigned_users: assignedUsers.length > 0 ? assignedUsers : existingEventResult.data.assigned_users,
+      }
+
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .update(updateData)
+        .eq('id', existingEventResult.data.id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    }
+
+    // Otherwise, create new event
     const event: CalendarEventInsert = {
       company_id: companyId,
       lead_id: leadId,
@@ -288,7 +365,8 @@ export async function createEventFromMaterialOrder(
 }
 
 /**
- * Create calendar event from labor order
+ * Create or update calendar event from labor order
+ * Checks for existing event first to prevent duplicates
  */
 export async function createEventFromLaborOrder(
   companyId: string,
@@ -302,6 +380,34 @@ export async function createEventFromLaborOrder(
   assignedUsers: string[] = []
 ): Promise<ApiResponse<CalendarEvent>> {
   try {
+    // Check if event already exists for this labor order
+    const existingEventResult = await findEventByLaborOrderId(companyId, laborOrderId)
+    
+    if (existingEventResult.error) {
+      throw existingEventResult.error
+    }
+
+    // If event exists, update it
+    if (existingEventResult.data) {
+      const updateData: CalendarEventUpdate = {
+        event_date: startDate,
+        title: `Installation - ${leadName}`,
+        description: `Work Order #${orderNumber} - ${crewName}`,
+        assigned_users: assignedUsers.length > 0 ? assignedUsers : existingEventResult.data.assigned_users,
+      }
+
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .update(updateData)
+        .eq('id', existingEventResult.data.id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    }
+
+    // Otherwise, create new event
     // Check if there's a related material delivery event
     const { data: materialEvent } = await supabase
       .from('calendar_events')

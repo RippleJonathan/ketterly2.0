@@ -313,7 +313,8 @@ export async function createEventFromMaterialOrder(
   leadName: string,
   orderNumber: string,
   createdBy: string,
-  assignedUsers: string[] = []
+  assignedUsers: string[] = [],
+  isWorkOrder: boolean = false  // Flag to create PRODUCTION_LABOR events for work orders
 ): Promise<ApiResponse<CalendarEvent>> {
   try {
     // Check if event already exists for this material order
@@ -323,12 +324,17 @@ export async function createEventFromMaterialOrder(
       throw existingEventResult.error
     }
 
+    // Determine event type and details based on order type
+    const eventType = isWorkOrder ? EventType.PRODUCTION_LABOR : EventType.PRODUCTION_MATERIALS
+    const title = isWorkOrder ? `Installation - ${leadName}` : `Material Delivery - ${leadName}`
+    const description = isWorkOrder ? `Work Order #${orderNumber}` : `Order #${orderNumber}`
+
     // If event exists, update it
     if (existingEventResult.data) {
       const updateData: CalendarEventUpdate = {
         event_date: deliveryDate,
-        title: `Material Delivery - ${leadName}`,
-        description: `Order #${orderNumber}`,
+        title,
+        description,
         assigned_users: assignedUsers.length > 0 ? assignedUsers : existingEventResult.data.assigned_users,
       }
 
@@ -344,17 +350,18 @@ export async function createEventFromMaterialOrder(
     }
 
     // Otherwise, create new event
+    // For unified order system: always use material_order_id (since there's only one table)
     const event: CalendarEventInsert = {
       company_id: companyId,
       lead_id: leadId,
-      event_type: EventType.PRODUCTION_MATERIALS,
-      title: `Material Delivery - ${leadName}`,
-      description: `Order #${orderNumber}`,
+      event_type: eventType,
+      title,
+      description,
       event_date: deliveryDate,
       is_all_day: true,
       assigned_users: assignedUsers,
       created_by: createdBy,
-      material_order_id: materialOrderId,
+      material_order_id: materialOrderId,  // Always use this FK for both types
       status: EventStatus.SCHEDULED,
     }
 
@@ -367,10 +374,11 @@ export async function createEventFromMaterialOrder(
 /**
  * Create or update calendar event from labor order
  * Checks for existing event first to prevent duplicates
+ * NOTE: Uses material_order_id because work orders are stored in material_orders table with order_type='work'
  */
 export async function createEventFromLaborOrder(
   companyId: string,
-  laborOrderId: string,
+  laborOrderId: string,  // This is actually a material_orders.id where order_type='work'
   startDate: string,
   leadId: string,
   leadName: string,
@@ -380,8 +388,8 @@ export async function createEventFromLaborOrder(
   assignedUsers: string[] = []
 ): Promise<ApiResponse<CalendarEvent>> {
   try {
-    // Check if event already exists for this labor order
-    const existingEventResult = await findEventByLaborOrderId(companyId, laborOrderId)
+    // Check if event already exists for this material order (work orders stored there)
+    const existingEventResult = await findEventByMaterialOrderId(companyId, laborOrderId)
     
     if (existingEventResult.error) {
       throw existingEventResult.error
@@ -392,7 +400,7 @@ export async function createEventFromLaborOrder(
       const updateData: CalendarEventUpdate = {
         event_date: startDate,
         title: `Installation - ${leadName}`,
-        description: `Work Order #${orderNumber} - ${crewName}`,
+        description: crewName ? `Work Order #${orderNumber} - ${crewName}` : `Work Order #${orderNumber}`,
         assigned_users: assignedUsers.length > 0 ? assignedUsers : existingEventResult.data.assigned_users,
       }
 
@@ -419,17 +427,18 @@ export async function createEventFromLaborOrder(
       .limit(1)
       .single()
 
+    // For unified order system: use material_order_id for both material and work orders
     const event: CalendarEventInsert = {
       company_id: companyId,
       lead_id: leadId,
       event_type: EventType.PRODUCTION_LABOR,
       title: `Installation - ${leadName}`,
-      description: `Work Order #${orderNumber} - ${crewName}`,
+      description: crewName ? `Work Order #${orderNumber} - ${crewName}` : `Work Order #${orderNumber}`,
       event_date: startDate,
       is_all_day: true,
       assigned_users: assignedUsers,
       created_by: createdBy,
-      labor_order_id: laborOrderId,
+      material_order_id: laborOrderId,  // Use material_order_id for work orders too!
       related_event_id: materialEvent?.id || null,
       status: EventStatus.SCHEDULED,
     }
@@ -628,6 +637,98 @@ export async function linkRelatedEvents(
 
     if (error1) throw error1
     if (error2) throw error2
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+}
+
+// =============================================
+// BIDIRECTIONAL SYNC FUNCTIONS
+// =============================================
+
+/**
+ * Update material order delivery date and sync to calendar event
+ * Called when user changes the order date in UI
+ */
+export async function updateMaterialOrderDate(
+  companyId: string,
+  materialOrderId: string,
+  deliveryDate: string | null
+): Promise<ApiResponse<void>> {
+  try {
+    // Update the material order
+    const { error: orderError } = await supabase
+      .from('material_orders')
+      .update({ expected_delivery_date: deliveryDate })
+      .eq('id', materialOrderId)
+
+    if (orderError) throw orderError
+
+    // Find and update the calendar event if it exists
+    const eventResult = await findEventByMaterialOrderId(companyId, materialOrderId)
+    
+    if (eventResult.error) throw eventResult.error
+
+    if (eventResult.data) {
+      if (deliveryDate) {
+        // Update event date
+        const { error: eventError } = await supabase
+          .from('calendar_events')
+          .update({ event_date: deliveryDate })
+          .eq('id', eventResult.data.id)
+
+        if (eventError) throw eventError
+      } else {
+        // No date set, delete the calendar event
+        await deleteEvent(eventResult.data.id)
+      }
+    }
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+}
+
+/**
+ * Update work order scheduled date and sync to calendar event
+ * Called when user changes the order date in UI
+ */
+export async function updateWorkOrderDate(
+  companyId: string,
+  laborOrderId: string,
+  scheduledDate: string | null
+): Promise<ApiResponse<void>> {
+  try {
+    // Update the work order
+    const { error: orderError } = await supabase
+      .from('work_orders')
+      .update({ scheduled_date: scheduledDate })
+      .eq('id', laborOrderId)
+
+    if (orderError) throw orderError
+
+    // Find and update the calendar event if it exists
+    const eventResult = await findEventByLaborOrderId(companyId, laborOrderId)
+    
+    if (eventResult.error) throw eventResult.error
+
+    if (eventResult.data) {
+      if (scheduledDate) {
+        // Update event date
+        const { error: eventError } = await supabase
+          .from('calendar_events')
+          .update({ event_date: scheduledDate })
+          .eq('id', eventResult.data.id)
+
+        if (eventError) throw eventError
+      } else {
+        // No date set, delete the calendar event
+        await deleteEvent(eventResult.data.id)
+      }
+    }
 
     return { data: undefined, error: null }
   } catch (error) {

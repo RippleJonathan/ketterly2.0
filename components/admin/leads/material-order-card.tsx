@@ -6,6 +6,7 @@ import { MaterialOrder } from '@/lib/types/material-orders'
 import { deleteMaterialOrder } from '@/lib/api/material-orders'
 import { useUploadDocument, useDocuments } from '@/lib/hooks/use-documents'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useCreateEventFromMaterialOrder } from '@/lib/hooks/use-calendar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -70,6 +71,7 @@ const statusConfig = {
 export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const queryClient = useQueryClient()
   const { data: company } = useCurrentCompany()
+  const createCalendarEvent = useCreateEventFromMaterialOrder()
   const [showDetails, setShowDetails] = useState(false)
   const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -272,33 +274,41 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
       // Step 3: Create calendar event if date was provided
       if (dateToSave && order.lead_id) {
         try {
-          const { createEventFromMaterialOrder } = await import('@/lib/api/calendar')
+          console.log('📅 Creating calendar event for:', { 
+            orderId: order.id, 
+            orderType: isWorkOrder ? 'work' : 'material',
+            date: dateToSave,
+            leadId: order.lead_id 
+          })
+          
           const { data: user } = await (await import('@/lib/supabase/client')).createClient().auth.getUser()
           
           // Get lead name from the loaded relationship
           const leadName = order.lead?.full_name || 'Unknown Lead'
           
-          const eventResult = await createEventFromMaterialOrder(
-            company.id,
-            order.id,
-            dateToSave,
-            order.lead_id,
+          // Use React Query mutation hook for automatic cache invalidation
+          const result = await createCalendarEvent.mutateAsync({
+            materialOrderId: order.id,
+            deliveryDate: dateToSave,
+            leadId: order.lead_id,
             leadName,
-            isWorkOrder ? (order as any).work_order_number : order.order_number,
-            user.user?.id || '',
-            []
-          )
+            orderNumber: order.order_number,
+            createdBy: user.user?.id || '',
+            assignedUsers: [],
+            isWorkOrder  // Pass flag to create PRODUCTION_LABOR event for work orders
+          } as any) // Type assertion because we added isWorkOrder parameter
           
-          if (eventResult.error) {
-            console.error('Failed to create calendar event:', eventResult.error)
-            toast.error('Email sent, but calendar event creation failed')
-          } else {
-            toast.success('📅 Calendar event created')
-          }
+          console.log('✅ Calendar event created successfully:', result)
+          // Success toast is handled by the mutation hook
         } catch (calendarError) {
-          console.error('Calendar event creation error:', calendarError)
-          // Don't fail the whole operation if calendar fails
+          console.error('❌ Calendar event creation error:', calendarError)
+          // Error toast is handled by the mutation hook
         }
+      } else {
+        console.log('⏭️ Skipping calendar event creation:', { 
+          hasDate: !!dateToSave, 
+          hasLeadId: !!order.lead_id 
+        })
       }
       
       onUpdate?.()

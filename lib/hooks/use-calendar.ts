@@ -16,6 +16,8 @@ import {
   confirmEvent,
   deleteEvent,
   checkEventConflicts,
+  updateMaterialOrderDate,
+  updateWorkOrderDate,
 } from '@/lib/api/calendar'
 import {
   CalendarEventInsert,
@@ -124,9 +126,9 @@ export function useCreateEvent() {
         return
       }
 
-      // Invalidate ALL calendar queries for instant UI updates
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      // Invalidate ALL calendar queries for instant UI updates (using prefix to match all filter combinations)
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
 
       // Invalidate lead-specific queries if event is linked to a lead
       if (variables.lead_id) {
@@ -151,6 +153,7 @@ export function useCreateEvent() {
 
 /**
  * Create event from material order (auto-creation)
+ * Also supports work orders with isWorkOrder flag
  */
 export function useCreateEventFromMaterialOrder() {
   const { data: company } = useCurrentCompany()
@@ -165,6 +168,7 @@ export function useCreateEventFromMaterialOrder() {
       orderNumber: string
       createdBy: string
       assignedUsers?: string[]
+      isWorkOrder?: boolean
     }) =>
       createEventFromMaterialOrder(
         company!.id,
@@ -174,23 +178,41 @@ export function useCreateEventFromMaterialOrder() {
         params.leadName,
         params.orderNumber,
         params.createdBy,
-        params.assignedUsers
+        params.assignedUsers,
+        params.isWorkOrder
       ),
     onSuccess: (result, variables) => {
+      console.log('🔔 Calendar event mutation onSuccess called:', { result, variables })
+      
       if (result.error) {
-        toast.error(`Failed to create material delivery event: ${result.error.message}`)
+        const eventType = variables.isWorkOrder ? 'installation' : 'material delivery'
+        console.error('❌ Event creation failed:', result.error)
+        toast.error(`Failed to create ${eventType} event: ${result.error.message}`)
         return
       }
 
-      // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-events-lead', variables.leadId] })
+      console.log('🔄 Invalidating and refetching calendar queries...')
+      // Invalidate and FORCE refetch all calendar queries (even inactive ones)
+      queryClient.invalidateQueries({ 
+        queryKey: ['calendar-events'],
+        refetchType: 'all' // Refetch both active and inactive queries
+      })
+      queryClient.invalidateQueries({ 
+        queryKey: ['calendar-events-lead', variables.leadId],
+        refetchType: 'all'
+      })
+      queryClient.invalidateQueries({ 
+        queryKey: ['calendar-my-schedule'],
+        refetchType: 'all'
+      })
       queryClient.invalidateQueries({ queryKey: ['material-orders'] })
+      console.log('✅ Calendar queries invalidated and refetching')
 
-      toast.success('Material delivery scheduled')
+      const eventType = variables.isWorkOrder ? 'Installation' : 'Material delivery'
+      toast.success(`📅 ${eventType} scheduled`)
     },
     onError: (error: Error) => {
-      toast.error(`Failed to schedule material delivery: ${error.message}`)
+      toast.error(`Failed to schedule event: ${error.message}`)
     },
   })
 }
@@ -231,7 +253,7 @@ export function useCreateEventFromLaborOrder() {
       }
 
       // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events-lead', variables.leadId] })
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
 
@@ -264,9 +286,9 @@ export function useUpdateEvent() {
       }
 
       // Invalidate all calendar queries for instant UI updates
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', variables.eventId] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
 
       // If date changed and event is linked to orders, invalidate order queries
       if (variables.updates.event_date) {
@@ -308,9 +330,9 @@ export function useRescheduleEvent() {
       }
 
       // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', variables.eventId] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
       queryClient.invalidateQueries({ queryKey: ['material-orders'] })
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
 
@@ -338,9 +360,9 @@ export function useCancelEvent() {
       }
 
       // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', eventId] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
 
       toast.success('Event cancelled')
     },
@@ -366,9 +388,9 @@ export function useCompleteEvent() {
       }
 
       // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', eventId] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
 
       toast.success('Event completed')
     },
@@ -394,9 +416,9 @@ export function useConfirmEvent() {
       }
 
       // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', eventId] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
 
       toast.success('Event confirmed')
     },
@@ -426,15 +448,101 @@ export function useDeleteEvent() {
       }
 
       // Invalidate all calendar queries
-      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', eventId] })
-      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-events-lead'] })
 
       toast.success('Event deleted')
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete event: ${error.message}`)
+    },
+  })
+}
+
+// =============================================
+// MUTATION HOOKS - BIDIRECTIONAL SYNC
+// =============================================
+
+/**
+ * Update material order date and sync to calendar event
+ * Handles bidirectional sync: order → calendar
+ */
+export function useUpdateMaterialOrderDate() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: {
+      materialOrderId: string
+      deliveryDate: string | null
+    }) =>
+      updateMaterialOrderDate(
+        company!.id,
+        params.materialOrderId,
+        params.deliveryDate
+      ),
+    onSuccess: (result, variables) => {
+      if (result.error) {
+        toast.error(`Failed to update delivery date: ${result.error.message}`)
+        return
+      }
+
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['material-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-lead'] })
+
+      if (variables.deliveryDate) {
+        toast.success('Delivery date updated')
+      } else {
+        toast.success('Delivery date removed')
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update delivery date: ${error.message}`)
+    },
+  })
+}
+
+/**
+ * Update work order date and sync to calendar event
+ * Handles bidirectional sync: order → calendar
+ */
+export function useUpdateWorkOrderDate() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: {
+      laborOrderId: string
+      scheduledDate: string | null
+    }) =>
+      updateWorkOrderDate(
+        company!.id,
+        params.laborOrderId,
+        params.scheduledDate
+      ),
+    onSuccess: (result, variables) => {
+      if (result.error) {
+        toast.error(`Failed to update scheduled date: ${result.error.message}`)
+        return
+      }
+
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events-lead'] })
+
+      if (variables.scheduledDate) {
+        toast.success('Scheduled date updated')
+      } else {
+        toast.success('Scheduled date removed')
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update scheduled date: ${error.message}`)
     },
   })
 }

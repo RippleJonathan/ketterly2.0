@@ -1,8 +1,41 @@
 # Material/Work Order Date & Status Synchronization Plan
 
 **Created**: December 20, 2024  
-**Status**: In Progress - Phase 2 Complete ✅  
+**Status**: In Progress - Phase 3 Complete ✅ | Phase 3 Issues Fixed ✅  
 **Priority**: High
+
+## Recent Fixes (December 21, 2024)
+
+### Issue 1: Calendar Event Edit Error (FIXED ✅)
+**Problem**: When trying to change a material order or work order date from the calendar, got error:
+```
+invalid input syntax for type uuid: "undefined"
+```
+
+**Root Cause**: Parameter name mismatch in the event update call. The component was passing `id: existingEvent.id` but the hook expected `eventId: existingEvent.id`.
+
+**Solution**: 
+- Fixed the parameter name in `event-quick-add-modal.tsx` from `id` to `eventId`
+- Restored the Edit button for all events including linked ones
+- Added informational text that date changes on linked events will sync to their orders
+- **Two-way sync now works properly** - you can edit dates from calendar OR from the order forms
+
+### Issue 2: Work Orders Not Creating Calendar Events (FIXED ✅)
+**Problem**: When creating a work order with a scheduled date, it wasn't automatically creating a calendar event. This meant work orders didn't appear on the calendar.
+
+**Root Cause**: The `useCreateWorkOrder` hook didn't have logic to automatically create a calendar event when a work order was created with a `scheduled_date`.
+
+**Solution**:
+- Modified `use-work-orders.ts` `useCreateWorkOrder` hook to automatically call `createEventFromLaborOrder` when a work order is created with a scheduled date
+- This creates a `PRODUCTION_LABOR` event type linked to the work order
+- Maintains consistency with material orders which already had this behavior
+- Calendar event creation failure doesn't fail the work order creation (non-blocking)
+
+### Files Modified
+- ✅ `components/admin/calendar/event-detail-modal.tsx`
+- ✅ `lib/hooks/use-work-orders.ts`
+
+---
 
 ## Overview
 
@@ -190,34 +223,70 @@ export async function updateOrCreateEventFromMaterialOrder(
 
 ---
 
-### Phase 3: Bidirectional Sync Functions
+### Phase 3: Bidirectional Sync Functions ✅ COMPLETE
 **Files**: 
-- `lib/api/material-orders.ts`
-- `lib/api/work-orders.ts`
-- `lib/api/calendar.ts`
+- ✅ `lib/api/calendar.ts` - Added sync functions
+- ✅ `lib/hooks/use-calendar.ts` - Added React Query hooks
+- ✅ `components/admin/leads/material-order-detail-dialog.tsx` - Integrated sync
 
-1. Create `updateMaterialOrderDate()` - updates order + calendar
-2. Create `updateWorkOrderDate()` - updates order + calendar
-3. Update calendar event mutation to sync back to orders
+**Completed**:
+1. ✅ Added `updateMaterialOrderDate()` - syncs material order date changes to calendar
+2. ✅ Added `updateWorkOrderDate()` - syncs work order date changes to calendar
+3. ✅ Existing `updateEvent()` already syncs calendar changes back to orders
+4. ✅ Created React Query hooks: `useUpdateMaterialOrderDate()`, `useUpdateWorkOrderDate()`
+5. ✅ Integrated into material order detail dialog
+6. ✅ Handles edge case: date removal deletes calendar event
 
-**New API Functions**:
+**API Functions**:
 ```typescript
-// lib/api/material-orders.ts
+// lib/api/calendar.ts - NEW FUNCTIONS
 export async function updateMaterialOrderDate(
-  orderId: string,
-  deliveryDate: string | null,
-  companyId: string
-): Promise<ApiResponse<MaterialOrder>> {
-  // 1. Update order.expected_delivery_date
-  // 2. Update order.status (draft → scheduled if date set)
-  // 3. Find calendar event by material_order_id
-  // 4. Update event.event_date or create if missing
-  // 5. Return updated order
+  companyId: string,
+  materialOrderId: string,
+  deliveryDate: string | null
+): Promise<ApiResponse<void>> {
+  // 1. Update material_orders.expected_delivery_date
+  // 2. Find calendar event by material_order_id
+  // 3. If date set: update event OR create if missing
+  // 4. If date null: delete event
 }
 
-// lib/api/work-orders.ts
 export async function updateWorkOrderDate(
-  orderId: string,
+  companyId: string,
+  laborOrderId: string,
+  scheduledDate: string | null
+): Promise<ApiResponse<void>> {
+  // Same pattern for work orders
+}
+
+// lib/api/calendar.ts - EXISTING FUNCTION (already handles reverse sync)
+export async function updateEvent(
+  eventId: string,
+  updates: CalendarEventUpdate
+): Promise<ApiResponse<CalendarEvent>> {
+  // Updates calendar event
+  // Auto-syncs to material_orders.expected_delivery_date
+  // Auto-syncs to work_orders.scheduled_date
+}
+```
+
+**React Query Hooks**:
+```typescript
+// lib/hooks/use-calendar.ts
+export function useUpdateMaterialOrderDate() {
+  // Mutation hook for updating material order date
+  // Invalidates: calendar-events, material-orders, calendar-events-lead
+}
+
+export function useUpdateWorkOrderDate() {
+  // Mutation hook for updating work order date
+  // Invalidates: calendar-events, work-orders, calendar-events-lead
+}
+```
+
+---
+
+### Phase 4: UI Updates (IN PROGRESS 🔄)
   scheduledDate: string | null,
   companyId: string
 ): Promise<ApiResponse<WorkOrder>> {

@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { format } from 'date-fns'
+import { sendPushNotification } from '@/lib/api/onesignal'
 
 interface User {
   id: string
@@ -33,6 +34,7 @@ interface Company {
   logo_url?: string | null
   primary_color?: string
   contact_email?: string | null
+  contact_phone?: string | null
 }
 
 interface NotificationSettings {
@@ -131,6 +133,44 @@ async function getTeamEmails(companyId: string): Promise<string[]> {
   }
 
   return data.map(u => u.email)
+}
+
+/**
+ * Get team member user IDs for push notifications
+ */
+async function getTeamUserIds(companyId: string): Promise<string[]> {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('company_id', companyId)
+    .in('role', ['super_admin', 'admin', 'manager'])
+    .eq('is_active', true)
+    .is('deleted_at', null)
+
+  if (error) {
+    console.error('Failed to fetch team user IDs:', error)
+    return []
+  }
+
+  return data.map(u => u.id)
+}
+
+/**
+ * Check if user has push notifications enabled
+ */
+async function shouldSendPushNotification(userId: string): Promise<boolean> {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('users')
+    .select('push_notifications')
+    .eq('id', userId)
+    .single()
+
+  if (error || !data) return false
+  return data.push_notifications ?? false
 }
 
 /**
@@ -253,12 +293,48 @@ export async function notifyTeamQuoteAccepted(
     viewQuoteUrl: quoteUrl,
   })
 
-  return await sendEmail({
+  // Send email notification
+  const emailResult = await sendEmail({
     from: 'Ketterly CRM <notifications@ketterly.com>',
     to: recipients,
     subject: `🎉 Quote Accepted - ${quote.title}`,
     html,
   })
+
+  // Send push notification to team
+  try {
+    const teamUserIds = await getTeamUserIds(company.id)
+    
+    // Filter for users with push enabled
+    const usersWithPushEnabled = []
+    for (const userId of teamUserIds) {
+      const canSendPush = await shouldSendPushNotification(userId)
+      if (canSendPush) {
+        usersWithPushEnabled.push(userId)
+      }
+    }
+    
+    if (usersWithPushEnabled.length > 0) {
+      await sendPushNotification({
+        userIds: usersWithPushEnabled,
+        title: '🎉 Quote Accepted',
+        message: `${quote.lead?.full_name || 'Customer'} accepted ${quote.title} for ${formatCurrency(quote.total_amount)}`,
+        url: quoteUrl,
+        data: {
+          type: 'quote_accepted',
+          quoteId: quote.id,
+          leadId: quote.lead_id,
+          icon: company.logo_url || undefined,
+          image: company.logo_url || undefined,
+        },
+      })
+    }
+  } catch (error) {
+    console.error('Failed to send push notification:', error)
+    // Don't fail the whole operation if push fails
+  }
+
+  return emailResult
 }
 
 /**
@@ -424,9 +500,7 @@ export async function sendExecutedContractToCustomer(
       
       <p style="color: #374151; line-height: 1.6; margin-top: 32px;">
         Best regards,<br>
-        <strong>${company.name}</strong><br>
-        ${company.contact_phone || ''}<br>
-        ${company.contact_email || ''}
+        <strong>${company.name}</strong>${company.contact_phone ? `<br>${company.contact_phone}` : ''}${company.contact_email ? `<br>${company.contact_email}` : ''}
       </p>
     </div>
   `
@@ -584,12 +658,12 @@ export async function sendChangeOrderToCustomer(
       <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin: 0;">
         Best regards,<br>
         ${sender?.full_name || company.name}<br>
-        ${company.name}${sender?.phone || company.contact_phone ? `<br>${sender?.phone || company.contact_phone}` : ''}
+        ${company.name}${(sender?.phone || company.contact_phone) ? `<br>${sender?.phone || company.contact_phone}` : ''}
       </p>
     `,
     {
       companyName: company.name,
-      companyLogo: company.logo_url,
+      companyLogo: company.logo_url || undefined,
       primaryColor: company.primary_color || '#1e40af',
     }
   )
@@ -597,7 +671,7 @@ export async function sendChangeOrderToCustomer(
   return await sendEmail({
     from: `${sender?.full_name || company.name} via ${company.name} <notifications@ketterly.com>`,
     to: customerEmail,
-    replyTo: sender?.email || company.contact_email || 'hello@ketterly.com',
+    replyTo: sender?.email || company.contact_email || undefined,
     subject: `Change Order #${changeOrder.change_order_number} - Signature Required`,
     html,
   })
@@ -665,7 +739,7 @@ export async function sendExecutedChangeOrder(
     `,
     {
       companyName: company.name,
-      companyLogo: company.logo_url,
+      companyLogo: company.logo_url || undefined,
       primaryColor: company.primary_color || '#1e40af',
     }
   )
@@ -673,6 +747,7 @@ export async function sendExecutedChangeOrder(
   return await sendEmail({
     from: `${company.name} <notifications@ketterly.com>`,
     to: customerEmail,
+    replyTo: company.contact_email || undefined,
     subject: `Change Order #${changeOrder.change_order_number} - Approved`,
     html,
   })

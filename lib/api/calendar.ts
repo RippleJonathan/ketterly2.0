@@ -480,20 +480,44 @@ export async function updateEvent(
 
     if (error) throw error
 
-    // If this event is linked to a material order, update the delivery date
+    // If this event is linked to a material order, update the delivery/scheduled date
+    // Note: Both material and work orders are in the material_orders table (unified architecture)
     if (data.material_order_id && updates.event_date) {
-      await supabase
-        .from('material_orders')
-        .update({ expected_delivery_date: updates.event_date })
-        .eq('id', data.material_order_id)
-    }
+      try {
+        // Check if this is a work order or material order
+        const { data: orderData, error: fetchError } = await supabase
+          .from('material_orders')
+          .select('order_type, status')
+          .eq('id', data.material_order_id)
+          .single()
 
-    // If this event is linked to a labor order, update the scheduled date
-    if (data.labor_order_id && updates.event_date) {
-      await supabase
-        .from('work_orders')
-        .update({ scheduled_date: updates.event_date })
-        .eq('id', data.labor_order_id)
+        if (fetchError) {
+          console.error('Failed to fetch order data:', fetchError)
+          // Don't throw - calendar event already updated successfully
+        } else if (orderData) {
+          const isWorkOrder = orderData.order_type === 'work'
+          const dateField = isWorkOrder ? 'scheduled_date' : 'expected_delivery_date'
+          
+          // Auto-update status from 'draft' to 'scheduled' when date is set via drag/drop
+          const orderUpdates: any = { [dateField]: updates.event_date }
+          if (orderData.status === 'draft') {
+            orderUpdates.status = 'scheduled'
+          }
+
+          const { error: updateError } = await supabase
+            .from('material_orders')
+            .update(orderUpdates)
+            .eq('id', data.material_order_id)
+
+          if (updateError) {
+            console.error('Failed to update order date:', updateError)
+            // Don't throw - calendar event already updated successfully
+          }
+        }
+      } catch (orderError) {
+        console.error('Error syncing event to order:', orderError)
+        // Don't throw - calendar event already updated successfully
+      }
     }
 
     return { data, error: null }
@@ -658,10 +682,24 @@ export async function updateMaterialOrderDate(
   deliveryDate: string | null
 ): Promise<ApiResponse<void>> {
   try {
-    // Update the material order
+    // First, get the current order to check status
+    const { data: currentOrder, error: fetchError } = await supabase
+      .from('material_orders')
+      .select('status')
+      .eq('id', materialOrderId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    // Update the material order with auto-status transition
+    const updates: any = { expected_delivery_date: deliveryDate }
+    if (deliveryDate && currentOrder.status === 'draft') {
+      updates.status = 'scheduled'
+    }
+
     const { error: orderError } = await supabase
       .from('material_orders')
-      .update({ expected_delivery_date: deliveryDate })
+      .update(updates)
       .eq('id', materialOrderId)
 
     if (orderError) throw orderError
@@ -702,10 +740,24 @@ export async function updateWorkOrderDate(
   scheduledDate: string | null
 ): Promise<ApiResponse<void>> {
   try {
-    // Update the work order
+    // First, get the current order to check status
+    const { data: currentOrder, error: fetchError } = await supabase
+      .from('material_orders')  // Note: work orders are in material_orders table with order_type='work'
+      .select('status')
+      .eq('id', laborOrderId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    // Update the work order with auto-status transition
+    const updates: any = { scheduled_date: scheduledDate }
+    if (scheduledDate && currentOrder.status === 'draft') {
+      updates.status = 'scheduled'
+    }
+
     const { error: orderError } = await supabase
-      .from('work_orders')
-      .update({ scheduled_date: scheduledDate })
+      .from('material_orders')  // Note: work orders are in material_orders table with order_type='work'
+      .update(updates)
       .eq('id', laborOrderId)
 
     if (orderError) throw orderError

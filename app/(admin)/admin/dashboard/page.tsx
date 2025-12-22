@@ -1,60 +1,46 @@
 'use client'
 
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
-import { useLeads } from '@/lib/hooks/use-leads'
-import { Users, FileText, Briefcase, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { useDashboardStats } from '@/lib/hooks/use-dashboard'
+import { 
+  Users, 
+  FileText, 
+  Briefcase, 
+  DollarSign, 
+  TrendingUp, 
+  AlertTriangle,
+  CheckCircle,
+  Calendar,
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { StatCard } from '@/components/admin/dashboard/stat-card'
+import { PipelineChart } from '@/components/admin/dashboard/pipeline-chart'
+import { RevenueChart } from '@/components/admin/dashboard/revenue-chart'
+import { UpcomingSchedule } from '@/components/admin/dashboard/upcoming-schedule'
+import { RecentActivity } from '@/components/admin/dashboard/recent-activity'
+import { UrgencyAlerts } from '@/components/admin/dashboard/urgency-alerts'
+import { CommissionTracker } from '@/components/admin/dashboard/commission-tracker'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { data: company } = useCurrentCompany()
-  const { data: leadsResponse } = useLeads()
-  const leads = leadsResponse?.data || []
+  const { data: userData } = useCurrentUser()
+  const user = userData?.data
+  const { data: stats, isLoading } = useDashboardStats()
 
-  // Calculate stats
-  const totalLeads = leads.length
-  const newLeads = leads.filter((l: any) => l.status === 'new').length
-  const qualifiedLeads = leads.filter((l: any) => l.status === 'qualified').length
-  const wonLeads = leads.filter((l: any) => l.status === 'won').length
+  const isSales = user?.role === 'sales' || user?.role === 'marketing'
+  const isProduction = user?.role === 'production_manager' || user?.role === 'installer'
+  const isOffice = user?.role === 'office'
+  const isAdmin = user?.role === 'admin'
 
-  const stats = [
-    {
-      name: 'Total Leads',
-      value: totalLeads,
-      change: '+12%',
-      changeType: 'positive',
-      icon: Users,
-      color: 'blue',
-    },
-    {
-      name: 'New Leads',
-      value: newLeads,
-      change: '+5',
-      changeType: 'positive',
-      icon: TrendingUp,
-      color: 'green',
-    },
-    {
-      name: 'Qualified',
-      value: qualifiedLeads,
-      change: '+3',
-      changeType: 'positive',
-      icon: FileText,
-      color: 'purple',
-    },
-    {
-      name: 'Won',
-      value: wonLeads,
-      change: '+2',
-      changeType: 'positive',
-      icon: Briefcase,
-      color: 'orange',
-    },
-  ]
-
-  const colorClasses = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    purple: 'bg-purple-500',
-    orange: 'bg-orange-500',
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value)
   }
 
   return (
@@ -62,111 +48,147 @@ export default function DashboardPage() {
       {/* Welcome Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          Welcome back! 👋
+          Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
         </h1>
         <p className="text-gray-600 mt-1">
           Here's what's happening with {company?.name || 'your business'} today
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Key Metrics - Role Specific */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          const colorClass = colorClasses[stat.color as keyof typeof colorClasses]
+        {/* Sales & Admin: Lead Metrics */}
+        {(isSales || isAdmin) && (
+          <>
+            <StatCard
+              title="Total Leads"
+              value={stats?.totalLeads || 0}
+              change={{
+                value: stats?.newLeadsThisWeek || 0,
+                type: 'positive',
+                label: 'this week',
+              }}
+              icon={Users}
+              color="blue"
+              onClick={() => router.push('/admin/leads')}
+              loading={isLoading}
+            />
+            <StatCard
+              title="Active Leads"
+              value={stats?.activeLeads || 0}
+              change={{
+                value: stats?.newLeadsToday || 0,
+                type: 'positive',
+                label: 'today',
+              }}
+              icon={TrendingUp}
+              color="green"
+              onClick={() => router.push('/admin/leads?filter=active')}
+              loading={isLoading}
+            />
+          </>
+        )}
 
-          return (
-            <div
-              key={stat.name}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`${colorClass} p-3 rounded-lg`}>
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
-                <div className={`flex items-center gap-1 text-sm font-medium ${
-                  stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {stat.changeType === 'positive' ? (
-                    <ArrowUpRight className="w-4 h-4" />
-                  ) : (
-                    <ArrowDownRight className="w-4 h-4" />
-                  )}
-                  <span>{stat.change}</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                <p className="text-sm text-gray-600 mt-1">{stat.name}</p>
-              </div>
-            </div>
-          )
-        })}
+        {/* Sales & Admin: Quote Metrics */}
+        {(isSales || isAdmin) && (
+          <StatCard
+            title="Pending Quotes"
+            value={stats?.pendingQuotes || 0}
+            change={{
+              value: `${stats?.quoteWinRate.toFixed(0) || 0}%`,
+              type: 'neutral',
+              label: 'win rate',
+            }}
+            icon={FileText}
+            color="purple"
+            onClick={() => router.push('/admin/leads?filter=pending_quotes')}
+            loading={isLoading}
+          />
+        )}
+
+        {/* Production: Project Metrics */}
+        {(isProduction || isAdmin) && (
+          <StatCard
+            title="Active Projects"
+            value={stats?.activeProjects || 0}
+            change={{
+              value: stats?.scheduledThisWeek || 0,
+              type: 'positive',
+              label: 'scheduled',
+            }}
+            icon={Briefcase}
+            color="orange"
+            onClick={() => router.push('/admin/calendar')}
+            loading={isLoading}
+          />
+        )}
+
+        {/* Office & Admin: Financial Metrics */}
+        {(isOffice || isAdmin) && (
+          <>
+            <StatCard
+              title="Outstanding Invoices"
+              value={stats?.outstandingInvoices || 0}
+              change={{
+                value: stats?.overdueInvoices || 0,
+                type: stats?.overdueInvoices ? 'negative' : 'neutral',
+                label: 'overdue',
+              }}
+              icon={DollarSign}
+              color="yellow"
+              onClick={() => router.push('/admin/invoices?status=outstanding')}
+              loading={isLoading}
+            />
+            <StatCard
+              title="Revenue This Month"
+              value={formatCurrency(stats?.revenueThisMonth || 0)}
+              icon={TrendingUp}
+              color="green"
+              onClick={() => router.push('/admin/reports')}
+              loading={isLoading}
+            />
+          </>
+        )}
+
+        {/* Everyone gets at least one card if role-specific aren't shown */}
+        {!isSales && !isAdmin && !isOffice && !isProduction && (
+          <StatCard
+            title="My Schedule Today"
+            value="0"
+            icon={Calendar}
+            color="blue"
+            onClick={() => router.push('/admin/calendar')}
+            loading={isLoading}
+          />
+        )}
       </div>
 
-      {/* Recent Activity */}
+      {/* Urgency Alerts - Always Show if Any Exist */}
+      {(stats?.unsignedQuotesOlderThan7Days || stats?.invoicesOverdue30Plus || stats?.overdueFollowUps) ? (
+        <UrgencyAlerts />
+      ) : null}
+
+      {/* Main Content Grid - Role Specific */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Leads */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Recent Leads
-          </h2>
-          <div className="space-y-3">
-            {leads.slice(0, 5).map((lead: any) => (
-              <div
-                key={lead.id}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <span className="text-sm font-medium text-blue-600">
-                      {lead.full_name[0]}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{lead.full_name}</p>
-                    <p className="text-sm text-gray-600">{lead.email}</p>
-                  </div>
-                </div>
-                <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
-                  {lead.status}
-                </span>
-              </div>
-            ))}
-          </div>
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Sales & Marketing: Commission Tracker */}
+          {isSales && <CommissionTracker />}
+
+          {/* Everyone: My Schedule */}
+          <UpcomingSchedule myEventsOnly={!isAdmin} limit={5} />
+
+          {/* Sales & Admin: Pipeline Chart */}
+          {(isSales || isAdmin) && <PipelineChart />}
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group">
-              <Users className="w-6 h-6 text-gray-400 group-hover:text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
-                New Lead
-              </p>
-            </button>
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group">
-              <FileText className="w-6 h-6 text-gray-400 group-hover:text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
-                New Quote
-              </p>
-            </button>
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group">
-              <Briefcase className="w-6 h-6 text-gray-400 group-hover:text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
-                New Project
-              </p>
-            </button>
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group">
-              <TrendingUp className="w-6 h-6 text-gray-400 group-hover:text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
-                View Reports
-              </p>
-            </button>
-          </div>
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Recent Activity Feed */}
+          <RecentActivity />
+
+          {/* Office & Admin: Revenue Chart */}
+          {(isOffice || isAdmin) && <RevenueChart />}
         </div>
       </div>
     </div>

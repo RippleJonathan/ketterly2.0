@@ -133,7 +133,7 @@ export function EventQuickAddModal({
     if (isEditing && existingEvent) {
       // Update existing event
       await updateEvent.mutateAsync({
-        id: existingEvent.id,
+        eventId: existingEvent.id,
         updates: data,
       })
     } else {

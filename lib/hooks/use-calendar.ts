@@ -333,8 +333,14 @@ export function useRescheduleEvent() {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['calendar-event', variables.eventId] })
       queryClient.invalidateQueries({ queryKey: ['calendar-my-schedule'] })
+      
+      // Invalidate order queries (drag/drop updates order dates)
       queryClient.invalidateQueries({ queryKey: ['material-orders'] })
       queryClient.invalidateQueries({ queryKey: ['work-orders'] })
+      
+      // Invalidate financial queries (order dates affect financials)
+      queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['contract-comparison'] })
 
       toast.success('Event rescheduled successfully')
     },

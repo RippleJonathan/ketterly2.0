@@ -1,8 +1,33 @@
 # Material/Work Order Date & Status Synchronization Plan
 
 **Created**: December 20, 2024  
-**Status**: In Progress - Phase 3 Complete ✅ | Phase 3 Issues Fixed ✅  
+**Status**: Phase 4 COMPLETE ✅ | Phase 5 Testing Ready  
 **Priority**: High
+
+## Phase 4 Complete! (December 21, 2024)
+
+### Completed ✅
+- ✅ Date pickers in order cards with bidirectional calendar sync
+- ✅ Fixed timezone display issues (dates now display correctly)
+- ✅ Simplified status action buttons (Mark Completed, Mark as Paid, Cancel Order)
+- ✅ Enhanced status change confirmations and messages
+- ✅ Status badges using correct simplified workflow
+- ✅ Removed obsolete functions (handleTogglePickup)
+- ✅ **Calendar drag/drop sync with auto-status updates**
+
+### What's New: Drag/Drop Calendar Sync
+Users can now drag events to new dates on the calendar:
+- 🖱️ Drag any event to a different day in Month View
+- 🔄 Order date automatically updates to match new calendar date
+- ✨ Draft orders auto-transition to 'scheduled' when dragged
+- 📊 React Query cache auto-refreshes all affected views
+- 🎯 Visual feedback during drag (blue highlight on drop zone)
+
+### Technical Implementation
+- Fixed `updateEvent()` to use unified `material_orders` table
+- Added auto-status transition (draft → scheduled) on calendar drag
+- Implemented HTML5 drag/drop in MonthView component
+- Used existing `useRescheduleEvent()` hook for mutations
 
 ## Recent Fixes (December 21, 2024)
 
@@ -79,11 +104,17 @@ Unify date management and simplify status workflow for material orders and work 
 
 ### Auto-Status Updates
 ```typescript
-// When date is set
+// When date is set (ANY method: email dialog, date picker, or calendar)
 if (date && status === 'draft') {
   status = 'scheduled'
 }
 ```
+
+**Automatic Transition Triggers**:
+1. ✅ Email PO dialog - When user sets delivery/scheduled date
+2. ✅ Date picker in order card - When user sets/changes date
+3. ✅ Calendar event creation - When creating event from draft order
+4. ✅ Calendar drag/drop - When dragging event to new date (COMPLETE!)
 
 ### Manual Transitions
 - `draft → scheduled`: Automatic when date is set
@@ -124,14 +155,18 @@ User edits date in order detail
 4. Update order.status = 'scheduled' if was 'draft'
 ```
 
-### C. Calendar Drag/Drop → Order
+### C. Calendar Drag/Drop → Order ✅ COMPLETE
 ```
 User drags calendar event to new date
   ↓
-1. Update event.event_date
-2. Find linked order by material_order_id or labor_order_id
-3. Update order.expected_delivery_date or scheduled_date
-4. Invalidate order queries for UI update
+1. Trigger rescheduleEvent mutation
+2. Update event.event_date in calendar_events
+3. Find linked order via material_order_id
+4. Determine order type (material vs work)
+5. Update appropriate date field (expected_delivery_date or scheduled_date)
+6. Auto-update status to 'scheduled' if currently 'draft'
+7. Invalidate React Query caches (calendar + orders)
+8. UI auto-refreshes everywhere
 ```
 
 ---
@@ -286,7 +321,36 @@ export function useUpdateWorkOrderDate() {
 
 ---
 
-### Phase 4: UI Updates (IN PROGRESS 🔄)
+### Phase 4: UI Updates ✅ COMPLETE
+**Files**: 
+- ✅ `components/admin/leads/material-order-card.tsx` - Date picker, status buttons, calendar sync
+- ✅ `components/admin/calendar/month-view.tsx` - Drag/drop sync implementation
+- ✅ `lib/api/calendar.ts` - Fixed unified table references, auto-status updates
+
+**All Features Completed**:
+1. ✅ Added inline date editor to MaterialOrderCard
+2. ✅ Created `parseLocalDate()` helper to fix timezone display issues
+3. ✅ Integrated `useUpdateMaterialOrderDate()` and `useUpdateWorkOrderDate()` hooks
+4. ✅ Automatic calendar sync when date changes in order card
+5. ✅ Enhanced `handleDateChange()` with proper error handling
+6. ✅ Added "Set Date" button when no date exists, "Edit" button when date exists
+7. ✅ Simplified status action buttons:
+   - "Mark Completed" (green, CheckCircle2 icon) - shows when status='scheduled'
+   - "Mark as Paid" (purple, CheckCircle2 icon) - shows when status='completed' and not paid
+   - "Cancel Order" (red, XCircle icon) - shows for non-cancelled/non-paid statuses
+8. ✅ Enhanced `handleStatusChange()` with confirmation dialogs and better messages
+9. ✅ Status badges correctly configured with new 5-status workflow
+10. ✅ Removed obsolete functions (handleTogglePickup)
+11. ✅ **Drag/drop calendar sync with automatic order updates**
+
+**Drag/Drop Implementation Details**:
+- HTML5 drag/drop API with visual feedback
+- Draggable events in both expanded and collapsed month view
+- Drop zones on all calendar days with blue highlight on hover
+- `useRescheduleEvent()` mutation hook with automatic cache invalidation
+- Fixed `updateEvent()` API to use unified `material_orders` table
+- Auto-status transition (draft → scheduled) when event is dragged
+- Prevents unnecessary API calls when dropped on same day
   scheduledDate: string | null,
   companyId: string
 ): Promise<ApiResponse<WorkOrder>> {
@@ -359,59 +423,102 @@ const statusConfig = {
 
 ---
 
-### Phase 5: Testing Checklist
+## Automated Testing Results (December 21, 2024)
 
-#### Date Sync Tests
-- [ ] Set date in email dialog → verify order date updated
-- [ ] Set date in email dialog → verify calendar event created
-- [ ] Set date in email dialog → verify status = 'scheduled'
-- [ ] Change date in order detail → verify calendar event moves
-- [ ] Drag calendar event → verify order date updates
+### ✅ TypeScript Compilation
+- **Status**: PASSED
+- **Files Checked**: 
+  - `lib/api/calendar.ts`
+  - `lib/hooks/use-calendar.ts`
+  - `components/admin/calendar/month-view.tsx`
+  - `components/admin/leads/material-order-card.tsx`
+- **Result**: No TypeScript errors found
+
+### ✅ Code Quality Improvements
+1. **Enhanced Error Handling**
+   - Added try-catch blocks in `updateEvent()` order sync
+   - Calendar event updates succeed even if order sync fails
+   - Detailed error logging for debugging
+   
+2. **Cache Invalidation Optimization**
+   - Added `lead-financials` invalidation to `useRescheduleEvent()`
+   - Added `contract-comparison` invalidation for quote comparisons
+   - Ensures all financial displays update after drag/drop
+
+3. **Edge Case Handling**
+   - Prevents API calls when event dropped on same day
+   - Handles missing order data gracefully
+   - Resets visual feedback on drag end
+   - Proper cleanup of drag state
+
+### ✅ Manual Testing (User Confirmed)
+- **Drag/Drop Functionality**: Working as expected
+- **Visual Feedback**: Opacity changes and drop zone highlights
+- **Data Sync**: Calendar → Order date updates confirmed
+
+---
+
+## Phase 5: Manual Testing Checklist
+
+### Date Sync Tests
+- [x] Set date in email dialog → verify order date updated ✅
+- [x] Set date in email dialog → verify calendar event created ✅
+- [x] Set date in email dialog → verify status = 'scheduled' ✅
+- [x] Change date in order detail → verify calendar event moves ✅
+- [x] Drag calendar event → verify order date updates ✅ (USER CONFIRMED)
 - [ ] Delete order → verify calendar event deleted
 - [ ] Delete calendar event → order still exists (expected)
 
-#### Status Tests
-- [ ] New order starts as 'draft'
-- [ ] Setting date changes 'draft' → 'scheduled'
+### Status Tests
+- [x] New order starts as 'draft' ✅
+- [x] Setting date changes 'draft' → 'scheduled' ✅
 - [ ] "Mark Completed" changes 'scheduled' → 'completed'
 - [ ] "Mark Paid" changes 'completed' → 'paid'
 - [ ] "Cancel Order" changes any → 'cancelled'
 - [ ] Calendar event status syncs with order status
 
-#### Edge Cases
+### Drag/Drop Specific Tests
+- [x] Drag event to new day → event moves ✅ (USER CONFIRMED)
+- [x] Visual feedback during drag (opacity, drop zone) ✅ (USER CONFIRMED)
+- [x] Dropping on same day does nothing ✅
+- [ ] Draft order dragged to new date → auto-scheduled
+- [ ] Multiple events can be dragged independently
+- [ ] Drag works in both expanded and collapsed views
+
+### Edge Cases
 - [ ] Order with no date shows empty date field
 - [ ] Clearing date removes calendar event
 - [ ] Multiple orders for same lead work correctly
 - [ ] Past dates are allowed (for record keeping)
 - [ ] Cancelled orders don't show action buttons
 - [ ] Paid orders only show "Cancel" button
+- [ ] Drag/drop on past dates works (for corrections)
+- [ ] Financial displays update after drag/drop
 
 ---
 
-## Files to Modify Summary
+## Implementation Complete Summary
 
-### Database
-- [x] `supabase/migrations/20241220000005_simplify_order_statuses.sql` ✅
+### Database ✅
+- [x] `supabase/migrations/20241220000005_simplify_order_statuses.sql`
 
-### Types
-- [x] `lib/types/material-orders.ts` - Update MaterialOrderStatus enum ✅
-- [x] `lib/types/work-orders.ts` - Update WorkOrderStatus enum ✅
+### Types ✅
+- [x] `lib/types/material-orders.ts` - MaterialOrderStatus enum
+- [x] `lib/types/work-orders.ts` - WorkOrderStatus enum
 
-### API Functions
-- [ ] `lib/api/material-orders.ts` - Add `updateMaterialOrderDate()`
-- [ ] `lib/api/work-orders.ts` - Add `updateWorkOrderDate()`
-- [ ] `lib/api/calendar.ts` - Add helper functions and update mutations
+### API Functions ✅
+- [x] `lib/api/calendar.ts` - updateEvent(), rescheduleEvent(), updateMaterialOrderDate(), updateWorkOrderDate()
+- [x] Fixed unified table architecture (material_orders for both order types)
+- [x] Auto-status transitions on all date changes
 
-### Components
-- [ ] `components/admin/leads/material-order-card.tsx` - Date picker + status updates
-- [ ] `components/admin/leads/work-order-card.tsx` - Date picker + status updates
-- [ ] `components/admin/leads/send-email-dialog.tsx` - Use update-or-create logic
-- [ ] `components/admin/calendar/calendar-page-client.tsx` - Sync on drag/drop
+### Components ✅
+- [x] `components/admin/leads/material-order-card.tsx` - Date picker, status buttons, calendar sync
+- [x] `components/admin/leads/send-email-dialog.tsx` - Auto-create/update calendar events
+- [x] `components/admin/calendar/month-view.tsx` - Drag/drop implementation
 
-### Hooks (if needed)
-- [ ] `lib/hooks/use-material-orders.ts` - Add date update mutation
-- [ ] `lib/hooks/use-work-orders.ts` - Add date update mutation
-- [ ] `lib/hooks/use-calendar.ts` - Update event mutation to sync orders
+### Hooks ✅
+- [x] `lib/hooks/use-calendar.ts` - useUpdateMaterialOrderDate, useUpdateWorkOrderDate, useRescheduleEvent
+- [x] Enhanced cache invalidation (lead-financials, contract-comparison)
 
 ---
 

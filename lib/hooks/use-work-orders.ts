@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCurrentCompany } from './use-current-company'
+import { useCurrentUser } from './use-current-user'
 import {
   getWorkOrders,
   getWorkOrder,
@@ -49,18 +50,67 @@ export function useWorkOrder(workOrderId?: string) {
  */
 export function useCreateWorkOrder() {
   const { data: company } = useCurrentCompany()
+  const { data: user } = useCurrentUser()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (order: WorkOrderInsert) => createWorkOrder(company!.id, order),
-    onSuccess: (response) => {
-      if (response.error) {
-        toast.error(`Failed to create work order: ${response.error}`)
+    onSuccess: async (response) => {
+      if (response.error || !response.data) {
+        toast.error(`Failed to create work order: ${response.error || 'Unknown error'}`)
         return
+      }
+      
+      const workOrder = response.data
+      
+      // If work order has a scheduled date, create calendar event automatically
+      if (workOrder.scheduled_date) {
+        try {
+          const { createEventFromLaborOrder } = await import('@/lib/api/calendar')
+          const { getLeads } = await import('@/lib/api/leads')
+          
+          // Get lead info if available
+          let leadName = 'Unknown Lead'
+          if (workOrder.lead_id) {
+            const leadResult = await getLeads(company!.id, { lead_id: workOrder.lead_id })
+            if (leadResult.data && leadResult.data.length > 0) {
+              leadName = leadResult.data[0].full_name
+            }
+          }
+          
+          console.log('Creating work order calendar event:', {
+            laborOrderId: workOrder.id,
+            scheduledDate: workOrder.scheduled_date,
+            leadName,
+            orderNumber: workOrder.work_order_number,
+          })
+          
+          const result = await createEventFromLaborOrder(
+            company!.id,
+            workOrder.id,
+            workOrder.scheduled_date,
+            workOrder.lead_id || '',
+            leadName,
+            workOrder.work_order_number || 'New',
+            workOrder.subcontractor_name || 'TBD',
+            user?.id || '',
+            [] // assigned users - can be empty for now
+          )
+          
+          if (result.error) {
+            console.error('Failed to create work order calendar event:', result.error)
+          } else {
+            console.log('Work order calendar event created successfully:', result.data)
+          }
+        } catch (error) {
+          console.error('Failed to create calendar event:', error)
+          // Don't fail the whole operation if calendar event creation fails
+        }
       }
       
       queryClient.invalidateQueries({ queryKey: ['work-orders', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events', company?.id] })
       toast.success('Work order created successfully')
     },
     onError: (error: Error) => {

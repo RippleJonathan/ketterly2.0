@@ -19,6 +19,7 @@ import {
   paymentReceivedNotificationTemplate,
   dailySummaryEmailTemplate,
 } from './notification-templates'
+import { sendPushNotification } from '@/lib/api/onesignal'
 
 interface UserNotificationPreferences {
   email_notifications: boolean
@@ -62,6 +63,31 @@ function shouldSendNotification(
   
   // Check specific notification preference
   const specificPref = preferences.notification_preferences[notificationType]
+  return specificPref !== false // Default to true if not explicitly disabled
+}
+
+/**
+ * Check if user wants push notifications for this type
+ */
+async function shouldSendPushNotification(
+  userId: string,
+  notificationType: string
+): Promise<boolean> {
+  const supabase = createAdminClient()
+  
+  const { data, error } = await supabase
+    .from('users')
+    .select('push_notifications, notification_preferences')
+    .eq('id', userId)
+    .single()
+
+  if (error || !data) return false
+  
+  // Check master push toggle
+  if (!data.push_notifications) return false
+  
+  // Check specific notification preference (same as email for now)
+  const specificPref = data.notification_preferences?.[notificationType]
   return specificPref !== false // Default to true if not explicitly disabled
 }
 
@@ -185,12 +211,36 @@ export async function notifyLeadAssigned(data: {
     companyColor: company.primary_color,
   })
 
+  // Send email notification
   await sendEmail({
     from: process.env.RESEND_FROM_EMAIL || `${company.name} <noreply@ketterly.com>`,
     to: assignedTo.email,
     subject: `📋 Lead Assigned: ${data.leadName}`,
     html,
   })
+
+  // Send push notification
+  try {
+    // Check if user wants push notifications
+    const canSendPush = await shouldSendPushNotification(data.assignedToUserId, 'lead_assigned')
+    
+    if (canSendPush) {
+      await sendPushNotification({
+        userIds: [data.assignedToUserId],
+        title: '📋 Lead Assigned',
+        message: `${assignedBy.full_name} assigned ${data.leadName} to you`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.leadId}`,
+        data: {
+          type: 'lead_assigned',
+          leadId: data.leadId,
+          icon: company.logo_url || undefined,
+          image: company.logo_url || undefined,
+        },
+      })
+    }
+  } catch (error) {
+    console.error('Failed to send push notification:', error)
+  }
 
   console.log(`Sent lead_assigned notification to ${assignedTo.email}`)
 }
@@ -406,6 +456,36 @@ export async function notifyQuoteApproved(data: {
 }) {
   const company = await getCompanyDetails(data.companyId)
 
+  // Send push notification to all users at once
+  try {
+    // Filter users who have push notifications enabled
+    const usersWithPushEnabled = []
+    for (const userId of data.userIds) {
+      const canSendPush = await shouldSendPushNotification(userId, 'quotes_approved')
+      if (canSendPush) {
+        usersWithPushEnabled.push(userId)
+      }
+    }
+    
+    if (usersWithPushEnabled.length > 0) {
+      await sendPushNotification({
+        userIds: usersWithPushEnabled,
+        title: '✅ Quote Approved!',
+        message: `${data.customerName} approved quote for $${data.totalAmount.toLocaleString()}`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.leadId}`,
+        data: {
+          type: 'quote_approved',
+          quoteId: data.quoteId,
+          leadId: data.leadId,
+          icon: company.logo_url || undefined,
+          image: company.logo_url || undefined,
+        },
+      })
+    }
+  } catch (error) {
+    console.error('Failed to send push notification:', error)
+  }
+
   for (const userId of data.userIds) {
     const preferences = await getUserPreferences(userId)
     if (!shouldSendNotification(preferences, 'quotes_approved')) {
@@ -497,6 +577,36 @@ export async function notifyPaymentReceived(data: {
   paidAt: string
 }) {
   const company = await getCompanyDetails(data.companyId)
+
+  // Send push notification to all users at once
+  try {
+    // Filter users who have push notifications enabled
+    const usersWithPushEnabled = []
+    for (const userId of data.userIds) {
+      const canSendPush = await shouldSendPushNotification(userId, 'payments_received')
+      if (canSendPush) {
+        usersWithPushEnabled.push(userId)
+      }
+    }
+    
+    if (usersWithPushEnabled.length > 0) {
+      await sendPushNotification({
+        userIds: usersWithPushEnabled,
+        title: '💰 Payment Received',
+        message: `${data.customerName} paid $${data.amount.toLocaleString()} via ${data.paymentMethod}`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.leadId}`,
+        data: {
+          type: 'payment_received',
+          leadId: data.leadId,
+          invoiceNumber: data.invoiceNumber,
+          icon: company.logo_url || undefined,
+          image: company.logo_url || undefined,
+        },
+      })
+    }
+  } catch (error) {
+    console.error('Failed to send push notification:', error)
+  }
 
   for (const userId of data.userIds) {
     const preferences = await getUserPreferences(userId)

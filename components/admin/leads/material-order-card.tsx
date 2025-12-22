@@ -6,7 +6,7 @@ import { MaterialOrder } from '@/lib/types/material-orders'
 import { deleteMaterialOrder } from '@/lib/api/material-orders'
 import { useUploadDocument, useDocuments } from '@/lib/hooks/use-documents'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
-import { useCreateEventFromMaterialOrder } from '@/lib/hooks/use-calendar'
+import { useCreateEventFromMaterialOrder, useUpdateMaterialOrderDate, useUpdateWorkOrderDate } from '@/lib/hooks/use-calendar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils/formatting'
-import { format, formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow, parseISO } from 'date-fns'
 import {
   Package,
   Truck,
@@ -68,10 +68,19 @@ const statusConfig = {
   },
 }
 
+// Helper function to parse date strings without timezone issues
+// Parses "YYYY-MM-DD" as local date, not UTC
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const queryClient = useQueryClient()
   const { data: company } = useCurrentCompany()
   const createCalendarEvent = useCreateEventFromMaterialOrder()
+  const updateMaterialOrderDate = useUpdateMaterialOrderDate()
+  const updateWorkOrderDate = useUpdateWorkOrderDate()
   const [showDetails, setShowDetails] = useState(false)
   const [showEmailDialog, setShowEmailDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -79,6 +88,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [isEditingDate, setIsEditingDate] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uploadDocument = useUploadDocument()
   
@@ -236,9 +246,15 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
         const supabase = (await import('@/lib/supabase/client')).createClient()
         const updateField = isWorkOrder ? 'scheduled_date' : 'expected_delivery_date'
         
+        // Auto-update status from 'draft' to 'scheduled' when date is set
+        const updates: any = { [updateField]: dateToSave }
+        if (order.status === 'draft') {
+          updates.status = 'scheduled'
+        }
+        
         const { error: updateError } = await supabase
-          .from(isWorkOrder ? 'work_orders' : 'material_orders')
-          .update({ [updateField]: dateToSave })
+          .from('material_orders')
+          .update(updates)
           .eq('id', order.id)
         
         if (updateError) {
@@ -320,8 +336,40 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
       setIsSendingEmail(false)
     }
   }
+  // Handle date change - syncs to calendar
+  const handleDateChange = async (newDate: string | null) => {
+    if (!company) return
 
+    const isWorkOrder = order.order_type === 'work'
+    
+    try {
+      if (isWorkOrder) {
+        await updateWorkOrderDate.mutateAsync({
+          laborOrderId: order.id,
+          scheduledDate: newDate
+        })
+      } else {
+        await updateMaterialOrderDate.mutateAsync({
+          materialOrderId: order.id,
+          deliveryDate: newDate
+        })
+      }
+      
+      setIsEditingDate(false)
+      onUpdate?.()
+    } catch (error) {
+      console.error('Date update error:', error)
+      // Error toast handled by mutation hook
+    }
+  }
   const handleStatusChange = async (newStatus: string) => {
+    // Add confirmation for cancel action
+    if (newStatus === 'cancelled') {
+      if (!confirm(`Are you sure you want to cancel order ${order.order_number}? This cannot be undone.`)) {
+        return
+      }
+    }
+
     setIsUpdatingStatus(true)
     try {
       const supabase = (await import('@/lib/supabase/client')).createClient()
@@ -332,29 +380,19 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
 
       if (error) throw error
 
-      toast.success(`Order status updated to ${newStatus}`)
+      // Success messages based on status
+      const statusMessages: Record<string, string> = {
+        completed: 'Order marked as completed',
+        cancelled: 'Order cancelled',
+        paid: 'Order marked as paid'
+      }
+
+      toast.success(statusMessages[newStatus] || `Order status updated to ${newStatus}`)
       onUpdate?.()
     } catch (error: any) {
       toast.error(`Failed to update status: ${error.message}`)
     } finally {
       setIsUpdatingStatus(false)
-    }
-  }
-
-  const handleTogglePickup = async () => {
-    try {
-      const supabase = (await import('@/lib/supabase/client')).createClient()
-      const { error } = await supabase
-        .from('material_orders')
-        .update({ is_pickup: !order.is_pickup })
-        .eq('id', order.id)
-
-      if (error) throw error
-
-      toast.success(order.is_pickup ? 'Changed to delivery' : 'Changed to pickup')
-      onUpdate?.()
-    } catch (error: any) {
-      toast.error('Failed to update delivery method')
     }
   }
 
@@ -433,22 +471,71 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
             {order.order_date && (
               <div>
                 <span className="text-muted-foreground">Order Date:</span>
-                <p className="font-medium">{format(new Date(order.order_date), 'MMM dd, yyyy')}</p>
+                <p className="font-medium">{format(parseLocalDate(order.order_date), 'MMM dd, yyyy')}</p>
               </div>
             )}
-            {order.expected_delivery_date && !order.actual_delivery_date && (
-              <div>
-                <span className="text-muted-foreground">Expected Delivery:</span>
-                <p className="font-medium">
-                  {format(new Date(order.expected_delivery_date), 'MMM dd, yyyy')}
-                </p>
+            {/* Editable Delivery/Scheduled Date */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-muted-foreground">
+                  {order.order_type === 'work' ? 'Scheduled Date:' : 'Expected Delivery:'}
+                </span>
+                {(order.expected_delivery_date || order.scheduled_date) && !isEditingDate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditingDate(true)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
               </div>
-            )}
+              {isEditingDate ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    defaultValue={order.order_type === 'work' ? order.scheduled_date || '' : order.expected_delivery_date || ''}
+                    onChange={(e) => handleDateChange(e.target.value || null)}
+                    className="h-8 text-sm"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditingDate(false)}
+                    className="h-8 px-2"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {(order.expected_delivery_date || order.scheduled_date) ? (
+                    <p className="font-medium">
+                      {format(
+                        parseLocalDate(order.order_type === 'work' ? order.scheduled_date! : order.expected_delivery_date!),
+                        'MMM dd, yyyy'
+                      )}
+                    </p>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingDate(true)}
+                      className="h-8 text-xs"
+                    >
+                      Set Date
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
             {order.actual_delivery_date && (
               <div>
                 <span className="text-muted-foreground">Delivered:</span>
                 <p className="font-medium text-green-600">
-                  {format(new Date(order.actual_delivery_date), 'MMM dd, yyyy')}
+                  {format(parseLocalDate(order.actual_delivery_date), 'MMM dd, yyyy')}
                 </p>
               </div>
             )}
@@ -530,39 +617,44 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2 pt-4 border-t flex-wrap">
-            {/* Status progression buttons */}
-            {order.status === 'draft' && (
-              <Button variant="outline" size="sm" onClick={() => handleStatusChange('ordered')}>
-                Mark as Ordered
-              </Button>
-            )}
-            {order.status === 'ordered' && (
-              <Button variant="outline" size="sm" onClick={() => handleStatusChange('confirmed')}>
-                Mark as Confirmed
-              </Button>
-            )}
-            {order.status === 'confirmed' && !order.is_pickup && (
-              <Button variant="outline" size="sm" onClick={() => handleStatusChange('in_transit')}>
-                Mark In Transit
-              </Button>
-            )}
-            {(order.status === 'in_transit' || (order.status === 'confirmed' && order.is_pickup)) && (
-              <Button variant="outline" size="sm" onClick={() => handleStatusChange('delivered')}>
-                Mark as Delivered
+            {/* New Simplified Status Workflow */}
+            
+            {/* Mark Completed - only show when scheduled */}
+            {order.status === 'scheduled' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleStatusChange('completed')}
+                className="bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1" />
+                Mark Completed
               </Button>
             )}
             
-            {/* Pickup/Delivery toggle */}
-            {order.status !== 'delivered' && order.status !== 'cancelled' && (
-              <Button variant="outline" size="sm" onClick={handleTogglePickup}>
-                {order.is_pickup ? 'Change to Delivery' : 'Change to Pickup'}
-              </Button>
-            )}
-            
-            {/* Mark as Paid */}
-            {!order.is_paid && (
-              <Button variant="outline" size="sm" onClick={() => setShowPaymentDialog(true)}>
+            {/* Mark as Paid - only show when completed */}
+            {order.status === 'completed' && !order.is_paid && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowPaymentDialog(true)}
+                className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-300"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1" />
                 Mark as Paid
+              </Button>
+            )}
+            
+            {/* Cancel Order - show for any non-cancelled, non-paid status */}
+            {order.status !== 'cancelled' && order.status !== 'paid' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleStatusChange('cancelled')}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Cancel Order
               </Button>
             )}
           </div>

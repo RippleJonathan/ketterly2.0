@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProfileForm } from '@/components/admin/profile/profile-form'
 import { AvatarUpload } from '@/components/admin/profile/avatar-upload'
 import { NotificationPreferences } from '@/components/admin/profile/notification-preferences'
+import { PushNotificationSettings } from '@/components/admin/settings/push-notification-settings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { User, Bell } from 'lucide-react'
@@ -56,6 +57,12 @@ export default function ProfilePage() {
 
         <TabsContent value="notifications" className="space-y-6">
           <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+            {/* Push Notifications */}
+            <PushNotificationSettings />
+            
+            <Separator />
+            
+            {/* Email/SMS Notification Preferences */}
             <NotificationPreferences />
           </Suspense>
         </TabsContent>

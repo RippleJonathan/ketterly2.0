@@ -5,6 +5,7 @@ import { CalendarEventWithRelations, EVENT_TYPE_BG_COLORS, EVENT_TYPE_BORDER_COL
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useRescheduleEvent } from '@/lib/hooks/use-calendar'
 
 interface MonthViewProps {
   date: Date
@@ -15,6 +16,9 @@ interface MonthViewProps {
 
 export function MonthView({ date, events, onEventClick, onDayClick }: MonthViewProps) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEventWithRelations | null>(null)
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null)
+  const rescheduleEvent = useRescheduleEvent()
 
   // Get calendar grid (includes days from previous/next month)
   const monthStart = startOfMonth(date)
@@ -36,6 +40,64 @@ export function MonthView({ date, events, onEventClick, onDayClick }: MonthViewP
     const dayKey = format(day, 'yyyy-MM-dd')
     setExpandedDay(expandedDay === dayKey ? null : dayKey)
     onDayClick?.(day)
+  }
+
+  // Drag/Drop Handlers
+  const handleDragStart = (e: React.DragEvent, event: CalendarEventWithRelations) => {
+    setDraggedEvent(event)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', event.id)
+    // Add visual feedback
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5'
+    }
+  }
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedEvent(null)
+    setDragOverDay(null)
+    // Reset visual feedback
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1'
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent, dayKey: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverDay(dayKey)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverDay(null)
+  }
+
+  const handleDrop = async (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault()
+    setDragOverDay(null)
+
+    if (!draggedEvent) return
+
+    const newDate = format(targetDate, 'yyyy-MM-dd')
+    
+    // Don't reschedule if dropped on same day
+    if (draggedEvent.event_date === newDate) {
+      setDraggedEvent(null)
+      return
+    }
+
+    try {
+      await rescheduleEvent.mutateAsync({
+        eventId: draggedEvent.id,
+        newDate,
+        newStartTime: draggedEvent.start_time,
+        newEndTime: draggedEvent.end_time,
+      })
+    } catch (error) {
+      console.error('Failed to reschedule event:', error)
+    } finally {
+      setDraggedEvent(null)
+    }
   }
 
   return (
@@ -67,9 +129,14 @@ export function MonthView({ date, events, onEventClick, onDayClick }: MonthViewP
                 key={dayKey}
                 className={cn(
                   'border-r border-b last:border-r-0 min-h-[120px] p-1 flex flex-col',
+                  'transition-colors',
                   !isCurrentMonth && 'bg-gray-50',
-                  isTodayDate && 'bg-blue-50/30'
+                  isTodayDate && 'bg-blue-50/30',
+                  dragOverDay === dayKey && 'bg-blue-100 ring-2 ring-blue-400 ring-inset'
                 )}
+                onDragOver={(e) => handleDragOver(e, dayKey)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, day)}
               >
                 {/* Day Number */}
                 <div className="flex items-center justify-between mb-1">
@@ -107,12 +174,15 @@ export function MonthView({ date, events, onEventClick, onDayClick }: MonthViewP
                       {dayEvents.map(event => (
                         <button
                           key={event.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, event)}
+                          onDragEnd={handleDragEnd}
                           onClick={(e) => {
                             e.stopPropagation()
                             onEventClick(event)
                           }}
                           className={cn(
-                            'w-full text-left px-1.5 py-1 rounded text-xs border-l-2 hover:shadow-sm transition-shadow',
+                            'w-full text-left px-1.5 py-1 rounded text-xs border-l-2 hover:shadow-sm transition-shadow cursor-move',
                             EVENT_TYPE_BG_COLORS[event.event_type],
                             EVENT_TYPE_BORDER_COLORS[event.event_type]
                           )}
@@ -134,13 +204,16 @@ export function MonthView({ date, events, onEventClick, onDayClick }: MonthViewP
                       {dayEvents.slice(0, 3).map(event => (
                         <button
                           key={event.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, event)}
+                          onDragEnd={handleDragEnd}
                           onClick={(e) => {
                             e.stopPropagation()
                             onEventClick(event)
                           }}
                           className={cn(
                             'w-full text-left px-1 py-0.5 rounded text-[10px] truncate border-l-2',
-                            'hover:shadow-sm transition-shadow leading-tight',
+                            'hover:shadow-sm transition-shadow leading-tight cursor-move',
                             EVENT_TYPE_BG_COLORS[event.event_type],
                             EVENT_TYPE_BORDER_COLORS[event.event_type]
                           )}

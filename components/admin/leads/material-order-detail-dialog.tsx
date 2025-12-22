@@ -19,7 +19,7 @@ import { updateMaterialOrder, addMaterialOrderItem, updateMaterialOrderItem, del
 import { getSuppliers } from '@/lib/api/suppliers'
 import { getMaterials } from '@/lib/api/materials'
 import { getMaterialVariants } from '@/lib/api/material-variants'
-import { useCreateEventFromMaterialOrder, useCreateEventFromLaborOrder } from '@/lib/hooks/use-calendar'
+import { useCreateEventFromMaterialOrder, useCreateEventFromLaborOrder, useUpdateMaterialOrderDate, useUpdateWorkOrderDate } from '@/lib/hooks/use-calendar'
 import { toast } from 'sonner'
 
 interface MaterialOrderDetailDialogProps {
@@ -38,6 +38,8 @@ export function MaterialOrderDetailDialog({
   const { data: company } = useCurrentCompany()
   const createMaterialEvent = useCreateEventFromMaterialOrder()
   const createLaborEvent = useCreateEventFromLaborOrder()
+  const updateMaterialDate = useUpdateMaterialOrderDate()
+  const updateWorkDate = useUpdateWorkOrderDate()
   
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -141,23 +143,27 @@ export function MaterialOrderDetailDialog({
       
       toast.success('Order updated successfully')
       
-      // Check if delivery/scheduled date was just added (was empty, now has value)
-      const wasEmpty = !previousDeliveryDate || previousDeliveryDate.trim() === ''
-      const nowHasDate = expectedDeliveryDate && expectedDeliveryDate.trim() !== ''
+      // Handle bidirectional date sync with calendar
+      const dateChanged = previousDeliveryDate !== expectedDeliveryDate
       
-      if (wasEmpty && nowHasDate) {
-        // Delivery date was just added - create calendar event
+      if (dateChanged) {
         try {
           if (order.order_type === 'material') {
-            await createMaterialEvent.mutateAsync(order.id)
-            toast.success('Calendar event created for material delivery')
+            // Sync material order date to calendar (creates/updates/deletes event)
+            await updateMaterialDate.mutateAsync({
+              materialOrderId: order.id,
+              deliveryDate: expectedDeliveryDate || null,
+            })
           } else if (order.order_type === 'work') {
-            await createLaborEvent.mutateAsync(order.id)
-            toast.success('Calendar event created for work order')
+            // Sync work order date to calendar (creates/updates/deletes event)
+            await updateWorkDate.mutateAsync({
+              laborOrderId: order.id,
+              scheduledDate: expectedDeliveryDate || null,
+            })
           }
         } catch (eventError: any) {
-          console.error('Failed to create calendar event:', eventError)
-          toast.warning('Order updated but calendar event could not be created')
+          console.error('Failed to sync calendar event:', eventError)
+          toast.warning('Order updated but calendar event could not be synced')
         }
       }
       

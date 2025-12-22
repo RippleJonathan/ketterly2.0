@@ -1,6 +1,7 @@
 'use client'
 
 import { format, parseISO } from 'date-fns'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -22,6 +25,7 @@ import {
   XCircle,
   RotateCcw,
   Link as LinkIcon,
+  Save,
 } from 'lucide-react'
 import {
   CalendarEventWithRelations,
@@ -36,6 +40,7 @@ import {
   useCompleteEvent,
   useConfirmEvent,
   useDeleteEvent,
+  useUpdateEvent,
 } from '@/lib/hooks/use-calendar'
 import { cn } from '@/lib/utils'
 import {
@@ -48,7 +53,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useState } from 'react'
 
 interface EventDetailModalProps {
   event: CalendarEventWithRelations | null
@@ -66,11 +70,14 @@ export function EventDetailModal({
   canEdit,
 }: EventDetailModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isEditingDate, setIsEditingDate] = useState(false)
+  const [newDate, setNewDate] = useState(event?.event_date || '')
   
   const cancelEvent = useCancelEvent()
   const completeEvent = useCompleteEvent()
   const confirmEvent = useConfirmEvent()
   const deleteEvent = useDeleteEvent()
+  const updateEvent = useUpdateEvent()
 
   if (!event) return null
 
@@ -110,6 +117,24 @@ export function EventDetailModal({
     } catch (error) {
       // Error already handled by mutation onError
       setShowDeleteConfirm(false)
+    }
+  }
+
+  const handleDateChange = async () => {
+    if (!newDate || newDate === event.event_date) {
+      setIsEditingDate(false)
+      return
+    }
+
+    try {
+      await updateEvent.mutateAsync({
+        eventId: event.id,
+        updates: { event_date: newDate },
+      })
+      setIsEditingDate(false)
+      onClose()
+    } catch (error) {
+      // Error already handled by mutation onError
     }
   }
 
@@ -166,11 +191,57 @@ export function EventDetailModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
                 <CalendarIcon className="h-5 w-5 text-gray-400 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Date</p>
-                  <p className="text-sm text-gray-900">
-                    {format(parseISO(event.event_date), 'EEEE, MMMM d, yyyy')}
-                  </p>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Date</p>
+                  {isEditingDate ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        className="text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleDateChange}
+                        disabled={updateEvent.isPending}
+                      >
+                        <Save className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingDate(false)
+                          setNewDate(event.event_date)
+                        }}
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-900">
+                        {format(parseISO(event.event_date), 'EEEE, MMMM d, yyyy')}
+                      </p>
+                      {canEdit && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setIsEditingDate(true)}
+                          className="h-6 px-2"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {(event.material_order_id || event.labor_order_id) && !isEditingDate && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {event.material_order_id && 'Syncs with material order'}
+                      {event.labor_order_id && 'Syncs with work order'}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -318,6 +389,13 @@ export function EventDetailModal({
                 <Trash2 className="h-4 w-4 mr-1" />
                 Delete
               </Button>
+            )}
+            {/* Note: Editing linked events (material/work orders) will sync changes to the order */}
+            {(event.material_order_id || event.labor_order_id) && (
+              <p className="text-sm text-gray-500 flex-1">
+                {event.material_order_id && 'Note: Date changes will sync to the material order'}
+                {event.labor_order_id && 'Note: Date changes will sync to the work order'}
+              </p>
             )}
             <Button variant="outline" onClick={onClose}>
               Close

@@ -364,3 +364,132 @@ export function useTrackShareLinkView() {
     },
   })
 }
+
+// =====================================================
+// DOCUMENT LIBRARY (Global & Company Documents)
+// =====================================================
+
+import {
+  getGlobalDocuments,
+  getCompanyDocuments,
+  uploadCompanyDocument,
+  updateCompanyDocument,
+  deleteCompanyDocument,
+  archiveCompanyDocument,
+} from '@/lib/api/document-library'
+import {
+  DocumentLibraryFilters,
+  UploadCompanyDocumentData,
+  GlobalCompanyDocumentCategory,
+} from '@/lib/types/documents'
+
+export function useGlobalDocuments(filters?: {
+  category?: GlobalCompanyDocumentCategory
+  tags?: string[]
+  search?: string
+}) {
+  return useQuery({
+    queryKey: ['global-documents', filters],
+    queryFn: () => getGlobalDocuments(filters),
+  })
+}
+
+export function useCompanyDocuments(filters?: DocumentLibraryFilters) {
+  const { data: company } = useCurrentCompany()
+
+  return useQuery({
+    queryKey: ['company-documents', company?.id, filters],
+    queryFn: async () => {
+      if (!company?.id) return { data: [], error: null }
+      return getCompanyDocuments(company.id, filters)
+    },
+    enabled: !!company?.id,
+  })
+}
+
+export function useUploadLibraryDocument() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      file,
+      metadata,
+    }: {
+      file: File
+      metadata: UploadCompanyDocumentData
+    }) => {
+      if (!company?.id) throw new Error('No company context')
+      return uploadCompanyDocument(company.id, file, metadata)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-documents', company?.id] })
+      toast.success('Document uploaded successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to upload document: ${error.message}`)
+    },
+  })
+}
+
+export function useUpdateCompanyDocument() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      documentId,
+      updates,
+    }: {
+      documentId: string
+      updates: Partial<UploadCompanyDocumentData> & { is_archived?: boolean }
+    }) => {
+      return updateCompanyDocument(documentId, updates)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-documents', company?.id] })
+      toast.success('Document updated successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update document: ${error.message}`)
+    },
+  })
+}
+
+export function useDeleteCompanyDocument() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (documentId: string) => deleteCompanyDocument(documentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-documents', company?.id] })
+      toast.success('Document deleted successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete document: ${error.message}`)
+    },
+  })
+}
+
+export function useArchiveCompanyDocument() {
+  const { data: company } = useCurrentCompany()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      documentId,
+      archived,
+    }: {
+      documentId: string
+      archived: boolean
+    }) => archiveCompanyDocument(documentId, archived),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['company-documents', company?.id] })
+      toast.success(variables.archived ? 'Document archived' : 'Document unarchived')
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to archive document: ${error.message}`)
+    },
+  })
+}

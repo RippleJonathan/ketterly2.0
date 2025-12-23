@@ -402,7 +402,8 @@ export async function importTemplateToEstimate(params: {
           default_per_unit,
           default_per_square,
           manufacturer,
-          product_line
+          product_line,
+          notes
         )
       `)
       .eq('template_id', templateId)
@@ -434,7 +435,7 @@ export async function importTemplateToEstimate(params: {
         unit_price: material.current_cost || 0,
         cost_per_unit: material.current_cost || 0,
         supplier: '',
-        notes: material.product_line || '',
+        notes: material.notes || '',
       }
     }).filter(Boolean)
 

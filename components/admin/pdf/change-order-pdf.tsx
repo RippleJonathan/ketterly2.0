@@ -231,6 +231,38 @@ const styles = StyleSheet.create({
     fontSize: 8,
     lineHeight: 1.4,
   },
+  // Line items table
+  lineItemsTable: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  lineItemsHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    borderBottom: '1px solid #000',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  lineItemsHeaderCell: {
+    fontSize: 8,
+    fontWeight: 'bold',
+  },
+  lineItemRow: {
+    flexDirection: 'row',
+    borderBottom: '0.5px solid #ddd',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  lineItemCell: {
+    fontSize: 8,
+  },
+  lineItemNotes: {
+    fontSize: 7,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 2,
+    paddingLeft: 8,
+  },
 })
 
 interface ChangeOrderPDFProps {
@@ -359,6 +391,33 @@ export const ChangeOrderPDF: React.FC<ChangeOrderPDFProps> = ({
               Quote #{changeOrder.quote.quote_number}
               {changeOrder.quote.title && ` - ${changeOrder.quote.title}`}
             </Text>
+          </View>
+        )}
+
+        {/* Line Items Table */}
+        {changeOrder.line_items && changeOrder.line_items.length > 0 && (
+          <View style={styles.lineItemsTable}>
+            <View style={styles.lineItemsHeader}>
+              <Text style={[styles.lineItemsHeaderCell, { width: '50%' }]}>Description</Text>
+              <Text style={[styles.lineItemsHeaderCell, { width: '12%', textAlign: 'right' }]}>Qty</Text>
+              <Text style={[styles.lineItemsHeaderCell, { width: '18%', textAlign: 'right' }]}>Unit Price</Text>
+              <Text style={[styles.lineItemsHeaderCell, { width: '20%', textAlign: 'right' }]}>Total</Text>
+            </View>
+            {changeOrder.line_items.map((item, index) => (
+              <View key={index}>
+                <View style={styles.lineItemRow}>
+                  <Text style={[styles.lineItemCell, { width: '50%' }]}>{item.description}</Text>
+                  <Text style={[styles.lineItemCell, { width: '12%', textAlign: 'right' }]}>{item.quantity}</Text>
+                  <Text style={[styles.lineItemCell, { width: '18%', textAlign: 'right' }]}>{formatCurrency(item.unit_price)}</Text>
+                  <Text style={[styles.lineItemCell, { width: '20%', textAlign: 'right' }]}>{formatCurrency(item.total)}</Text>
+                </View>
+                {item.notes && (
+                  <View style={{ paddingHorizontal: 8, paddingBottom: 4 }}>
+                    <Text style={styles.lineItemNotes}>{item.notes}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
           </View>
         )}
 

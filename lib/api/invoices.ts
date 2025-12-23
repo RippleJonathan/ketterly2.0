@@ -488,7 +488,8 @@ export async function getChangeOrders(
         lead:leads!change_orders_lead_id_fkey(full_name, email),
         quote:quotes!change_orders_quote_id_fkey(quote_number, title),
         approved_by_user:users!change_orders_approved_by_fkey(full_name),
-        created_by_user:users!change_orders_created_by_fkey(full_name)
+        created_by_user:users!change_orders_created_by_fkey(full_name),
+        line_items:change_order_line_items(*)
       `)
       .eq('company_id', companyId)
       .is('deleted_at', null)

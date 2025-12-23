@@ -387,6 +387,12 @@ function generateQuotePDF(quote: any, companyLogoBase64?: string | null): string
       font-size: 12px;
       color: #6b7280;
     }
+    .item-notes {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #4b5563;
+      white-space: pre-wrap;
+    }
     
     /* Totals section */
     .totals-section {
@@ -601,10 +607,11 @@ function generateQuotePDF(quote: any, companyLogoBase64?: string | null): string
             <td>
               <div class="item-description">${item.description}</div>
               <div class="item-category">${item.category}</div>
+              ${item.notes ? `<div class="item-notes">${item.notes}</div>` : ''}
             </td>
             <td class="text-right">${item.quantity} ${item.unit || ''}</td>
-            <td class="text-right">$${item.unit_price.toFixed(2)}</td>
-            <td class="text-right"><strong>$${item.line_total.toFixed(2)}</strong></td>
+            <td class="text-right">$${Number(item.unit_price || 0).toFixed(2)}</td>
+            <td class="text-right"><strong>$${Number(item.line_total || 0).toFixed(2)}</strong></td>
           </tr>
         `).join('')}
       </tbody>

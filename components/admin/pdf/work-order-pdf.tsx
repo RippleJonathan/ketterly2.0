@@ -79,6 +79,11 @@ const styles = StyleSheet.create({
   tableColDescription: {
     width: '35%',
   },
+  itemNotes: {
+    fontSize: 8,
+    color: '#6b7280',
+    marginTop: 4,
+  },
   tableColQuantity: {
     width: '12%',
     textAlign: 'right',
@@ -316,7 +321,12 @@ export function WorkOrderPDF({ workOrder, company }: WorkOrderPDFProps) {
             {workOrder.line_items.map((item) => (
               <View key={item.id} style={styles.tableRow}>
                 <Text style={styles.tableColType}>{item.item_type}</Text>
-                <Text style={styles.tableColDescription}>{item.description}</Text>
+                <View style={styles.tableColDescription}>
+                  <Text>{item.description}</Text>
+                  {item.notes && (
+                    <Text style={styles.itemNotes}>{item.notes}</Text>
+                  )}
+                </View>
                 <Text style={styles.tableColQuantity}>{item.quantity}</Text>
                 <Text style={styles.tableColUnit}>{item.unit}</Text>
                 <Text style={styles.tableColUnitPrice}>{formatCurrency(item.unit_price)}</Text>

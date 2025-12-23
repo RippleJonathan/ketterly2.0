@@ -15,7 +15,8 @@ import {
   FileText,
   DollarSign,
   BarChart3,
-  User
+  User,
+  FolderOpen
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
@@ -56,6 +57,12 @@ const salesNavigation: NavItem[] = [
 
 // Office workflow navigation
 const officeNavigation: NavItem[] = [
+  { 
+    name: 'Documents', 
+    href: '/admin/documents', 
+    icon: FolderOpen,
+    // Everyone can view documents (company isolation via RLS)
+  },
   { 
     name: 'Reports', 
     href: '/admin/reports', 

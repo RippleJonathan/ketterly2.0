@@ -79,6 +79,22 @@ export interface ChangeOrder {
   deleted_at: string | null
 }
 
+export interface ChangeOrderLineItem {
+  id: string
+  change_order_id: string
+  company_id: string
+  description: string
+  quantity: number
+  unit_price: number
+  total: number
+  category: string | null
+  notes: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
 export interface ChangeOrderWithRelations extends ChangeOrder {
   lead?: {
     full_name: string
@@ -94,6 +110,7 @@ export interface ChangeOrderWithRelations extends ChangeOrder {
   created_by_user?: {
     full_name: string
   }
+  line_items?: ChangeOrderLineItem[]
 }
 
 export interface ChangeOrderInsert {

@@ -325,7 +325,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
       unit_price: material.current_cost || 0,
       cost_per_unit: material.current_cost || 0,
       supplier: '',
-      notes: material.product_line || '',
+      notes: material.notes || '',
     })
   }
 
@@ -362,7 +362,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
           unit_price: material.current_cost || 0,
           cost_per_unit: material.current_cost || 0,
           supplier: '',
-          notes: material.product_line || '',
+          notes: material.notes || '',
         })
       })
 
@@ -576,6 +576,16 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                                       setValueAs: (v) => (v ? parseFloat(v) : 0),
                                     })}
                                     placeholder="0.00"
+                                  />
+                                </div>
+
+                                {/* Notes (per item) */}
+                                <div className="md:col-span-5">
+                                  <Label>Notes (Optional)</Label>
+                                  <Textarea
+                                    {...form.register(`line_items.${index}.notes`)}
+                                    placeholder="Optional notes for this line item..."
+                                    rows={2}
                                   />
                                 </div>
 

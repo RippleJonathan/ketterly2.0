@@ -283,3 +283,134 @@ in connection with this transaction. I understand that:
 I confirm that I have read, understand, and agree to the terms and conditions outlined 
 in this document.
 `.trim()
+
+// =====================================================
+// GLOBAL & COMPANY DOCUMENTS
+// =====================================================
+
+export type GlobalCompanyDocumentCategory = 
+  | 'contracts'
+  | 'compliance'
+  | 'training'
+  | 'product_catalogs'
+  | 'best_practices'
+  | 'policies'
+  | 'insurance'
+  | 'licenses'
+  | 'branding'
+  | 'marketing'
+  | 'safety'
+  | 'templates'
+  | 'other'
+
+export type GlobalDocumentVisibility = 'all' | 'premium_only' | 'admin_only'
+
+export interface GlobalDocument {
+  id: string
+  title: string
+  description: string | null
+  category: GlobalCompanyDocumentCategory
+  file_url: string
+  file_name: string
+  file_size: number
+  file_type: string
+  version: string
+  supersedes_id: string | null
+  is_active: boolean
+  visibility: GlobalDocumentVisibility
+  uploaded_by: string | null
+  tags: string[]
+  sort_order: number
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface CompanyDocument {
+  id: string
+  company_id: string
+  title: string
+  description: string | null
+  category: GlobalCompanyDocumentCategory
+  file_url: string
+  file_name: string
+  file_size: number
+  file_type: string
+  uploaded_by: string
+  tags: string[]
+  is_archived: boolean
+  is_template: boolean
+  template_variables: Record<string, any> | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface CompanyDocumentWithUser extends CompanyDocument {
+  uploader?: {
+    full_name: string
+    email: string
+  }
+}
+
+export interface DocumentLibraryFilters {
+  category?: GlobalCompanyDocumentCategory
+  tags?: string[]
+  is_archived?: boolean
+  is_template?: boolean
+  search?: string
+}
+
+export interface UploadCompanyDocumentData {
+  title: string
+  description?: string
+  category: GlobalCompanyDocumentCategory
+  tags?: string[]
+  is_template?: boolean
+  template_variables?: Record<string, any>
+}
+
+// Category display names
+export const LIBRARY_DOCUMENT_CATEGORY_LABELS: Record<GlobalCompanyDocumentCategory, string> = {
+  contracts: 'Contracts',
+  compliance: 'Compliance',
+  training: 'Training',
+  product_catalogs: 'Product Catalogs',
+  best_practices: 'Best Practices',
+  policies: 'Policies',
+  insurance: 'Insurance',
+  licenses: 'Licenses',
+  branding: 'Branding',
+  marketing: 'Marketing',
+  safety: 'Safety',
+  templates: 'Templates',
+  other: 'Other',
+}
+
+// Supported file types for library documents
+export const SUPPORTED_LIBRARY_DOCUMENT_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+] as const
+
+export const SUPPORTED_LIBRARY_DOCUMENT_EXTENSIONS = [
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+] as const
+
+// Max file size: 10MB
+export const MAX_LIBRARY_DOCUMENT_SIZE = 10 * 1024 * 1024

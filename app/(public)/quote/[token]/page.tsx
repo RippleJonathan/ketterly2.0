@@ -13,6 +13,7 @@ interface LineItem {
   unit: string
   unit_price: number
   line_total: number
+  notes?: string
 }
 
 interface Lead {
@@ -265,6 +266,9 @@ export default function PublicQuotePage() {
                       <td className="px-4 py-4">
                         <div className="font-medium text-gray-900">{item.description}</div>
                         <div className="text-xs text-gray-500">{item.category}</div>
+                        {item.notes && (
+                          <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{item.notes}</div>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-right text-sm text-gray-600">
                         {item.quantity} {item.unit}

@@ -53,7 +53,7 @@ function generateLineItemsTable(lineItems: any[], primaryColor: string): string 
     contractItems.forEach((item: any) => {
       html += `
         <tr>
-          <td>${item.description}</td>
+          <td>${item.description}${item.notes ? ` <span style="color: #666; font-size: 9pt;">(${item.notes})</span>` : ''}</td>
           <td class="text-right">${item.quantity}</td>
           <td class="text-right">${item.unit || 'ea'}</td>
           <td class="text-right">${formatCurrency(item.unit_price)}</td>

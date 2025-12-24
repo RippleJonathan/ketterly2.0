@@ -160,7 +160,7 @@ CREATE POLICY "admins_delete_company_documents"
       SELECT company_id 
       FROM public.users 
       WHERE id = auth.uid() 
-      AND role IN ('admin', 'owner')
+      AND role IN ('admin', 'super_admin')
     )
   );
 

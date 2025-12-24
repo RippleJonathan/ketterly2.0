@@ -188,13 +188,14 @@ export async function deleteCompanyDocument(
   documentId: string
 ): Promise<ApiResponse<void>> {
   try {
-    // Soft delete
+    // Hard delete - permanently remove from database
     const { error } = await supabase
       .from('company_documents')
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq('id', documentId)
 
     if (error) throw error
+    
     return { data: undefined, error: null }
   } catch (error: any) {
     console.error('Failed to delete document:', error)

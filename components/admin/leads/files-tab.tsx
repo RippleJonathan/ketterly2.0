@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useDocuments, useUploadDocument, useDeleteDocument } from '@/lib/hooks/use-documents'
+import { useGeneratedDocuments } from '@/lib/hooks/use-document-builder'
 import { useQuotes } from '@/lib/hooks/use-quotes'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useGenerateQuotePDF } from '@/lib/hooks/use-generate-quote-pdf'
@@ -32,12 +33,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { DocumentType, DOCUMENT_TYPE_LABELS, SIGNATURE_STATUS_LABELS } from '@/lib/types/documents'
-import { Upload, FileText, MoreVertical, Download, Share2, Trash2, Eye, CheckCircle2, Clock, XCircle, FileIcon, ChevronDown, ChevronUp, Mail, ScanLine } from 'lucide-react'
+import { Upload, FileText, MoreVertical, Download, Share2, Trash2, Eye, CheckCircle2, Clock, XCircle, FileIcon, ChevronDown, ChevronUp, Mail, ScanLine, FileSignature } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { formatBytes } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { ScanDocumentDialog } from './scan-document-dialog'
+import { GenerateDocumentButton } from '@/components/admin/document-builder/generate-document-button'
+import { CompanySignatureDialog } from '@/components/admin/document-builder/company-signature-dialog'
+import { useRouter } from 'next/navigation'
 
 interface FilesTabProps {
   leadId: string
@@ -45,23 +49,36 @@ interface FilesTabProps {
 }
 
 export function FilesTab({ leadId, leadName }: FilesTabProps) {
+  const router = useRouter()
   const { data: company } = useCurrentCompany()
-  const { data: documentsResponse, isLoading } = useDocuments(leadId)
+  const { data: documentsResponse, isLoading: isLoadingDocs } = useDocuments(leadId)
+  const { data: generatedDocsResponse, isLoading: isLoadingGenerated } = useGeneratedDocuments({ leadId })
   const { data: quotes } = useQuotes({ leadId })
   const { generateAndDownload, isGenerating } = useGenerateQuotePDF()
-  const documents = documentsResponse?.data || []
+  const uploadedDocuments = documentsResponse?.data || []
+  const generatedDocuments = generatedDocsResponse?.data || []
 
-  const [selectedType, setSelectedType] = useState<DocumentType | 'all'>('all')
+  const [selectedType, setSelectedType] = useState<'all' | 'uploaded' | 'generated'>('all')
   const [isUploadExpanded, setIsUploadExpanded] = useState(false)
   const [emailingSigned, setEmailingSigned] = useState<{ [key: string]: boolean }>({})
   const [isScanDialogOpen, setIsScanDialogOpen] = useState(false)
 
+  const isLoading = isLoadingDocs || isLoadingGenerated
+
   // Filter quotes that have both signatures (fully executed contracts)
   const signedQuotes = quotes?.filter(q => q.status === 'accepted') || []
 
+  // Combine and filter documents
+  const allDocuments = [
+    ...uploadedDocuments.map(doc => ({ ...doc, documentSource: 'uploaded' as const })),
+    ...generatedDocuments.map(doc => ({ ...doc, documentSource: 'generated' as const }))
+  ]
+
   const filteredDocuments = selectedType === 'all'
-    ? documents
-    : documents.filter(doc => doc.document_type === selectedType)
+    ? allDocuments
+    : allDocuments.filter(doc => doc.documentSource === selectedType)
+
+
 
   // Handler to fetch full quote and generate PDF
   const handleDownloadPDF = async (quoteId: string) => {
@@ -128,6 +145,24 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
           // React Query will automatically refetch
         }}
       />
+
+      {/* Generate from Template Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Generate from Template
+              </CardTitle>
+              <CardDescription>
+                Create contracts, work orders, or custom documents from templates
+              </CardDescription>
+            </div>
+            <GenerateDocumentButton leadId={leadId} />
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Upload Section - Collapsible */}
       <Card>
@@ -226,18 +261,15 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Documents</CardTitle>
-            <Select value={selectedType} onValueChange={(value) => setSelectedType(value as DocumentType | 'all')}>
+            <CardTitle>All Documents</CardTitle>
+            <Select value={selectedType} onValueChange={(value) => setSelectedType(value as 'all' | 'uploaded' | 'generated')}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
+                <SelectValue placeholder="Filter by source" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Documents</SelectItem>
-                {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="uploaded">Uploaded Files</SelectItem>
+                <SelectItem value="generated">Generated Documents</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -249,10 +281,10 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
             <div className="text-center py-12 text-gray-500">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium mb-1">No documents yet</p>
-              <p className="text-sm">Upload your first document to get started</p>
+              <p className="text-sm">Upload or generate your first document to get started</p>
             </div>
           ) : (
-            <DocumentsTable documents={filteredDocuments} leadId={leadId} />
+            <DocumentsTable documents={filteredDocuments} leadId={leadId} router={router} />
           )}
         </CardContent>
       </Card>
@@ -400,10 +432,13 @@ function DocumentUploadForm({ leadId }: { leadId: string }) {
   )
 }
 
-function DocumentsTable({ documents, leadId }: { documents: any[], leadId: string }) {
+function DocumentsTable({ documents, leadId, router }: { documents: any[], leadId: string, router: any }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<any>(null)
   const [emailingDocument, setEmailingDocument] = useState<{ [key: string]: boolean }>({})
+  const [signDialogOpen, setSignDialogOpen] = useState(false)
+  const [documentToSign, setDocumentToSign] = useState<any>(null)
+  const { data: company } = useCurrentCompany()
   const deleteDocument = useDeleteDocument()
 
   const handleDeleteClick = (document: any) => {
@@ -446,11 +481,15 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
     }
   }
 
-  const handleEmailDocument = async (documentId: string) => {
+  const handleEmailDocument = async (documentId: string, isGenerated: boolean = false) => {
     try {
       setEmailingDocument(prev => ({ ...prev, [documentId]: true }))
       
-      const response = await fetch(`/api/documents/${documentId}/send-email`, {
+      const endpoint = isGenerated 
+        ? `/api/generated-documents/${documentId}/send-email`
+        : `/api/documents/${documentId}/send-email`
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
       })
 
@@ -503,34 +542,47 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
           <TableHeader>
             <TableRow>
               <TableHead>Document</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Source</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Uploaded</TableHead>
+              <TableHead>Created</TableHead>
               <TableHead>Size</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {documents.map((document) => (
-              <TableRow key={document.id}>
+            {documents.map((document) => {
+              const isGenerated = document.documentSource === 'generated'
+              const createdAt = isGenerated ? document.created_at : document.uploaded_at
+              
+              return (
+              <TableRow key={`${document.documentSource}-${document.id}`}>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <FileIcon className="h-4 w-4 text-gray-400" />
+                    {isGenerated ? (
+                      <FileSignature className="h-4 w-4 text-blue-500" />
+                    ) : (
+                      <FileIcon className="h-4 w-4 text-gray-400" />
+                    )}
                     <div>
                       <p className="font-medium">{document.title}</p>
                       {document.description && (
                         <p className="text-sm text-gray-500">{document.description}</p>
                       )}
+                      {isGenerated && document.template && (
+                        <p className="text-xs text-gray-400">Template: {document.template.name}</p>
+                      )}
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">
-                    {DOCUMENT_TYPE_LABELS[document.document_type as DocumentType]}
+                  <Badge variant={isGenerated ? "default" : "secondary"}>
+                    {isGenerated ? 'Generated' : 'Uploaded'}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {document.requires_signature && document.signature_status ? (
+                  {isGenerated ? (
+                    getSignatureStatusBadge(document.status)
+                  ) : document.requires_signature && document.signature_status ? (
                     getSignatureStatusBadge(document.signature_status)
                   ) : (
                     <span className="text-gray-400">—</span>
@@ -538,14 +590,14 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">
-                    <p>{formatDistanceToNow(new Date(document.uploaded_at), { addSuffix: true })}</p>
-                    {document.uploaded_by_user && (
+                    <p>{formatDistanceToNow(new Date(createdAt), { addSuffix: true })}</p>
+                    {!isGenerated && document.uploaded_by_user && (
                       <p className="text-gray-500">by {document.uploaded_by_user.full_name}</p>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
-                  {document.file_size ? formatBytes(document.file_size) : '—'}
+                  {!isGenerated && document.file_size ? formatBytes(document.file_size) : '—'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -555,47 +607,92 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={async () => {
-                        const { data: signedUrl, error } = await getDocumentSignedUrl(document.file_url)
-                        if (error || !signedUrl) {
-                          toast.error('Failed to view document')
-                        } else {
-                          window.open(signedUrl, '_blank')
-                        }
-                      }}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownload(document)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleEmailDocument(document.id)}
-                        disabled={emailingDocument[document.id]}
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        {emailingDocument[document.id] ? 'Sending...' : 'Email to Customer'}
-                      </DropdownMenuItem>
-                      {document.visible_to_customer && (
-                        <DropdownMenuItem>
-                          <Share2 className="h-4 w-4 mr-2" />
-                          Share Link
-                        </DropdownMenuItem>
+                      {isGenerated ? (
+                        <>
+                          <DropdownMenuItem onClick={() => {
+                            router.push(`/admin/document-builder/generated/${document.id}`)
+                          }}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Document
+                          </DropdownMenuItem>
+                          {!document.company_signature_data && (
+                            <DropdownMenuItem onClick={() => {
+                              setDocumentToSign(document)
+                              setSignDialogOpen(true)
+                            }}>
+                              <FileSignature className="h-4 w-4 mr-2" />
+                              Company Rep Sign
+                            </DropdownMenuItem>
+                          )}
+                          {document.share_token && (
+                            <DropdownMenuItem onClick={() => {
+                              const shareUrl = `${window.location.origin}/sign/${document.share_token}`
+                              navigator.clipboard.writeText(shareUrl)
+                              toast.success('Share link copied to clipboard')
+                            }}>
+                              <Share2 className="h-4 w-4 mr-2" />
+                              Copy Share Link
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem 
+                            onClick={() => handleEmailDocument(document.id, true)}
+                            disabled={emailingDocument[document.id]}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            {emailingDocument[document.id] ? 'Sending...' : 'Email to Customer'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            toast.info('PDF download coming soon')
+                          }}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download PDF
+                          </DropdownMenuItem>
+                        </>
+                      ) : (
+                        <>
+                          <DropdownMenuItem onClick={async () => {
+                            const { data: signedUrl, error } = await getDocumentSignedUrl(document.file_url)
+                            if (error || !signedUrl) {
+                              toast.error('Failed to view document')
+                            } else {
+                              window.open(signedUrl, '_blank')
+                            }
+                          }}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownload(document)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleEmailDocument(document.id, false)}
+                            disabled={emailingDocument[document.id]}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            {emailingDocument[document.id] ? 'Sending...' : 'Email to Customer'}
+                          </DropdownMenuItem>
+                          {document.visible_to_customer && (
+                            <DropdownMenuItem>
+                              <Share2 className="h-4 w-4 mr-2" />
+                              Share Link
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteClick(document)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteClick(document)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </div>
@@ -619,6 +716,15 @@ function DocumentsTable({ documents, leadId }: { documents: any[], leadId: strin
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {documentToSign && company && (
+        <CompanySignatureDialog
+          open={signDialogOpen}
+          onOpenChange={setSignDialogOpen}
+          documentId={documentToSign.id}
+          companyId={company.id}
+        />
+      )}
     </>
   )
 }

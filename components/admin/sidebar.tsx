@@ -64,6 +64,12 @@ const officeNavigation: NavItem[] = [
     // Everyone can view documents (company isolation via RLS)
   },
   { 
+    name: 'Document Builder', 
+    href: '/admin/document-builder', 
+    icon: FileText,
+    // Everyone can access document builder
+  },
+  { 
     name: 'Reports', 
     href: '/admin/reports', 
     icon: BarChart3,

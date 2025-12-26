@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -8,24 +8,47 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Presentation, FileText, AlertCircle } from 'lucide-react'
-import type { PresentModalConfig, PresentModalSelection, FlowType } from '@/lib/types/presentations'
+import { useActivePresentationTemplates } from '@/lib/hooks/use-presentations'
+import type { FlowType } from '@/lib/types/presentations'
 
 interface PresentModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  config: PresentModalConfig
-  onStartPresentation: (selection: PresentModalSelection) => void
+  companyId: string
+  leadId: string
+  availableEstimates: any[]
+  isOpen: boolean
+  onClose: () => void
+  onStartPresentation: (selection: {
+    templateId: string
+    flowType: FlowType
+    estimateIds: string[]
+  }) => void
 }
 
-export function PresentModal({ open, onOpenChange, config, onStartPresentation }: PresentModalProps) {
-  const { lead_id, available_estimates, available_templates } = config
+export function PresentModal({ 
+  companyId,
+  leadId,
+  availableEstimates,
+  isOpen, 
+  onClose, 
+  onStartPresentation 
+}: PresentModalProps) {
+  const { data: templates, isLoading } = useActivePresentationTemplates(companyId)
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [selectedFlowType, setSelectedFlowType] = useState<FlowType>('retail')
   const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([])
 
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedTemplateId('')
+      setSelectedFlowType('retail')
+      setSelectedEstimateIds([])
+    }
+  }, [isOpen])
+
   // Get the selected template to determine flow options
-  const selectedTemplate = available_templates.find(t => t.id === selectedTemplateId)
+  const selectedTemplate = templates?.find(t => t.id === selectedTemplateId)
 
   // Determine available flow types based on template
   const availableFlows: FlowType[] = selectedTemplate
@@ -40,13 +63,11 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
   const handleStartPresentation = () => {
     if (!canStartPresentation) return
 
-    const selection: PresentModalSelection = {
-      template_id: selectedTemplateId,
-      flow_type: selectedFlowType,
-      estimate_ids: selectedEstimateIds,
-    }
-
-    onStartPresentation(selection)
+    onStartPresentation({
+      templateId: selectedTemplateId,
+      flowType: selectedFlowType,
+      estimateIds: selectedEstimateIds,
+    })
   }
 
   const toggleEstimate = (estimateId: string) => {
@@ -58,7 +79,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -78,7 +99,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
           {/* Template Selection */}
           <div className="space-y-3">
             <Label>Presentation Template</Label>
-            {available_templates.length === 0 ? (
+            {!templates || templates.length === 0 ? (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -87,7 +108,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
               </Alert>
             ) : (
               <RadioGroup value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                {available_templates.map(template => (
+                {templates.map(template => (
                   <div key={template.id} className="flex items-center space-x-2">
                     <RadioGroupItem value={template.id} id={template.id} />
                     <Label htmlFor={template.id} className="flex-1 cursor-pointer">
@@ -148,7 +169,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
           {selectedTemplateId && selectedFlowType === 'retail' && (
             <div className="space-y-3">
               <Label>Select Estimates to Present</Label>
-              {available_estimates.length === 0 ? (
+              {availableEstimates.length === 0 ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
@@ -157,7 +178,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
                 </Alert>
               ) : (
                 <div className="space-y-2 rounded-lg border p-4">
-                  {available_estimates.map(estimate => (
+                  {availableEstimates.map(estimate => (
                     <div key={estimate.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={estimate.id}
@@ -179,7 +200,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
                   ))}
                 </div>
               )}
-              {selectedEstimateIds.length === 0 && available_estimates.length > 0 && (
+              {selectedEstimateIds.length === 0 && availableEstimates.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   Select 1-3 estimates to display as Good/Better/Best options
                 </p>
@@ -199,7 +220,7 @@ export function PresentModal({ open, onOpenChange, config, onStartPresentation }
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={handleStartPresentation} disabled={!canStartPresentation}>

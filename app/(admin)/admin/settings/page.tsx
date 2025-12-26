@@ -6,7 +6,8 @@ import { CompanySettingsForm } from '@/components/admin/settings/company-setting
 import { UnifiedTemplatesSettings } from '@/components/admin/settings/unified-templates-settings'
 import { MaterialsSettings } from '@/components/admin/settings/materials-settings'
 import { SuppliersSettings } from '@/components/admin/settings/suppliers-settings'
-import { Building2, ClipboardList, Package, Truck } from 'lucide-react'
+import { PresentationTemplatesSettings } from '@/components/admin/settings/presentation-templates-settings'
+import { Building2, ClipboardList, Package, Truck, Presentation } from 'lucide-react'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('company')
@@ -34,6 +35,10 @@ export default function SettingsPage() {
             <ClipboardList className="h-4 w-4" />
             Templates
           </TabsTrigger>
+          <TabsTrigger value="presentations" className="flex items-center gap-2">
+            <Presentation className="h-4 w-4" />
+            Presentations
+          </TabsTrigger>
           <TabsTrigger value="suppliers" className="flex items-center gap-2">
             <Truck className="h-4 w-4" />
             Suppliers
@@ -50,6 +55,10 @@ export default function SettingsPage() {
 
         <TabsContent value="templates" className="space-y-4">
           <UnifiedTemplatesSettings />
+        </TabsContent>
+
+        <TabsContent value="presentations" className="space-y-4">
+          <PresentationTemplatesSettings />
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-4">

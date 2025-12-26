@@ -54,7 +54,6 @@ import { PresentModal } from '@/components/admin/presentations/present-modal'
 import { PresentationOverlay } from '@/components/admin/presentations/presentation-overlay'
 import { useStartPresentation, useActivePresentationTemplates, useCompletePresentationSession } from '@/lib/hooks/use-presentations'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
-import { useAuth } from '@/lib/hooks/use-auth'
 import type { PresentationDeck, PricingOption } from '@/lib/types/presentations'
 
 interface EstimatesTabProps {
@@ -208,6 +207,7 @@ export function EstimatesTab({
     }
 
     try {
+      console.log('Starting presentation with:', selection)
       const result = await startPresentation.mutateAsync({
         companyId: company.id,
         templateId: selection.templateId,
@@ -217,10 +217,18 @@ export function EstimatesTab({
         presentedBy: user.id,
       })
 
+      console.log('Presentation result:', result)
+
       if (result.data) {
+        console.log('Setting deck and session:', {
+          deck: result.data.deck,
+          sessionId: result.data.session_id || result.data.session?.id
+        })
         setActivePresentationDeck(result.data.deck)
-        setActiveSessionId(result.data.session_id)
+        setActiveSessionId(result.data.session_id || result.data.session?.id)
         setIsPresentModalOpen(false)
+      } else {
+        console.error('No data in result:', result)
       }
     } catch (error) {
       console.error('Failed to start presentation:', error)

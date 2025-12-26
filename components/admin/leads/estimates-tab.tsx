@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Plus, FileText, Mail, Download, Check, X, Copy, Trash2, Link as LinkIcon, ExternalLink, PenTool, Lock, Unlock, FileDown, AlertCircle, TrendingUp, TrendingDown, Edit3, Loader2, CheckCircle } from 'lucide-react'
+import { Plus, FileText, Mail, Download, Check, X, Copy, Trash2, Link as LinkIcon, ExternalLink, PenTool, Lock, Unlock, FileDown, AlertCircle, TrendingUp, TrendingDown, Edit3, Loader2, CheckCircle, Presentation } from 'lucide-react'
 import { QuoteStatus } from '@/lib/types/quotes'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { format } from 'date-fns'
@@ -50,6 +50,12 @@ import { GenerateChangeOrderDialog } from './generate-change-order-dialog'
 import { useLeadMeasurements } from '@/lib/hooks/use-measurements'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { compareQuoteToContract } from '@/lib/api/contracts'
+import { PresentModal } from '@/components/admin/presentations/present-modal'
+import { PresentationOverlay } from '@/components/admin/presentations/presentation-overlay'
+import { useStartPresentation, useActivePresentationTemplates, useCompletePresentationSession } from '@/lib/hooks/use-presentations'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { useAuth } from '@/lib/hooks/use-auth'
+import type { PresentationDeck, PricingOption } from '@/lib/types/presentations'
 
 interface EstimatesTabProps {
   leadId: string
@@ -97,6 +103,15 @@ export function EstimatesTab({
     changeDescription: string
   } | null>(null)
   const queryClient = useQueryClient()
+
+  // Presentation state
+  const [isPresentModalOpen, setIsPresentModalOpen] = useState(false)
+  const [activePresentationDeck, setActivePresentationDeck] = useState<PresentationDeck | null>(null)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const { data: company } = useCurrentCompany()
+  const { user } = useAuth()
+  const startPresentation = useStartPresentation()
+  const completeSession = useCompletePresentationSession()
 
   // Real-time subscription for quote and change order updates
   useEffect(() => {
@@ -178,6 +193,65 @@ export function EstimatesTab({
     } catch (error) {
       console.error('Download PDF error:', error)
       toast.error('Failed to download PDF')
+    }
+  }
+
+  // Handle starting a presentation
+  const handleStartPresentation = async (selection: {
+    templateId: string
+    flowType: 'retail' | 'insurance'
+    estimateIds: string[]
+  }) => {
+    if (!company || !user) {
+      toast.error('Authentication required')
+      return
+    }
+
+    try {
+      const result = await startPresentation.mutateAsync({
+        companyId: company.id,
+        templateId: selection.templateId,
+        leadId,
+        flowType: selection.flowType,
+        estimateIds: selection.estimateIds,
+        presentedBy: user.id,
+      })
+
+      if (result.data) {
+        setActivePresentationDeck(result.data.deck)
+        setActiveSessionId(result.data.session_id)
+        setIsPresentModalOpen(false)
+      }
+    } catch (error) {
+      console.error('Failed to start presentation:', error)
+      toast.error('Failed to start presentation')
+    }
+  }
+
+  // Handle closing presentation
+  const handleClosePresentation = () => {
+    setActivePresentationDeck(null)
+    setActiveSessionId(null)
+  }
+
+  // Handle presentation completion (proceed to signing)
+  const handleCompletePresentation = async (selectedEstimateId?: string, selectedOption?: PricingOption) => {
+    if (activeSessionId) {
+      await completeSession.mutateAsync({
+        sessionId: activeSessionId,
+        contractSigned: false,
+      })
+    }
+
+    // Close overlay
+    handleClosePresentation()
+
+    // Show success message
+    if (selectedEstimateId && selectedOption) {
+      toast.success(`Customer selected ${selectedOption.toUpperCase()} option. Proceeding to contract signing...`)
+      // TODO: Phase 3 - Navigate to contract signing with selected estimate and option
+    } else {
+      toast.info('Presentation completed')
     }
   }
 
@@ -280,6 +354,14 @@ export function EstimatesTab({
             )}
           </div>
           <div className="flex gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => setIsPresentModalOpen(true)}
+              disabled={!quotes || quotes.length === 0}
+            >
+              <Presentation className="h-4 w-4 mr-2" />
+              Present
+            </Button>
             <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Estimate
@@ -347,6 +429,28 @@ export function EstimatesTab({
         existingQuote={editingQuoteData}
         initialTemplateId={selectedTemplateId}
       />
+
+      {/* Presentation Modal */}
+      {company && (
+        <PresentModal
+          companyId={company.id}
+          leadId={leadId}
+          availableEstimates={quotes || []}
+          isOpen={isPresentModalOpen}
+          onClose={() => setIsPresentModalOpen(false)}
+          onStartPresentation={handleStartPresentation}
+        />
+      )}
+
+      {/* Presentation Overlay */}
+      {activePresentationDeck && activeSessionId && (
+        <PresentationOverlay
+          sessionId={activeSessionId}
+          deck={activePresentationDeck}
+          onClose={handleClosePresentation}
+          onComplete={handleCompletePresentation}
+        />
+      )}
     </>
   )
 }

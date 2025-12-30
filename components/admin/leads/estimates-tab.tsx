@@ -177,7 +177,8 @@ export function EstimatesTab({
         .select(`
           *,
           line_items:quote_line_items(*),
-          lead:leads(id, full_name, email, phone, address, city, state, zip)
+          lead:leads(id, full_name, email, phone, address, city, state, zip),
+          company:companies(*)
         `)
         .eq('id', quoteId)
         .single()
@@ -1164,7 +1165,7 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               </>
             )}
 
-            {quote.status === 'sent' && (
+            {(quote.status === 'sent' || quote.status === 'viewed') && (
               <>
                 <Button
                   size="sm"
@@ -1193,7 +1194,7 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               </>
             )}
 
-            {(quote.status === 'sent' || quote.status === 'pending_company_signature' || quote.status === 'pending_customer_signature') && (
+            {(quote.status === 'sent' || quote.status === 'viewed' || quote.status === 'pending_company_signature' || quote.status === 'pending_customer_signature') && (
               <>
                 <Button
                   size="sm"

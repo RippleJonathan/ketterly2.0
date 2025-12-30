@@ -72,10 +72,23 @@ export function CompanySettingsForm() {
     contact_phone: '',
     contact_email: '',
     logo_url: '',
+    license_number: '',
     replacement_warranty_years: 10,
     repair_warranty_years: 1,
     contract_terms: '',
     tax_rate: 0,
+    financing_option_1_name: 'Standard Financing',
+    financing_option_1_months: 60,
+    financing_option_1_apr: 7.99,
+    financing_option_1_enabled: false,
+    financing_option_2_name: 'Premium Financing',
+    financing_option_2_months: 120,
+    financing_option_2_apr: 6.99,
+    financing_option_2_enabled: false,
+    financing_option_3_name: 'No Interest (Promo)',
+    financing_option_3_months: 12,
+    financing_option_3_apr: 0,
+    financing_option_3_enabled: false,
   })
 
   useEffect(() => {
@@ -91,10 +104,23 @@ export function CompanySettingsForm() {
         contact_phone: company.contact_phone || '',
         contact_email: company.contact_email || '',
         logo_url: company.logo_url || '',
+        license_number: company.license_number || '',
         replacement_warranty_years: company.replacement_warranty_years || 10,
         repair_warranty_years: company.repair_warranty_years || 1,
         contract_terms: company.contract_terms || '',
         tax_rate: company.tax_rate || 0,
+        financing_option_1_name: company.financing_option_1_name || 'Standard Financing',
+        financing_option_1_months: company.financing_option_1_months || 60,
+        financing_option_1_apr: company.financing_option_1_apr || 7.99,
+        financing_option_1_enabled: company.financing_option_1_enabled || false,
+        financing_option_2_name: company.financing_option_2_name || 'Premium Financing',
+        financing_option_2_months: company.financing_option_2_months || 120,
+        financing_option_2_apr: company.financing_option_2_apr || 6.99,
+        financing_option_2_enabled: company.financing_option_2_enabled || false,
+        financing_option_3_name: company.financing_option_3_name || 'No Interest (Promo)',
+        financing_option_3_months: company.financing_option_3_months || 12,
+        financing_option_3_apr: company.financing_option_3_apr || 0,
+        financing_option_3_enabled: company.financing_option_3_enabled || false,
       })
     }
   }, [company])
@@ -255,6 +281,7 @@ export function CompanySettingsForm() {
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="financing">Financing Options</TabsTrigger>
           <TabsTrigger value="contract">Contract Terms</TabsTrigger>
         </TabsList>
 
@@ -393,6 +420,16 @@ export function CompanySettingsForm() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="license_number">License Number</Label>
+                  <Input
+                    id="license_number"
+                    value={formData.license_number}
+                    onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+                    placeholder="e.g., TX-123456"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="replacement_warranty_years">Replacement Warranty (Years)</Label>
                   <Input
                     id="replacement_warranty_years"
@@ -452,6 +489,169 @@ export function CompanySettingsForm() {
                     </Button>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="financing" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Financing Options</CardTitle>
+              <CardDescription>
+                Configure up to 3 financing options to display on quotes. Enable/disable options as needed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Financing Option 1 */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">Financing Option 1</h3>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.financing_option_1_enabled}
+                      onChange={(e) => setFormData({ ...formData, financing_option_1_enabled: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-muted-foreground">Show on quotes</span>
+                  </label>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_1_name">Option Name</Label>
+                    <Input
+                      id="financing_option_1_name"
+                      value={formData.financing_option_1_name}
+                      onChange={(e) => setFormData({ ...formData, financing_option_1_name: e.target.value })}
+                      placeholder="Standard Financing"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_1_months">Term (Months)</Label>
+                    <Input
+                      id="financing_option_1_months"
+                      type="number"
+                      min="1"
+                      value={formData.financing_option_1_months}
+                      onChange={(e) => setFormData({ ...formData, financing_option_1_months: parseInt(e.target.value) || 60 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_1_apr">APR (%)</Label>
+                    <Input
+                      id="financing_option_1_apr"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.financing_option_1_apr}
+                      onChange={(e) => setFormData({ ...formData, financing_option_1_apr: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financing Option 2 */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">Financing Option 2</h3>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.financing_option_2_enabled}
+                      onChange={(e) => setFormData({ ...formData, financing_option_2_enabled: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-muted-foreground">Show on quotes</span>
+                  </label>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_2_name">Option Name</Label>
+                    <Input
+                      id="financing_option_2_name"
+                      value={formData.financing_option_2_name}
+                      onChange={(e) => setFormData({ ...formData, financing_option_2_name: e.target.value })}
+                      placeholder="Premium Financing"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_2_months">Term (Months)</Label>
+                    <Input
+                      id="financing_option_2_months"
+                      type="number"
+                      min="1"
+                      value={formData.financing_option_2_months}
+                      onChange={(e) => setFormData({ ...formData, financing_option_2_months: parseInt(e.target.value) || 120 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_2_apr">APR (%)</Label>
+                    <Input
+                      id="financing_option_2_apr"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.financing_option_2_apr}
+                      onChange={(e) => setFormData({ ...formData, financing_option_2_apr: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financing Option 3 */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium">Financing Option 3</h3>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.financing_option_3_enabled}
+                      onChange={(e) => setFormData({ ...formData, financing_option_3_enabled: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-muted-foreground">Show on quotes</span>
+                  </label>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_3_name">Option Name</Label>
+                    <Input
+                      id="financing_option_3_name"
+                      value={formData.financing_option_3_name}
+                      onChange={(e) => setFormData({ ...formData, financing_option_3_name: e.target.value })}
+                      placeholder="No Interest (Promo)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_3_months">Term (Months)</Label>
+                    <Input
+                      id="financing_option_3_months"
+                      type="number"
+                      min="1"
+                      value={formData.financing_option_3_months}
+                      onChange={(e) => setFormData({ ...formData, financing_option_3_months: parseInt(e.target.value) || 12 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="financing_option_3_apr">APR (%)</Label>
+                    <Input
+                      id="financing_option_3_apr"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.financing_option_3_apr}
+                      onChange={(e) => setFormData({ ...formData, financing_option_3_apr: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">
+                  💡 <strong>Tip:</strong> Monthly payment will be calculated and displayed on quotes as "Only $XXX/month W.A.C." 
+                  Enable the options you want to show, and they'll appear automatically.
+                </p>
               </div>
             </CardContent>
           </Card>

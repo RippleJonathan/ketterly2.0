@@ -300,6 +300,16 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
     }).format(amount)
   }
 
+  // Calculate monthly payment for financing
+  const calculateMonthlyPayment = (principal: number, annualRate: number, months: number) => {
+    if (annualRate === 0) {
+      return principal / months
+    }
+    const monthlyRate = annualRate / 100 / 12
+    const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1)
+    return payment
+  }
+
   // Calculate subtotal from line items (most reliable source)
   const calculatedSubtotal = quote.line_items?.reduce((sum, item) => sum + item.line_total, 0) || 0
   
@@ -331,6 +341,9 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
             )}
             {companyEmail && (
               <Text style={styles.companyDetails}>Email: {companyEmail}</Text>
+            )}
+            {quote.company?.license_number && (
+              <Text style={styles.companyDetails}>License: {quote.company.license_number}</Text>
             )}
           </View>
           <View style={styles.headerColumn}>
@@ -564,6 +577,51 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
             )}
           </View>
         </View>
+
+        {/* Financing Options */}
+        {quote.company && (quote.company.financing_option_1_enabled || quote.company.financing_option_2_enabled || quote.company.financing_option_3_enabled) && (
+          <View style={{ marginTop: 15, padding: 10, backgroundColor: '#f0f8ff', border: '1px solid #4a90e2', borderRadius: 4 }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 8, color: '#1e3a8a' }}>💳 Financing Options Available</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {quote.company.financing_option_1_enabled && (
+                <View style={{ flex: 1, padding: 6, backgroundColor: '#fff', borderRadius: 3, border: '1px solid #e0e0e0' }}>
+                  <Text style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 2 }}>{quote.company.financing_option_1_name}</Text>
+                  <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2e7d32' }}>
+                    Only ${calculateMonthlyPayment(displayTotal, quote.company.financing_option_1_apr, quote.company.financing_option_1_months).toFixed(2)}/month
+                  </Text>
+                  <Text style={{ fontSize: 6, color: '#666', marginTop: 2 }}>
+                    {quote.company.financing_option_1_months} months @ {quote.company.financing_option_1_apr}% APR
+                  </Text>
+                </View>
+              )}
+              {quote.company.financing_option_2_enabled && (
+                <View style={{ flex: 1, padding: 6, backgroundColor: '#fff', borderRadius: 3, border: '1px solid #e0e0e0' }}>
+                  <Text style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 2 }}>{quote.company.financing_option_2_name}</Text>
+                  <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2e7d32' }}>
+                    Only ${calculateMonthlyPayment(displayTotal, quote.company.financing_option_2_apr, quote.company.financing_option_2_months).toFixed(2)}/month
+                  </Text>
+                  <Text style={{ fontSize: 6, color: '#666', marginTop: 2 }}>
+                    {quote.company.financing_option_2_months} months @ {quote.company.financing_option_2_apr}% APR
+                  </Text>
+                </View>
+              )}
+              {quote.company.financing_option_3_enabled && (
+                <View style={{ flex: 1, padding: 6, backgroundColor: '#fff', borderRadius: 3, border: '1px solid #e0e0e0' }}>
+                  <Text style={{ fontSize: 8, fontWeight: 'bold', marginBottom: 2 }}>{quote.company.financing_option_3_name}</Text>
+                  <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2e7d32' }}>
+                    Only ${calculateMonthlyPayment(displayTotal, quote.company.financing_option_3_apr, quote.company.financing_option_3_months).toFixed(2)}/month
+                  </Text>
+                  <Text style={{ fontSize: 6, color: '#666', marginTop: 2 }}>
+                    {quote.company.financing_option_3_months} months @ {quote.company.financing_option_3_apr}% APR
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ fontSize: 6, color: '#666', marginTop: 6, textAlign: 'center', fontStyle: 'italic' }}>
+              *W.A.C. (With Approved Credit). Financing subject to credit approval. Contact us for details.
+            </Text>
+          </View>
+        )}
 
         {/* Payment Terms */}
         {quote.payment_terms && (

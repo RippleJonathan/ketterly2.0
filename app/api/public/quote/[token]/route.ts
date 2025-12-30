@@ -18,7 +18,34 @@ export async function GET(
         line_items:quote_line_items(*),
         lead:leads(id, full_name, email, phone, address, city, state, zip),
         signature:quote_signatures!quote_signatures_quote_id_fkey(*),
-        company:companies(id, name, contract_terms, logo_url, primary_color, replacement_warranty_years, repair_warranty_years, contact_email, contact_phone, address, city, state, zip)
+        company:companies(
+          id, 
+          name, 
+          contract_terms, 
+          logo_url, 
+          primary_color, 
+          replacement_warranty_years, 
+          repair_warranty_years, 
+          contact_email, 
+          contact_phone, 
+          address, 
+          city, 
+          state, 
+          zip, 
+          license_number,
+          financing_option_1_name,
+          financing_option_1_months,
+          financing_option_1_apr,
+          financing_option_1_enabled,
+          financing_option_2_name,
+          financing_option_2_months,
+          financing_option_2_apr,
+          financing_option_2_enabled,
+          financing_option_3_name,
+          financing_option_3_months,
+          financing_option_3_apr,
+          financing_option_3_enabled
+        )
       `)
       .eq('share_token', token)
       .is('deleted_at', null)
@@ -35,6 +62,14 @@ export async function GET(
     }
 
     const quoteData = quote as any
+
+    // Debug: Log financing options
+    console.log('Company financing options:', {
+      option1_enabled: quoteData.company?.financing_option_1_enabled,
+      option2_enabled: quoteData.company?.financing_option_2_enabled,
+      option3_enabled: quoteData.company?.financing_option_3_enabled,
+      option1_name: quoteData.company?.financing_option_1_name,
+    })
 
     // Check if link is expired
     if (quoteData.share_link_expires_at && new Date(quoteData.share_link_expires_at) < new Date()) {

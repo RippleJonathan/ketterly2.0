@@ -282,6 +282,19 @@ export interface PresentationDeck {
   company_email: string | null
   company_phone: string | null
   company_address: string | null
+  company_license_number: string | null
+  company_financing_option_1_name: string | null
+  company_financing_option_1_months: number | null
+  company_financing_option_1_apr: number | null
+  company_financing_option_1_enabled: boolean | null
+  company_financing_option_2_name: string | null
+  company_financing_option_2_months: number | null
+  company_financing_option_2_apr: number | null
+  company_financing_option_2_enabled: boolean | null
+  company_financing_option_3_name: string | null
+  company_financing_option_3_months: number | null
+  company_financing_option_3_apr: number | null
+  company_financing_option_3_enabled: boolean | null
 }
 
 // =============================================

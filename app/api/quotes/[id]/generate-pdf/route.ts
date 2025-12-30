@@ -84,6 +84,7 @@ export async function GET(
       ...quote,
       line_items: lineItems,
       lead: lead,
+      company: company, // Add full company object for financing options
     }
 
     // Generate PDF using React PDF template (same as client-side download)

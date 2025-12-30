@@ -42,7 +42,20 @@ export function useCurrentCompany() {
             contract_terms,
             replacement_warranty_years,
             repair_warranty_years,
-            tax_rate
+            tax_rate,
+            license_number,
+            financing_option_1_name,
+            financing_option_1_months,
+            financing_option_1_apr,
+            financing_option_1_enabled,
+            financing_option_2_name,
+            financing_option_2_months,
+            financing_option_2_apr,
+            financing_option_2_enabled,
+            financing_option_3_name,
+            financing_option_3_months,
+            financing_option_3_apr,
+            financing_option_3_enabled
           )
         `)
         .eq('id', user.id)

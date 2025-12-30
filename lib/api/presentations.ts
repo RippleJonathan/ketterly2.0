@@ -441,6 +441,18 @@ export async function getPresentationDeck(
     return { data: null, error }
   }
 
+  // Debug: Log financing options from deck
+  if (data) {
+    console.log('Presentation deck financing options:', {
+      option1_enabled: data.company_financing_option_1_enabled,
+      option2_enabled: data.company_financing_option_2_enabled,
+      option3_enabled: data.company_financing_option_3_enabled,
+      option1_name: data.company_financing_option_1_name,
+      option1_months: data.company_financing_option_1_months,
+      option1_apr: data.company_financing_option_1_apr,
+    })
+  }
+
   return { data: data as PresentationDeck, error: null }
 }
 

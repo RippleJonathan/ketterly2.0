@@ -56,14 +56,14 @@ export function ClosingSlide({ slide, deck, onComplete }: ClosingSlideProps) {
           </p>
         )}
 
-        {/* CTA Button */}
+        {/* CTA Button - Mobile Optimized */}
         <div className="pt-8">
           <Button
             size="lg"
-            className="bg-white text-gray-900 hover:bg-white/90 text-xl px-12 py-6 h-auto"
+            className="bg-white text-gray-900 hover:bg-white/90 text-lg md:text-xl px-8 md:px-12 py-5 md:py-6 h-auto min-h-[56px] touch-manipulation active:scale-95 transition-transform"
             onClick={onComplete}
           >
-            <FileSignature className="h-6 w-6 mr-3" />
+            <FileSignature className="h-5 w-5 md:h-6 md:w-6 mr-2 md:mr-3" />
             {content.cta_text || 'Proceed to Contract Signing'}
           </Button>
         </div>

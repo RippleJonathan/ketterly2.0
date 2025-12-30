@@ -40,6 +40,19 @@ interface Company {
   contract_terms: string | null
   replacement_warranty_years?: number
   repair_warranty_years?: number
+  license_number?: string | null
+  financing_option_1_name?: string
+  financing_option_1_months?: number
+  financing_option_1_apr?: number
+  financing_option_1_enabled?: boolean
+  financing_option_2_name?: string
+  financing_option_2_months?: number
+  financing_option_2_apr?: number
+  financing_option_2_enabled?: boolean
+  financing_option_3_name?: string
+  financing_option_3_months?: number
+  financing_option_3_apr?: number
+  financing_option_3_enabled?: boolean
 }
 
 interface Signature {
@@ -210,6 +223,7 @@ export default function PublicQuotePage() {
                 {company?.city && <div>{company.city}, {company.state} {company.zip}</div>}
                 {company?.contact_email && <div>{company.contact_email}</div>}
                 {company?.contact_phone && <div>{company.contact_phone}</div>}
+                {company?.license_number && <div className="font-medium">License: {company.license_number}</div>}
               </div>
             </div>
             <div className="text-right">
@@ -313,6 +327,77 @@ export default function PublicQuotePage() {
               </div>
             </div>
           </div>
+
+          {/* Financing Options */}
+          {company && (company.financing_option_1_enabled || company.financing_option_2_enabled || company.financing_option_3_enabled) && (
+            <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">
+                💳 Flexible Financing Available
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {company.financing_option_1_enabled && (
+                  <div className="bg-white rounded-lg p-4 border-2 border-blue-100 hover:border-blue-300 transition-colors">
+                    <div className="text-sm font-medium text-gray-600 mb-2">{company.financing_option_1_name}</div>
+                    <div className="text-3xl font-bold text-green-600 mb-2">
+                      ${(() => {
+                        const apr = company.financing_option_1_apr || 0
+                        const months = company.financing_option_1_months || 60
+                        const principal = quote.total_amount
+                        if (apr === 0) return (principal / months).toFixed(2)
+                        const monthlyRate = apr / 100 / 12
+                        const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1)
+                        return payment.toFixed(2)
+                      })()}<span className="text-lg">/mo</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {company.financing_option_1_months} months @ {company.financing_option_1_apr}% APR
+                    </div>
+                  </div>
+                )}
+                {company.financing_option_2_enabled && (
+                  <div className="bg-white rounded-lg p-4 border-2 border-blue-100 hover:border-blue-300 transition-colors">
+                    <div className="text-sm font-medium text-gray-600 mb-2">{company.financing_option_2_name}</div>
+                    <div className="text-3xl font-bold text-green-600 mb-2">
+                      ${(() => {
+                        const apr = company.financing_option_2_apr || 0
+                        const months = company.financing_option_2_months || 120
+                        const principal = quote.total_amount
+                        if (apr === 0) return (principal / months).toFixed(2)
+                        const monthlyRate = apr / 100 / 12
+                        const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1)
+                        return payment.toFixed(2)
+                      })()}<span className="text-lg">/mo</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {company.financing_option_2_months} months @ {company.financing_option_2_apr}% APR
+                    </div>
+                  </div>
+                )}
+                {company.financing_option_3_enabled && (
+                  <div className="bg-white rounded-lg p-4 border-2 border-blue-100 hover:border-blue-300 transition-colors">
+                    <div className="text-sm font-medium text-gray-600 mb-2">{company.financing_option_3_name}</div>
+                    <div className="text-3xl font-bold text-green-600 mb-2">
+                      ${(() => {
+                        const apr = company.financing_option_3_apr || 0
+                        const months = company.financing_option_3_months || 12
+                        const principal = quote.total_amount
+                        if (apr === 0) return (principal / months).toFixed(2)
+                        const monthlyRate = apr / 100 / 12
+                        const payment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1)
+                        return payment.toFixed(2)
+                      })()}<span className="text-lg">/mo</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {company.financing_option_3_months} months @ {company.financing_option_3_apr}% APR
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="text-center text-sm text-gray-500 mt-4 italic">
+                *W.A.C. (With Approved Credit) - Financing subject to credit approval. Contact us for details.
+              </p>
+            </div>
+          )}
 
           {/* Terms */}
           {(quote.payment_terms || contractTerms) && (

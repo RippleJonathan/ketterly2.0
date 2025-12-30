@@ -130,10 +130,15 @@ export async function getQuotes(
     if (error) throw error
 
     // Sort line items by sort_order for each quote
+    // Also fix total field to use total_amount (column mismatch)
     if (data) {
       data.forEach((quote: any) => {
         if (quote.line_items) {
           quote.line_items.sort((a: QuoteLineItem, b: QuoteLineItem) => a.sort_order - b.sort_order)
+        }
+        // Fix: Use total_amount if total is 0 or null (database schema inconsistency)
+        if (quote.total_amount && (!quote.total || quote.total === 0)) {
+          quote.total = quote.total_amount
         }
       })
     }

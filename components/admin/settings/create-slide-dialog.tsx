@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import {
   Select,
   SelectContent,
@@ -178,15 +179,28 @@ export function CreateSlideDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              placeholder="Enter slide content (you can edit this later in more detail)"
-              rows={6}
-              {...form.register('content')}
-            />
+            <Label htmlFor="content">
+              {form.watch('slideType') === 'static' ? 'Slide Content' : 'Content'}
+            </Label>
+            {form.watch('slideType') === 'static' ? (
+              <RichTextEditor
+                content={form.watch('content')}
+                onChange={(html) => form.setValue('content', html)}
+                placeholder="Enter your slide content with rich formatting..."
+              />
+            ) : (
+              <Textarea
+                id="content"
+                placeholder="Enter slide content (you can edit this later in more detail)"
+                rows={6}
+                {...form.register('content')}
+              />
+            )}
             <p className="text-xs text-muted-foreground">
-              Basic content for now. You'll be able to add rich content, images, and formatting after creating the slide.
+              {form.watch('slideType') === 'static' 
+                ? 'Use the toolbar above to format your content with headings, lists, bold, italic, and more.'
+                : 'Basic content for now. You\'ll be able to add rich content, images, and formatting after creating the slide.'
+              }
             </p>
           </div>
 

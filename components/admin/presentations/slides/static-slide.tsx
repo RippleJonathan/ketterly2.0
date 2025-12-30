@@ -18,6 +18,7 @@ export function StaticSlide({ slide }: StaticSlideProps) {
     title?: string
     body?: string
     background_image?: string
+    background_color?: string
     text_color?: string
     alignment?: 'left' | 'center' | 'right'
   }
@@ -26,6 +27,7 @@ export function StaticSlide({ slide }: StaticSlideProps) {
     <div
       className="relative w-full h-full flex items-center justify-center p-12"
       style={{
+        backgroundColor: content.background_color || '#1f2937',
         backgroundImage: content.background_image
           ? `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${content.background_image})`
           : undefined,

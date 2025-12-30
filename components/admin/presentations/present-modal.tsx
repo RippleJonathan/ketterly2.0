@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Presentation, FileText, AlertCircle } from 'lucide-react'
+import { Presentation, FileText, AlertCircle, Loader2 } from 'lucide-react'
 import { useActivePresentationTemplates } from '@/lib/hooks/use-presentations'
 import type { FlowType } from '@/lib/types/presentations'
 
@@ -37,6 +37,7 @@ export function PresentModal({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [selectedFlowType, setSelectedFlowType] = useState<FlowType>('retail')
   const [selectedEstimateIds, setSelectedEstimateIds] = useState<string[]>([])
+  const [isStarting, setIsStarting] = useState(false)
 
   // Reset state when modal opens
   useEffect(() => {
@@ -44,6 +45,7 @@ export function PresentModal({
       setSelectedTemplateId('')
       setSelectedFlowType('retail')
       setSelectedEstimateIds([])
+      setIsStarting(false)
     }
   }, [isOpen])
 
@@ -61,8 +63,9 @@ export function PresentModal({
     (selectedFlowType === 'insurance' || selectedEstimateIds.length > 0)
 
   const handleStartPresentation = () => {
-    if (!canStartPresentation) return
+    if (!canStartPresentation || isStarting) return
 
+    setIsStarting(true)
     onStartPresentation({
       templateId: selectedTemplateId,
       flowType: selectedFlowType,
@@ -220,12 +223,21 @@ export function PresentModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isStarting}>
             Cancel
           </Button>
-          <Button onClick={handleStartPresentation} disabled={!canStartPresentation}>
-            <Presentation className="mr-2 h-4 w-4" />
-            Start Presentation
+          <Button onClick={handleStartPresentation} disabled={!canStartPresentation || isStarting}>
+            {isStarting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <Presentation className="mr-2 h-4 w-4" />
+                Start Presentation
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -58,9 +58,10 @@ export function CompanyInfoSlide({ slide, deck }: CompanyInfoSlideProps) {
           </h2>
         )}
 
-        {/* Contact Information */}
-        {content.show_contact && (
+        {/* Contact Information - Always show if any info exists */}
+        {(content.show_contact || deck.company_phone || deck.company_email || deck.company_address || deck.company_license_number) && (
           <div className="mt-12 bg-white/10 backdrop-blur-sm rounded-xl p-8">
+            <h3 className="text-2xl font-bold text-white mb-6 text-center">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white">
               {deck.company_phone && (
                 <div className="flex items-center justify-center gap-3">
@@ -78,6 +79,12 @@ export function CompanyInfoSlide({ slide, deck }: CompanyInfoSlideProps) {
                 <div className="flex items-center justify-center gap-3 md:col-span-2">
                   <MapPin className="h-5 w-5" />
                   <span className="text-lg">{deck.company_address}</span>
+                </div>
+              )}
+              {deck.company_license_number && (
+                <div className="flex items-center justify-center gap-3 md:col-span-2">
+                  <Globe className="h-5 w-5" />
+                  <span className="text-lg">License: {deck.company_license_number}</span>
                 </div>
               )}
             </div>

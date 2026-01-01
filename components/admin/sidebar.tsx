@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { 
   LayoutDashboard, 
   Users, 
+  Users2,
   UserCog,
   Calendar,
   Settings,
@@ -16,13 +17,15 @@ import {
   DollarSign,
   BarChart3,
   User,
-  FolderOpen
+  FolderOpen,
+  MapPin
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { DynamicSidebarHeader } from './dynamic-sidebar-header'
 import { useCheckPermission } from '@/lib/hooks/use-permissions'
+import { useManagedLocations } from '@/lib/hooks/use-location-admin'
 
 interface NavItem {
   name: string
@@ -64,33 +67,11 @@ const officeNavigation: NavItem[] = [
     // Everyone can view documents (company isolation via RLS)
   },
   { 
-    name: 'Document Builder', 
-    href: '/admin/document-builder', 
-    icon: FileText,
-    // Everyone can access document builder
-  },
-  { 
     name: 'Reports', 
     href: '/admin/reports', 
     icon: BarChart3,
     // No permission check for now - everyone can see reports
     comingSoon: true
-  },
-]
-
-// Admin navigation
-const adminNavigation: NavItem[] = [
-  { 
-    name: 'Users', 
-    href: '/admin/users', 
-    icon: UserCog,
-    permission: 'can_view_users'
-  },
-  { 
-    name: 'Commission Plans', 
-    href: '/admin/settings/commission-plans', 
-    icon: CreditCard,
-    roles: ['admin', 'office'] // Use roles instead of can_manage_settings
   },
 ]
 
@@ -103,16 +84,34 @@ const settingsNavigation: NavItem[] = [
     // Everyone can access their own profile
   },
   { 
+    name: 'Users', 
+    href: '/admin/users', 
+    icon: Users2,
+    permission: 'can_view_users' // Checks user permissions (admin, office, etc.)
+  },
+  { 
     name: 'Settings', 
     href: '/admin/settings', 
     icon: Settings,
-    roles: ['admin', 'office'] // Only admins and office users can manage settings
+    roles: ['admin', 'super_admin'] // Company-wide settings only for top admins
+  },
+  { 
+    name: 'Commission Plans', 
+    href: '/admin/settings/commission-plans', 
+    icon: CreditCard,
+    roles: ['admin', 'super_admin'] // Company-wide only
+  },
+  {
+    name: 'Locations',
+    href: '/admin/settings/locations',
+    icon: MapPin,
+    roles: ['admin', 'super_admin', 'office'] // Office users can manage their location pricing
   },
   { 
     name: 'Role Permissions', 
     href: '/admin/settings/role-permissions', 
     icon: Shield,
-    roles: ['admin'] // Only admins
+    roles: ['admin', 'super_admin'] // Company-wide only
   },
 ]
 
@@ -124,6 +123,7 @@ function NavItemWithPermission({ item, isActive, onClick }: {
 }) {
   const { data: userData } = useCurrentUser()
   const user = userData?.data
+  const { isLocationAdmin } = useManagedLocations()
   const Icon = item.icon
 
   // Check permission if required
@@ -132,14 +132,26 @@ function NavItemWithPermission({ item, isActive, onClick }: {
     item.permission || ''
   )
 
-  // Check role if specified (legacy fallback)
+  // Check role if specified
   const hasRole = !item.roles || (user?.role && item.roles.includes(user.role))
+
+  // Debug logging for Users page
+  if (item.href === '/admin/users' && user) {
+    console.log('🔍 Users Page Check:', {
+      itemName: item.name,
+      userRole: user.role,
+      permission: item.permission,
+      hasPermission,
+      hasRole,
+      userId: user.id
+    })
+  }
 
   // Show if:
   // 1. No permission/role required, OR
-  // 2. User has required role, OR
-  // 3. User has required permission
-  const canSee = !item.permission && !item.roles || hasRole || hasPermission
+  // 2. User has required permission (e.g., can_view_users), OR
+  // 3. User has required role
+  const canSee = (!item.permission && !item.roles) || hasPermission === true || hasRole
 
   if (!canSee) return null
 
@@ -253,23 +265,6 @@ export function Sidebar() {
               />
             ))}
           </ul>
-
-          {/* Admin Section */}
-          <div className="pt-6 border-t border-gray-200">
-            <p className="px-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Admin
-            </p>
-            <ul className="space-y-1">
-              {adminNavigation.map((item) => (
-                <NavItemWithPermission
-                  key={item.name}
-                  item={item}
-                  isActive={pathname === item.href}
-                  onClick={closeMenu}
-                />
-              ))}
-            </ul>
-          </div>
 
           {/* Settings Section */}
           <div className="mt-6 pt-6 border-t border-gray-200">

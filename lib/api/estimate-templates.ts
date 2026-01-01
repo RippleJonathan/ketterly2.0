@@ -383,10 +383,14 @@ export async function importTemplateToEstimate(params: {
   companyId: string
   templateId: string
   measurements: RoofMeasurements
+  locationId?: string | null // Optional location ID for pricing
 }): Promise<ApiResponse<any[]>> {
   try {
     const supabase = createClient()
-    const { companyId, templateId, measurements } = params
+    const { companyId, templateId, measurements, locationId } = params
+
+    // Import pricing utility
+    const { getMaterialPriceForLocation } = await import('@/lib/utils/location-pricing')
 
     // Fetch template items with material details
     const { data: items, error } = await supabase
@@ -414,8 +418,8 @@ export async function importTemplateToEstimate(params: {
       return { data: [], error: null }
     }
 
-    // Calculate quantities for each item
-    const lineItems = items.map((item: any) => {
+    // Calculate quantities and get location pricing for each item
+    const lineItemsPromises = items.map(async (item: any) => {
       const material = item.material
       if (!material) return null
 
@@ -428,16 +432,26 @@ export async function importTemplateToEstimate(params: {
         measurements
       )
 
+      // Get location-specific pricing (falls back to base cost if no location)
+      const pricingResult = await getMaterialPriceForLocation(
+        material.id,
+        locationId
+      )
+
+      console.log(`Template import - ${material.name}: $${pricingResult.price} (${pricingResult.source})`)
+
       return {
         description: item.description || `${material.name}${material.manufacturer ? ` - ${material.manufacturer}` : ''}`,
         quantity: calculatedQty,
         unit: material.unit,
-        unit_price: material.current_cost || 0,
-        cost_per_unit: material.current_cost || 0,
+        unit_price: pricingResult.price,
+        cost_per_unit: pricingResult.price,
         supplier: '',
         notes: material.notes || '',
       }
-    }).filter(Boolean)
+    })
+
+    const lineItems = (await Promise.all(lineItemsPromises)).filter(Boolean)
 
     return { data: lineItems, error: null }
   } catch (error: any) {

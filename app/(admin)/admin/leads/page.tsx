@@ -17,10 +17,10 @@ export default async function LeadsPage() {
     redirect('/login')
   }
 
-  // Get user's company
+  // Get user's company and check location assignments
   const { data: userData, error: userDataError } = await supabase
     .from('users')
-    .select('company_id')
+    .select('company_id, role')
     .eq('id', user.id)
     .single()
 
@@ -29,11 +29,25 @@ export default async function LeadsPage() {
     redirect('/login')
   }
 
+  // Check if user is location-scoped (not admin/super_admin)
+  const isCompanyAdmin = ['admin', 'super_admin'].includes(userData.role || '')
+  let userLocationIds: string[] = []
+  
+  if (!isCompanyAdmin) {
+    // Get user's assigned locations
+    const { data: locationUsers } = await supabase
+      .from('location_users')
+      .select('location_id')
+      .eq('user_id', user.id)
+    
+    userLocationIds = locationUsers?.map(lu => lu.location_id) || []
+  }
+
   // Use admin client to fetch leads (since RLS is disabled temporarily)
   const adminClient = createAdminClient()
   
-  // Fetch leads with assigned user info
-  const { data: leads, error: leadsError } = await adminClient
+  // Build query with location filtering
+  let query = adminClient
     .from('leads')
     .select(`
       *,
@@ -45,7 +59,13 @@ export default async function LeadsPage() {
     `)
     .eq('company_id', userData.company_id)
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+  
+  // Add location filter for location-scoped users
+  if (!isCompanyAdmin && userLocationIds.length > 0) {
+    query = query.in('location_id', userLocationIds)
+  }
+  
+  const { data: leads, error: leadsError } = await query.order('created_at', { ascending: false })
 
   if (leadsError) {
     console.error('Failed to fetch leads:', leadsError)

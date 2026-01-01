@@ -15,9 +15,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, FileText, Package, Ruler } from 'lucide-react'
 import { toast } from 'sonner'
+import { useSuppliers } from '@/lib/hooks/use-suppliers'
 
 interface CreateMaterialOrderDialogProps {
   isOpen: boolean
@@ -43,6 +45,7 @@ export function CreateMaterialOrderDialog({
   const { data: company } = useCurrentCompany()
   const [step, setStep] = useState<'method' | 'template'>('method')
   const [selectedTemplate, setSelectedTemplate] = useState<MaterialTemplate | null>(null)
+  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
   const [isImporting, setIsImporting] = useState(false)
   
   // Conditional labels based on order type
@@ -55,6 +58,9 @@ export function CreateMaterialOrderDialog({
 
   const { data: templatesResponse } = useTemplates({ is_active: true })
   const templates = templatesResponse?.data || []
+
+  const { data: suppliersResponse } = useSuppliers()
+  const suppliers = suppliersResponse?.data || []
 
   const { data: measurementsResponse } = useLeadMeasurements(leadId)
   const measurements = measurementsResponse?.data
@@ -73,6 +79,7 @@ export function CreateMaterialOrderDialog({
     if (!isOpen) {
       setStep('method')
       setSelectedTemplate(null)
+      setSelectedSupplier(null)
       reset()
     }
   }, [isOpen, reset])
@@ -102,7 +109,7 @@ export function CreateMaterialOrderDialog({
         leadId: leadId,
         order_type: orderType,
         template_id: selectedTemplate.id,
-        supplier_id: null,
+        supplier_id: selectedSupplier, // Pass selected supplier for auto-pricing!
         order_date: null,
         expected_delivery_date: null,
         notes: null,
@@ -124,7 +131,9 @@ export function CreateMaterialOrderDialog({
       }
 
       toast.success(
-        `Created order with ${result.data?.items?.length || 0} items`
+        `Created order with ${result.data?.items?.length || 0} items${
+          selectedSupplier ? ' with supplier pricing' : ''
+        }`
       )
 
       // Note: Calendar events are created when sending Email PO with delivery date
@@ -223,7 +232,7 @@ export function CreateMaterialOrderDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
               {/* Measurements Info */}
               {measurements && (
                 <div className="p-3 bg-muted rounded-lg">
@@ -302,6 +311,46 @@ export function CreateMaterialOrderDialog({
                   ))
                 )}
               </div>
+
+              {/* Supplier/Sub Selector (Optional) */}
+              {selectedTemplate && suppliers.length > 0 && (() => {
+                // Filter suppliers by type based on order type
+                const filteredSuppliers = suppliers.filter(s => {
+                  if (isMaterial) {
+                    return s.type === 'material_supplier' || s.type === 'both'
+                  } else {
+                    return s.type === 'subcontractor' || s.type === 'both'
+                  }
+                })
+                
+                if (filteredSuppliers.length === 0) return null
+                
+                return (
+                  <div className="space-y-2 p-4 bg-muted/50 rounded-lg border">
+                    <Label htmlFor="supplier-select" className="text-sm font-medium">
+                      {isMaterial ? 'Supplier' : 'Subcontractor'} (Optional)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Select to use {isMaterial ? 'supplier' : 'subcontractor'}-specific pricing immediately
+                    </p>
+                    <Select value={selectedSupplier || 'none'} onValueChange={(value) => setSelectedSupplier(value === 'none' ? null : value)}>
+                      <SelectTrigger id="supplier-select">
+                        <SelectValue placeholder={`Select ${isMaterial ? 'supplier' : 'subcontractor'}...`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          <span className="text-muted-foreground">None - Use base pricing</span>
+                        </SelectItem>
+                        {filteredSuppliers.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              })()}
 
               {/* Actions */}
               <div className="flex justify-between pt-4 border-t">

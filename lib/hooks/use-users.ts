@@ -108,6 +108,8 @@ export function useCreateUser() {
     onSuccess: () => {
       // Invalidate all users queries for this company
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      // Invalidate location users for filtered user list
+      queryClient.invalidateQueries({ queryKey: ['all-location-users', company?.id] })
       toast.success('User created successfully')
     },
     onError: (error: Error) => {
@@ -149,6 +151,7 @@ export function useUpdateUser() {
       queryClient.invalidateQueries({ queryKey: ['users', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['user', variables.userId] })
       queryClient.invalidateQueries({ queryKey: ['current-user'] })
+      queryClient.invalidateQueries({ queryKey: ['all-location-users', company?.id] })
       toast.success('User updated successfully')
     },
     onError: (error: Error) => {

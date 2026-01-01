@@ -41,6 +41,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { MaterialVariantSelector } from '@/components/admin/shared/material-variant-selector'
+import { getMaterialPriceForLocation } from '@/lib/utils/location-pricing'
 
 interface EditWorkOrderDialogProps {
   workOrder: WorkOrder | null
@@ -89,6 +90,7 @@ export function EditWorkOrderDialog({
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [selectedVariantPrice, setSelectedVariantPrice] = useState<number>(0)
   const [showVariantSelector, setShowVariantSelector] = useState(false)
+  const [leadLocationId, setLeadLocationId] = useState<string | null>(null)
 
   const [editedDetails, setEditedDetails] = useState({
     subcontractor_id: '',
@@ -139,6 +141,21 @@ export function EditWorkOrderDialog({
   useEffect(() => {
     const loadWorkOrder = async () => {
       if (!workOrder) return
+
+      // Fetch lead location for pricing
+      if (workOrder.lead_id && company?.id) {
+        const { data: leadData } = await supabase
+          .from('leads')
+          .select('location_id')
+          .eq('id', workOrder.lead_id)
+          .eq('company_id', company.id)
+          .single()
+        
+        if (leadData?.location_id) {
+          console.log('Lead location:', leadData.location_id)
+          setLeadLocationId(leadData.location_id)
+        }
+      }
 
       // Fetch measurements for the lead (get most recent)
       if (workOrder.lead_id && company?.id) {
@@ -313,11 +330,19 @@ export function EditWorkOrderDialog({
     toast.success('Item deleted')
   }
 
-  const handleImportMaterial = (material: Material) => {
+  const handleImportMaterial = async (material: Material) => {
+    // Get location-specific price
+    const pricingResult = await getMaterialPriceForLocation(
+      material.id,
+      leadLocationId
+    )
+    
+    console.log(`Price for ${material.name}:`, pricingResult.price, `(source: ${pricingResult.source})`)
+    
     // Show variant selector dialog first
     setSelectedMaterialForVariant(material)
     setSelectedVariantId(null)
-    setSelectedVariantPrice(material.current_cost || 0)
+    setSelectedVariantPrice(pricingResult.price)
     setShowMaterialBrowser(false)
     setShowVariantSelector(true)
   }
@@ -461,11 +486,12 @@ export function EditWorkOrderDialog({
           description: tm.description || `${tm.material.name}${tm.material.manufacturer ? ` - ${tm.material.manufacturer}` : ''}`,
           quantity,
           unit: tm.material.unit || 'each',
-          unit_price: tm.material.current_cost || 0,
-          line_total: quantity * (tm.material.current_cost || 0),
+          unit_price: pricingResult.price,
+          line_total: quantity * pricingResult.price,
           notes: [
             tm.material.sku ? `SKU: ${tm.material.sku}` : null,
             `From template: ${template.name}`,
+            pricingResult.source !== 'base' ? `Price: ${pricingResult.source}` : null,
             measurements ? `Calculated from ${measurementType} measurements` : 'Using default quantity (no measurements)'
           ].filter(Boolean).join(' | ') || null,
           sort_order: lineItems.length + index,

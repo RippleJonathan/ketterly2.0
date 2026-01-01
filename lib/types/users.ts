@@ -50,6 +50,7 @@ export interface User {
   specialties: string[] | null
   certifications: string[] | null
   assigned_territories: string[] | null
+  default_location_id: string | null // Default location assignment
   
   // Crew fields (from production system)
   crew_role: 'foreman' | 'laborer' | 'none' | null
@@ -697,10 +698,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_mark_commissions_paid: true,
     // Users & Settings
     can_view_users: true,
-    can_create_users: false,
-    can_edit_users: false,
-    can_delete_users: false,
-    can_manage_permissions: false,
+    can_create_users: true,  // Office can create users at their location
+    can_edit_users: true,    // Office can edit users at their location
+    can_delete_users: false, // Office cannot delete users
+    can_manage_permissions: false,  // Office cannot manage granular permissions
     can_edit_company_settings: false,
     // Production
     can_upload_photos: false,

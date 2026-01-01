@@ -12,6 +12,12 @@ import { WorkOrder } from '@/lib/types/work-orders'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { createClient } from '@/lib/supabase/client'
 
+// Helper to parse YYYY-MM-DD as local date without timezone issues
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 interface SendEmailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,18 +48,35 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
   const [deliveryDate, setDeliveryDate] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
 
-  // Initialize email fields based on order type
+  // Initialize email fields and dates based on order type
   useEffect(() => {
+    if (!open) return
+    
     const matOrder = order as MaterialOrder
+    
+    // Set email and name based on order type
     if (matOrder.order_type === 'material') {
       setPrimaryEmail(matOrder.supplier?.email || '')
       setRecipientName(matOrder.supplier?.contact_name || matOrder.supplier?.name || '')
     } else if (matOrder.order_type === 'work') {
-      // Work orders - would need crew email from assignment
-      setPrimaryEmail('')
-      setRecipientName('')
+      // Work orders - use supplier email/name (subcontractor)
+      setPrimaryEmail(matOrder.supplier?.email || '')
+      setRecipientName(matOrder.supplier?.contact_name || matOrder.supplier?.name || '')
     }
-  }, [order])
+    
+    // Initialize date from order's existing expected_delivery_date
+    if (matOrder.expected_delivery_date) {
+      if (matOrder.order_type === 'work') {
+        setScheduledDate(matOrder.expected_delivery_date)
+      } else {
+        setDeliveryDate(matOrder.expected_delivery_date)
+      }
+    } else {
+      // Clear dates if no existing date
+      setScheduledDate('')
+      setDeliveryDate('')
+    }
+  }, [order, open])
 
   // Load material orders if this is a work order
   useEffect(() => {
@@ -302,14 +325,14 @@ export function SendEmailDialog({ open, onOpenChange, order, orderType, leadId, 
             {orderType === 'material' && (order as MaterialOrder).supplier && (
               <div><strong>Supplier:</strong> {(order as MaterialOrder).supplier?.name}</div>
             )}
-            {orderType === 'work' && (order as WorkOrder).subcontractor_name && (
-              <div><strong>Subcontractor:</strong> {(order as WorkOrder).subcontractor_name}</div>
+            {orderType === 'work' && (order as MaterialOrder).supplier && (
+              <div><strong>Subcontractor:</strong> {(order as MaterialOrder).supplier?.name}</div>
             )}
             {(deliveryDate || scheduledDate) && (
               <div className="mt-2 pt-2 border-t border-blue-200">
                 <div className="flex items-center gap-1">
                   <strong>📅 {orderType === 'work' ? 'Install' : 'Delivery'} Date:</strong>
-                  <span>{new Date(orderType === 'work' ? scheduledDate : deliveryDate).toLocaleDateString()}</span>
+                  <span>{parseLocalDate(orderType === 'work' ? scheduledDate : deliveryDate).toLocaleDateString()}</span>
                 </div>
                 <div className="text-xs text-gray-600 mt-1">
                   Calendar event will be created automatically

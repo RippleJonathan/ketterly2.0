@@ -34,6 +34,11 @@ import { useCreateUser } from '@/lib/hooks/use-users'
 import { useCommissionPlans } from '@/lib/hooks/use-commission-plans'
 import { useRoleTemplates } from '@/lib/hooks/use-role-templates'
 import { UserRole } from '@/lib/types/users'
+import { useManagedLocations } from '@/lib/hooks/use-location-admin'
+import { useAssignUserToLocation } from '@/lib/hooks/use-location-users'
+import { useLocations } from '@/lib/hooks/use-locations'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { getLocationRoleFromCompanyRole } from '@/lib/utils/location-roles'
 
 const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -43,6 +48,7 @@ const createUserSchema = z.object({
   phone: z.string().optional(),
   commission_plan_id: z.string().optional(),
   role_template_id: z.string().optional(),
+  location_id: z.string().optional(),
 })
 
 type CreateUserFormData = z.infer<typeof createUserSchema>
@@ -54,11 +60,38 @@ interface CreateUserDialogProps {
 
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   const createUser = useCreateUser()
+  const assignUserToLocation = useAssignUserToLocation()
   const { data: plansResponse } = useCommissionPlans()
   const { data: templatesResponse } = useRoleTemplates()
+  const { data: locationsResponse } = useLocations()
+  const { isCompanyAdmin, isLocationAdmin, managedLocationIds } = useManagedLocations()
+  const { data: currentUserData } = useCurrentUser()
+  const currentUser = currentUserData?.data
 
   const plans = plansResponse?.data || []
   const templates = templatesResponse?.data || []
+  const allLocations = locationsResponse?.data || []
+  
+  // Location managers can only assign to their managed locations
+  const availableLocations = isLocationAdmin 
+    ? allLocations.filter(loc => managedLocationIds.includes(loc.id))
+    : allLocations
+    
+  // Determine which roles the current user can assign
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+  const canCreateAdmins = isAdmin
+  const canCreateOffice = isAdmin
+
+  // Auto-select location logic
+  const getDefaultLocationId = () => {
+    // If only one location exists company-wide, auto-select it
+    if (allLocations.length === 1) return allLocations[0].id
+    
+    // If office user creating user, will auto-assign to their locations (no selection needed)
+    if (!isAdmin && managedLocationIds.length > 0) return 'none'
+    
+    return 'none'
+  }
 
   const form = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
@@ -70,19 +103,54 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       role: 'sales',
       commission_plan_id: 'none',
       role_template_id: 'none',
+      location_id: getDefaultLocationId(),
     },
   })
 
   const onSubmit = async (data: CreateUserFormData) => {
-    // Convert "none" values to null for optional fields
-    const submitData = {
-      ...data,
-      role_template_id: data.role_template_id === 'none' ? undefined : data.role_template_id,
-      commission_plan_id: data.commission_plan_id === 'none' ? undefined : data.commission_plan_id,
+    try {
+      // Convert "none" values to null for optional fields
+      const submitData = {
+        ...data,
+        role_template_id: data.role_template_id === 'none' ? undefined : data.role_template_id,
+        commission_plan_id: data.commission_plan_id === 'none' ? undefined : data.commission_plan_id,
+      }
+      
+      // Create the user first
+      const result = await createUser.mutateAsync(submitData as any)
+      
+      if (!result.data) return
+      
+      // Auto-derive location role from company role
+      const locationRole = getLocationRoleFromCompanyRole(data.role as UserRole)
+      
+      // Determine which locations to assign
+      let locationsToAssign: string[] = []
+      
+      if (isAdmin) {
+        // Admin selected a location explicitly
+        if (data.default_location_id && data.default_location_id !== 'none') {
+          locationsToAssign = [data.default_location_id]
+        }
+      } else {
+        // Office user: auto-assign to their managed locations
+        locationsToAssign = managedLocationIds
+      }
+      
+      // Assign user to location(s)
+      for (const locationId of locationsToAssign) {
+        await assignUserToLocation.mutateAsync({
+          user_id: result.data.id,
+          location_id: locationId,
+          location_role: locationRole,
+        })
+      }
+      
+      form.reset()
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Failed to create user:', error)
     }
-    await createUser.mutateAsync(submitData as any)
-    form.reset()
-    onOpenChange(false)
   }
 
   return (
@@ -172,8 +240,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="office">Office Staff</SelectItem>
+                        {canCreateAdmins && <SelectItem value="admin">Admin</SelectItem>}
+                        {canCreateOffice && <SelectItem value="office">Office Staff</SelectItem>}
                         <SelectItem value="sales_manager">Sales Manager</SelectItem>
                         <SelectItem value="sales">Sales Rep</SelectItem>
                         <SelectItem value="production">Production/Crew</SelectItem>
@@ -181,7 +249,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Admin: Full system access | Office: Operations | Sales: Customer-facing | Production: Field work
+                      {isAdmin 
+                        ? 'Admin: Full system access | Office: Location manager | Sales: Customer-facing | Production: Field work'
+                        : 'You can create: Sales Manager, Sales Rep, Production, Marketing (not admin/office roles)'}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -246,6 +316,51 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 )}
               />
             </div>
+
+            {/* Location Assignment - Only show for admins */}
+            {isAdmin && availableLocations.length > 0 && (
+              <div className="space-y-4 border-t pt-4">
+                <FormField
+                  control={form.control}
+                  name="default_location_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assign to Location (Optional)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Location</SelectItem>
+                          {availableLocations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name} {location.is_primary && '(Primary)'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {allLocations.length === 1 
+                          ? 'Auto-selected (only one location exists)' 
+                          : 'User can be assigned to locations later via "Manage Locations"'}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+            
+            {/* Info for office users */}
+            {!isAdmin && managedLocationIds.length > 0 && (
+              <div className="border-t pt-4">
+                <p className="text-sm text-muted-foreground">
+                  ℹ️ New user will be automatically assigned to your location(s): {availableLocations.map(l => l.name).join(', ')}
+                </p>
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

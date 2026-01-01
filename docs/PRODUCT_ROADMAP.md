@@ -122,15 +122,30 @@
 
 ---
 
-### 6. **Authentication & Middleware** (8-12 hours)
+### 6. **Authentication & Middleware** (8-12 hours) ✅ **COMPLETED**
 **Difficulty:** ⭐⭐ Medium | **Impact:** Critical
 
-- [ ] Protect all admin routes with middleware
-- [ ] Session management (auto-logout on inactivity)
-- [ ] Role-based route access
-- [ ] Redirect unauthorized users
-- [ ] Password reset flow
-- [ ] Email verification on signup
+- [x] Protect all admin routes with middleware
+- [x] Session management (auto-logout on inactivity)
+- [x] Role-based route access
+- [x] Redirect unauthorized users
+- [x] Password reset flow
+- [x] Email verification on signup (ready, optional toggle)
+- [x] Password strength validation (8 chars, uppercase, lowercase, number)
+- [x] Real-time password validation feedback
+- [x] Show/hide password toggles
+- [x] Enhanced error handling and user feedback
+
+**Completed:** December 29, 2025  
+**Implementation:**
+- Password reset flow: `/forgot-password` and `/reset-password` pages with email-based reset
+- Email verification: Callback route with automatic redirect (enable in Supabase Dashboard)
+- Enhanced middleware: Role-based route protection with automatic redirection
+- Password validation: Zod schemas with real-time feedback and visual indicators
+- Security: Strong password requirements, session refresh, cookie-based auth
+- User experience: Clear error messages, toast notifications, mobile-responsive forms
+
+**Documentation:** See [AUTH_MIDDLEWARE_IMPLEMENTATION.md](AUTH_MIDDLEWARE_IMPLEMENTATION.md) for complete details.
 
 **Why Medium:** Next.js middleware is straightforward, Supabase Auth already configured.
 
@@ -159,16 +174,54 @@
 
 ---
 
-### 8. **Locations/Teams Management** (12-20 hours)
+### 8. **Locations/Teams Management** (12-20 hours) ✅ **COMPLETED**
 **Difficulty:** ⭐⭐⭐ Medium-Hard | **Impact:** Medium
 
-- [ ] Create locations/teams in settings
-- [ ] Assign users to locations/teams
-- [ ] Filter leads/jobs by location
-- [ ] Location-specific permissions
-- [ ] "All locations" vs "specific location" views
+- [x] Create locations/teams in settings
+- [x] Database schema with 4 tables (locations, location_material_pricing, location_labor_rates, location_users)
+- [x] Location-specific material pricing overrides
+- [x] Location-specific labor rate overrides
+- [x] Team assignments per location (location admins, managers, members)
+- [x] Primary location designation (one per company)
+- [x] Location selector on lead/quote forms
+- [x] RLS policies for multi-tenant isolation
+- [x] CRUD API with React Query hooks
+- [x] Location management UI with card grid layout
+- [x] Pricing resolution utilities (waterfall: location override → base cost)
+- [x] **Hierarchical permission model** (admin → office → staff)
+- [x] **Office users can create/manage users for their location(s)**
+- [x] **Location managers see only their team (filtered user list)**
+- [x] **Simplified role assignment** (auto-derive location role from company role)
+- [x] **Auto-assign users to office user's locations**
+- [x] **Multi-location filtering** (leads, quotes show data from all assigned locations)
+- [x] **Role creation restrictions** (office cannot create admin/office users)
+- [x] **Auto-select location when only one exists**
+- [ ] Location-specific branding/contract terms (future)
+- [ ] Location detail page with tabs (Material Pricing, Labor Rates, Team) (future)
+- [ ] PDF generation with location data (future)
+- [ ] Location-based dashboard widgets (future)
 
-**Why Medium-Hard:** New database tables, RLS policies, filter logic across entire app.
+**Completed:** December 30, 2024  
+**Implementation:**
+- Complete database migration with locations, pricing overrides, labor rates, and team assignments
+- API layer with full CRUD operations and automatic primary location management
+- Management UI at `/admin/settings/locations` with create/edit/delete operations
+- Location selector added to lead creation form with role-based visibility
+- Pricing utilities with waterfall logic (`getMaterialCost` function)
+- React Query integration with proper cache invalidation
+- **Hierarchical permissions**: Company admins see all, office users manage their location(s), staff restricted to assigned locations
+- **Simplified assignment**: Removed location_role dropdown, auto-derived from company role (office→location_admin, sales_manager→manager, sales→member)
+- **Smart defaults**: Auto-select location when only one exists, hide location selector for office users
+- **Multi-location support**: Users assigned to multiple locations see data from ALL their locations
+- **RLS policy updates**: Office users can create/edit/delete users in their managed locations
+- **Lead filtering**: Multi-location array filtering (`location_id: string | string[]`)
+
+**Documentation:** 
+- Migration: `supabase/migrations/20241230000001_locations_multi_tenant.sql`
+- RLS Updates: `supabase/migrations/20241230000002_location_admin_user_creation.sql`
+- Guides: `docs/LOCATION_HIERARCHICAL_PERMISSIONS.md`, `docs/SIMPLIFIED_LOCATION_ASSIGNMENT.md`, `docs/ROLE_RESTRICTIONS_AND_MULTI_LOCATION.md`
+
+**Why Medium-Hard:** New database tables, RLS policies, pricing waterfall logic, multi-location architecture, hierarchical permission system.
 
 ---
 

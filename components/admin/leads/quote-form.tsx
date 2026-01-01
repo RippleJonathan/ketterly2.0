@@ -35,6 +35,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { MaterialPickerDialog } from './material-picker-dialog'
 import { Material, calculateMaterialQuantity, RoofMeasurements } from '@/lib/types/materials'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { getMaterialPriceForLocation } from '@/lib/utils/location-pricing'
 import { toast } from 'sonner'
 
 interface QuoteFormProps {
@@ -52,6 +53,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
   const updateLineItems = useUpdateQuoteLineItems()
+  const [leadLocationId, setLeadLocationId] = useState<string | null>(null)
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const hasImportedTemplate = useRef(false) // Track if we've imported the template
@@ -117,6 +119,33 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
     }
   }, [existingQuote, isOpen, form, leadName])
 
+  // Fetch lead's location for pricing
+  useEffect(() => {
+    if (!isOpen || !company) return
+
+    async function fetchLeadLocation() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+        
+        const { data, error } = await supabase
+          .from('leads')
+          .select('location_id')
+          .eq('id', leadId)
+          .single()
+
+        if (!error && data) {
+          setLeadLocationId(data.location_id)
+          console.log('Lead location for estimate pricing:', data.location_id)
+        }
+      } catch (error) {
+        console.error('Failed to fetch lead location:', error)
+      }
+    }
+
+    fetchLeadLocation()
+  }, [isOpen, leadId, company])
+
   // Initialize field array BEFORE the auto-import useEffect
   const { fields, append, remove, move } = useFieldArray({
     control: form.control,
@@ -131,6 +160,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
         initialTemplateId,
         existingQuote: !!existingQuote,
         hasImportedTemplate: hasImportedTemplate.current,
+        leadLocationId,
       })
 
       // Reset import flag when dialog closes
@@ -149,12 +179,19 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
         return
       }
 
+      // Wait for lead location to be loaded (needed for location pricing)
+      if (leadLocationId === null) {
+        console.log('Waiting for lead location to load...')
+        return
+      }
+
       // Don't need to wait for measurements - the API will handle it server-side
       // Just pass the leadId and let the server fetch measurements
       console.log('Auto-import triggered:', {
         initialTemplateId,
         companyId: company?.id,
         leadId,
+        leadLocationId,
       })
 
       try {
@@ -180,11 +217,12 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
           actual_squares: measurements.actual_squares,
         })
 
-        // Import template with calculated quantities
+        // Import template with calculated quantities and location pricing
         const result = await importTemplateToEstimate({
           companyId: company.id,
           templateId: initialTemplateId,
           measurements,
+          locationId: leadLocationId,
         })
         
         if (result.error || !result.data) {
@@ -219,7 +257,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
     }
 
     autoImportTemplate()
-  }, [initialTemplateId, isOpen, existingQuote, append, form, company, leadId])
+  }, [initialTemplateId, isOpen, existingQuote, append, form, company, leadId, leadLocationId])
 
   // Watch all form values for live total calculation
   const watchedLineItems = form.watch('line_items')
@@ -315,15 +353,23 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
     })
   }
 
-  const handleMaterialSelected = (material: Material) => {
-    // Add material as a line item with smart defaults
+  const handleMaterialSelected = async (material: Material) => {
+    // Get location-specific pricing for estimate items
+    const pricingResult = await getMaterialPriceForLocation(
+      material.id,
+      leadLocationId
+    )
+    
+    console.log(`Estimate pricing for ${material.name}: $${pricingResult.price} (source: ${pricingResult.source})`)
+
+    // Add material as a line item with location-specific pricing
     append({
       category: LineItemCategory.MATERIALS,
       description: `${material.name}${material.manufacturer ? ` - ${material.manufacturer}` : ''}`,
       quantity: material.default_per_square || 1,
       unit: material.unit,
-      unit_price: material.current_cost || 0,
-      cost_per_unit: material.current_cost || 0,
+      unit_price: pricingResult.price,
+      cost_per_unit: pricingResult.price,
       supplier: '',
       notes: material.notes || '',
     })

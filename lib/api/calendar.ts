@@ -29,7 +29,7 @@ export async function getEvents(
       .select(`
         *,
         lead:leads!calendar_events_lead_id_fkey(
-          id, full_name, email, phone, address, city, state
+          id, full_name, email, phone, address, city, state, location_id
         ),
         created_by_user:users!calendar_events_created_by_fkey(
           id, full_name
@@ -91,6 +91,13 @@ export async function getEvents(
     if (filters?.assigned_user_ids && filters.assigned_user_ids.length > 0) {
       filteredData = filteredData.filter(event =>
         filters.assigned_user_ids!.some(userId => event.assigned_users.includes(userId))
+      )
+    }
+
+    // Filter by location if specified (for location admins/office users)
+    if (filters?.location_id) {
+      filteredData = filteredData.filter(event =>
+        event.lead?.location_id === filters.location_id
       )
     }
 
@@ -750,7 +757,8 @@ export async function updateWorkOrderDate(
     if (fetchError) throw fetchError
 
     // Update the work order with auto-status transition
-    const updates: any = { scheduled_date: scheduledDate }
+    // Work orders use expected_delivery_date for scheduled date
+    const updates: any = { expected_delivery_date: scheduledDate }
     if (scheduledDate && currentOrder.status === 'draft') {
       updates.status = 'scheduled'
     }

@@ -68,6 +68,7 @@ export type LeadFilters = {
   priority?: Lead['priority'] | Lead['priority'][]
   service_type?: Lead['service_type'] | Lead['service_type'][]
   assigned_to?: string | null
+  location_id?: string | string[] // Support single or multiple locations
   created_from?: string // ISO date string
   created_to?: string // ISO date string
   search?: string

@@ -7,10 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { z } from 'zod'
+import { signupSchema } from '@/lib/validation/schemas'
+import { Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 
 export function SignupForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -18,18 +22,32 @@ export function SignupForm() {
     companyName: '',
   })
 
+  // Real-time password validation
+  const passwordRequirements = [
+    { label: 'At least 8 characters', met: formData.password.length >= 8 },
+    { label: 'One uppercase letter', met: /[A-Z]/.test(formData.password) },
+    { label: 'One lowercase letter', met: /[a-z]/.test(formData.password) },
+    { label: 'One number', met: /[0-9]/.test(formData.password) },
+  ]
+
+  const allRequirementsMet = passwordRequirements.every((req) => req.met)
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // Validate with Zod
+      signupSchema.parse(formData)
+
       const supabase = createClient()
 
-      // 1. Sign up the user
+      // 1. Sign up the user with email verification
       const { data: authData, error: signupError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/callback?next=/admin/dashboard`,
           data: {
             full_name: formData.fullName,
           },
@@ -39,58 +57,48 @@ export function SignupForm() {
       if (signupError) throw signupError
       if (!authData.user) throw new Error('No user returned from signup')
 
-      // 2. Check if company exists (for existing tenants like Ripple Roofing)
-      const { data: existingCompany } = await supabase
-        .from('companies')
-        .select('id, name')
-        .eq('contact_email', formData.email.toLowerCase())
-        .single()
-
-      let companyId: string
-
-      if (existingCompany) {
-        // Joining existing company
-        companyId = existingCompany.id
-        toast.success(`Joined ${existingCompany.name}!`)
-      } else {
-        // Create new company
-        const { data: newCompany, error: companyError } = await supabase
-          .from('companies')
-          .insert({
-            name: formData.companyName,
-            slug: formData.companyName.toLowerCase().replace(/\s+/g, '-'),
-            contact_email: formData.email,
-          })
-          .select()
-          .single()
-
-        if (companyError) throw companyError
-        companyId = newCompany.id
+      // Check if user already exists (email already registered)
+      if (authData.user.identities?.length === 0) {
+        toast.error('An account with this email already exists. Please sign in instead.')
+        router.push('/login')
+        return
       }
 
-      // 3. Create user record in users table via API route (bypasses RLS)
-      const userResponse = await fetch('/api/auth/create-user', {
+      // 2. Create company and user record via server API (bypasses RLS)
+      const signupResponse = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: authData.user.id,
-          companyId,
           email: formData.email,
           fullName: formData.fullName,
+          companyName: formData.companyName,
         }),
       })
 
-      if (!userResponse.ok) {
-        const error = await userResponse.json()
-        throw new Error(error.message || 'Failed to create user record')
+      if (!signupResponse.ok) {
+        const error = await signupResponse.json()
+        throw new Error(error.message || 'Failed to complete signup')
       }
 
-      toast.success('Account created successfully!')
-      router.push('/admin/dashboard')
-      router.refresh()
+      const { companyName, isExistingCompany } = await signupResponse.json()
+
+      // Show success message
+      if (isExistingCompany) {
+        toast.success(`Joined ${companyName}! Please check your email to verify your account.`)
+      } else {
+        toast.success('Account created! Please check your email to verify your account.')
+      }
+      
+      // Note: User won't be logged in until they verify their email
+      // The callback route will handle the redirect after verification
     } catch (error: any) {
       console.error('Signup error:', error)
-      toast.error(error.message || 'Failed to create account')
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message)
+      } else {
+        toast.error(error.message || 'Failed to create account')
+      }
     } finally {
       setLoading(false)
     }
@@ -133,17 +141,49 @@ export function SignupForm() {
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password
           </label>
-          <Input
-            id="password"
-            type="password"
-            required
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            className="mt-1"
-            placeholder="••••••••"
-            minLength={6}
-          />
-          <p className="mt-1 text-xs text-gray-500">Must be at least 6 characters</p>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="mt-1 pr-10"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? (
+                <EyeOff className="w-5 h-5" />
+              ) : (
+                <Eye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+          
+          {/* Password Requirements */}
+          {formData.password && (
+            <div className="mt-2 space-y-1">
+              {passwordRequirements.map((req) => (
+                <div
+                  key={req.label}
+                  className={`flex items-center text-xs ${
+                    req.met ? 'text-green-600' : 'text-gray-500'
+                  }`}
+                >
+                  <CheckCircle2
+                    className={`w-3 h-3 mr-1.5 ${
+                      req.met ? 'text-green-600' : 'text-gray-300'
+                    }`}
+                  />
+                  {req.label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
@@ -164,7 +204,7 @@ export function SignupForm() {
           </p>
         </div>
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" disabled={loading || !allRequirementsMet}>
           {loading ? 'Creating account...' : 'Create Account'}
         </Button>
 

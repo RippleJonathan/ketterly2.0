@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ColumnDef,
   flexRender,
@@ -57,8 +57,19 @@ import { EditUserDialog } from './edit-user-dialog'
 import { PermissionsManager } from './permissions-manager'
 import { CopyPermissionsDialog } from './copy-permissions-dialog'
 import { ApplyTemplateDialog } from './apply-template-dialog'
+import { UserLocationAssignments } from './user-location-assignments'
 import { useDeactivateUser, useReactivateUser, useDeleteUser } from '@/lib/hooks/use-users'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { useManagedLocations } from '@/lib/hooks/use-location-admin'
+import { useAllLocationUsers } from '@/lib/hooks/use-location-users'
 
 export function UserList() {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -72,11 +83,32 @@ export function UserList() {
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false)
   const [copyPermissionsDialogOpen, setCopyPermissionsDialogOpen] = useState(false)
   const [applyTemplateDialogOpen, setApplyTemplateDialogOpen] = useState(false)
+  const [locationsDialogOpen, setLocationsDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserWithRelations | null>(null)
 
   const deactivateUser = useDeactivateUser()
   const reactivateUser = useReactivateUser()
   const deleteUser = useDeleteUser()
+  const { data: currentUserData } = useCurrentUser()
+  const currentUser = currentUserData?.data
+  
+  // Check if current user is a location manager
+  const { isLocationAdmin, managedLocationIds } = useManagedLocations()
+  
+  // Fetch ALL location-user assignments for filtering
+  const { data: locationUsersResponse } = useAllLocationUsers()
+  const allLocationUsers = locationUsersResponse?.data || []
+  
+  console.log('👤 User List Debug:', {
+    currentUser: currentUser ? {
+      id: currentUser.id,
+      email: currentUser.email,
+      role: currentUser.role,
+      default_location_id: currentUser.default_location_id
+    } : null,
+    isLocationAdmin,
+    managedLocationIds
+  })
 
   // Build filters for API
   const filters = {
@@ -85,7 +117,61 @@ export function UserList() {
   }
 
   const { data: usersResponse, isLoading } = useUsers(filters)
-  const users = usersResponse?.data || []
+  const allUsers = usersResponse?.data || []
+  
+  // Filter users by managed locations if user is a location admin
+  const users = useMemo(() => {
+    // Admin/super_admin see all users
+    if (!isLocationAdmin) {
+      return allUsers
+    }
+    
+    // Office users: Filter by location_users table
+    // Find all user IDs that are assigned to any of the manager's locations
+    if (managedLocationIds.length > 0) {
+      const userIdsInManagedLocations = new Set(
+        allLocationUsers
+          .filter(lu => managedLocationIds.includes(lu.location_id))
+          .map(lu => lu.user_id)
+      )
+      
+      const filteredUsers = allUsers.filter(user => 
+        userIdsInManagedLocations.has(user.id)
+      )
+      
+      console.log('🔒 Location-filtered users (via location_users table):', {
+        totalUsers: allUsers.length,
+        filteredUsers: filteredUsers.length,
+        managedLocationIds,
+        userIdsInManagedLocations: Array.from(userIdsInManagedLocations),
+        allLocationUsersCount: allLocationUsers.length,
+        filteredLocationUsers: allLocationUsers.filter(lu => managedLocationIds.includes(lu.location_id))
+      })
+      
+      return filteredUsers
+    }
+    
+    // FALLBACK: If no managed locations via location_users, check users.default_location_id
+    // This is for legacy/direct assignment
+    if (currentUser?.default_location_id) {
+      const filteredUsers = allUsers.filter(user => {
+        return user.default_location_id === currentUser.default_location_id
+      })
+      
+      console.log('🔒 Location-filtered users (via users.default_location_id fallback):', {
+        totalUsers: allUsers.length,
+        filteredUsers: filteredUsers.length,
+        currentUserLocationId: currentUser.default_location_id,
+        userLocationIds: allUsers.map(u => ({ name: u.full_name, default_location_id: u.default_location_id }))
+      })
+      
+      return filteredUsers
+    }
+    
+    // No location assignment found - return empty
+    console.warn('⚠️ Office user has no location assignment (neither location_users nor users.default_location_id)')
+    return []
+  }, [allUsers, isLocationAdmin, managedLocationIds, currentUser, allLocationUsers])
 
   const handleDeactivate = async (userId: string) => {
     if (confirm('Are you sure you want to deactivate this user?')) {
@@ -211,55 +297,84 @@ export function UserList() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  setSelectedUser(user)
-                  setEditDialogOpen(true)
-                }}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Details
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setSelectedUser(user)
-                  setPermissionsDialogOpen(true)
-                }}
-              >
-                <Shield className="mr-2 h-4 w-4" />
-                Manage Permissions
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setSelectedUser(user)
-                  setCopyPermissionsDialogOpen(true)
-                }}
-              >
-                <Copy className="mr-2 h-4 w-4" />
-                Copy Permissions
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {user.is_active ? (
+              {/* Users can edit their own details OR admins/office can edit others in their scope */}
+              {(
+                user.id === currentUser?.id || 
+                currentUser?.can_edit_users || 
+                (currentUser?.role === 'office' && isLocationAdmin)
+              ) && (
                 <DropdownMenuItem
-                  onClick={() => handleDeactivate(user.id)}
-                  className="text-orange-600"
+                  onClick={() => {
+                    setSelectedUser(user)
+                    setEditDialogOpen(true)
+                  }}
                 >
-                  <UserX className="mr-2 h-4 w-4" />
-                  Deactivate
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => handleReactivate(user.id)}>
-                  <UserCheck className="mr-2 h-4 w-4" />
-                  Reactivate
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit Details
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem
-                onClick={() => handleDelete(user.id)}
-                className="text-red-600"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              {/* Only admins can manage permissions, and users cannot manage their own permissions */}
+              {currentUser?.role && ['admin', 'super_admin'].includes(currentUser.role) && user.id !== currentUser.id && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSelectedUser(user)
+                      setPermissionsDialogOpen(true)
+                    }}
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Manage Permissions
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSelectedUser(user)
+                      setCopyPermissionsDialogOpen(true)
+                    }}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Permissions
+                  </DropdownMenuItem>
+                </>
+              )}
+              {/* Only admins can manage location assignments, and users cannot manage their own */}
+              {currentUser?.role && ['admin', 'super_admin'].includes(currentUser.role) && currentUser?.id !== user.id && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedUser(user)
+                    setLocationsDialogOpen(true)
+                  }}
+                >
+                  <FileUser className="mr-2 h-4 w-4" />
+                  Manage Locations
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {/* Users cannot deactivate or delete themselves */}
+              {currentUser?.id !== user.id && (
+                <>
+                  {user.is_active ? (
+                    <DropdownMenuItem
+                      onClick={() => handleDeactivate(user.id)}
+                      className="text-orange-600"
+                    >
+                      <UserX className="mr-2 h-4 w-4" />
+                      Deactivate
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={() => handleReactivate(user.id)}>
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      Reactivate
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => handleDelete(user.id)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )
@@ -320,12 +435,15 @@ export function UserList() {
             <SelectItem value="inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        <div className="ml-auto">
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
-        </div>
+        {/* Only users with can_create_users permission can add users */}
+        {(currentUser?.can_create_users || ['admin', 'super_admin', 'office'].includes(currentUser?.role || '')) && (
+          <div className="ml-auto">
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -415,6 +533,21 @@ export function UserList() {
             open={applyTemplateDialogOpen}
             onOpenChange={setApplyTemplateDialogOpen}
           />
+          
+          <Dialog open={locationsDialogOpen} onOpenChange={setLocationsDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Location Assignments - {selectedUser.full_name}</DialogTitle>
+                <DialogDescription>
+                  Manage which locations this user can access and their role at each location.
+                </DialogDescription>
+              </DialogHeader>
+              <UserLocationAssignments
+                userId={selectedUser.id}
+                currentUserRole={currentUser?.role || ''}
+              />
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>

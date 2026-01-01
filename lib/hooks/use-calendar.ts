@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCurrentCompany } from './use-current-company'
+import { useCurrentUser } from './use-current-user'
 import {
   getEvents,
   getEventById,
@@ -31,13 +32,25 @@ import {
 
 /**
  * Get all calendar events with optional filters
+ * Automatically applies location filtering for non-admin users
  */
 export function useEvents(filters?: EventFilters) {
   const { data: company } = useCurrentCompany()
+  const { data: userData } = useCurrentUser()
+
+  // Apply location filtering for non-admin users
+  const effectiveFilters: EventFilters = { ...filters }
+  
+  // Admin and super_admin see all events, others see only their location
+  if (userData && userData.role && !['admin', 'super_admin'].includes(userData.role)) {
+    if (userData.location_id) {
+      effectiveFilters.location_id = userData.location_id
+    }
+  }
 
   return useQuery({
-    queryKey: ['calendar-events', company?.id, filters],
-    queryFn: () => getEvents(company!.id, filters),
+    queryKey: ['calendar-events', company?.id, effectiveFilters],
+    queryFn: () => getEvents(company!.id, effectiveFilters),
     enabled: !!company?.id,
   })
 }

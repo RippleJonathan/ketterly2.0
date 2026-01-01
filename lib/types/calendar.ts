@@ -141,6 +141,7 @@ export interface CalendarEventWithRelations extends CalendarEvent {
     address: string
     city: string
     state: string
+    location_id: string | null
   }
   assigned_users_data?: Array<{
     id: string
@@ -223,6 +224,7 @@ export interface EventFilters {
   search?: string // Search in title, description, location
   is_all_day?: boolean
   exclude_cancelled?: boolean
+  location_id?: string // For filtering by location (office/location users)
 }
 
 // View types for calendar

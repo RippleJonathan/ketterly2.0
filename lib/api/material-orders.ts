@@ -22,6 +22,7 @@ import {
   GenerateOrderFromTemplateParams, 
   ImportTemplateToOrderResult 
 } from '@/lib/types/material-templates'
+import { getMaterialPriceForLocation } from '@/lib/utils/location-pricing'
 
 /**
  * Get all material orders for a company or lead
@@ -462,7 +463,19 @@ export async function importTemplateToOrder(
     const { template_id, measurements, estimated_costs, companyId, leadId, createdBy, supplier_id, order_date, expected_delivery_date, notes } = params
     const warnings: string[] = []
 
-    // 1. Fetch template with materials
+    // 1. Fetch lead's location for pricing
+    const { data: leadData, error: leadError } = await supabase
+      .from('leads')
+      .select('location_id')
+      .eq('id', leadId)
+      .single()
+
+    if (leadError) throw leadError
+    const leadLocationId = leadData?.location_id
+
+    console.log(`Template import - Lead location: ${leadLocationId}, Supplier: ${supplier_id || 'none'}`)
+
+    // 2. Fetch template with materials
     const { data: templateData, error: templateError } = await supabase
       .from('material_templates')
       .select(`
@@ -547,11 +560,24 @@ export async function importTemplateToOrder(
         continue
       }
 
-      const unitCost = estimated_costs?.[tm.material.id] || tm.material.current_cost || 0
+      // Get location-specific pricing with optional supplier
+      let unitCost = tm.material.current_cost || 0
+      let pricingSource = 'base'
+      
+      if (leadLocationId) {
+        const pricingResult = await getMaterialPriceForLocation(
+          tm.material.id,
+          leadLocationId,
+          supplier_id || undefined
+        )
+        unitCost = pricingResult.price
+        pricingSource = pricingResult.source
+        console.log(`Template import - ${tm.material.name}: $${unitCost.toFixed(2)} (${pricingSource})`)
+      } else {
+        console.log(`Template import - ${tm.material.name}: $${unitCost.toFixed(2)} (base - no location)`)
+      }
+      
       const total = calculatedQty * unitCost
-
-      // Debug: Log material costs
-      console.log(`Material: ${tm.material.name}, current_cost: ${tm.material.current_cost}, unitCost: ${unitCost}`)
 
       calculatedItems.push({
         material_id: tm.material.id,
@@ -604,7 +630,19 @@ export async function importTemplateToOrder(
           if (!accessory.material) continue
 
           const quantity = accessory.quantity || 1
-          const unitCost = estimated_costs?.[accessory.material.id] || accessory.material.current_cost || 0
+          
+          // Get location-specific pricing for accessory
+          let unitCost = accessory.material.current_cost || 0
+          if (leadLocationId) {
+            const pricingResult = await getMaterialPriceForLocation(
+              accessory.material.id,
+              leadLocationId,
+              supplier_id || undefined
+            )
+            unitCost = pricingResult.price
+            console.log(`Template import - Accessory ${accessory.material.name}: $${unitCost.toFixed(2)} (${pricingResult.source})`)
+          }
+          
           const total = quantity * unitCost
 
           calculatedItems.push({
@@ -662,6 +700,7 @@ export async function importTemplateToOrder(
     // 4. Create order items
     const orderItems = calculatedItems.map(item => ({
       order_id: order.id,
+      material_id: item.material_id, // CRITICAL: Include material_id for supplier pricing!
       description: item.description!,
       quantity: item.calculated_quantity || 0,
       unit: item.unit,

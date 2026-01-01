@@ -98,25 +98,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-sm font-medium text-gray-700 mb-2">Demo Access:</p>
-            <p className="text-xs text-gray-600">
-              Email: <span className="font-mono">demo@rippleroofing.com</span>
-            </p>
-            <p className="text-xs text-gray-600">
-              Password: <span className="font-mono">demo123</span>
-            </p>
+          {/* Forgot Password Link */}
+          <div className="mt-4 text-center">
+            <a
+              href="/forgot-password"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Forgot your password?
+            </a>
           </div>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Don't have an account?{' '}
-          <a href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-            Sign up
-          </a>
-        </p>
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components/admin/sidebar'
 import { Header } from '@/components/admin/header'
+import { PermissionErrorHandler } from '@/components/admin/permission-error-handler'
 
 export default function AdminLayout({
   children,
@@ -8,6 +9,8 @@ export default function AdminLayout({
 }) {
   return (
     <div className="flex h-screen bg-gray-50">
+      <PermissionErrorHandler />
+      
       {/* Sidebar */}
       <Sidebar />
 

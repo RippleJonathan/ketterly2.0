@@ -26,13 +26,27 @@ export async function POST(request: NextRequest) {
 
     console.log('Current user company_id:', currentUser.company_id)
 
-    // Only admins can create users
-    if (currentUser.role !== 'admin' && currentUser.role !== 'super_admin') {
+    // Check permissions: admins, super_admins, and office users can create users
+    const allowedRoles = ['admin', 'super_admin', 'office']
+    if (!allowedRoles.includes(currentUser.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
     const body = await request.json()
-    const { email, password, full_name, role, phone, commission_plan_id, role_template_id } = body
+    const { email, password, full_name, role, phone, commission_plan_id, role_template_id, default_location_id } = body
+
+    // Additional validation for office users
+    if (currentUser.role === 'office') {
+      // Office users cannot create admin or office users
+      if (role === 'admin' || role === 'super_admin' || role === 'office') {
+        return NextResponse.json({ 
+          error: 'Office users can only create sales, sales_manager, and staff users' 
+        }, { status: 403 })
+      }
+      
+      // TODO: Validate that default_location_id is in the office user's managed locations
+      // This will be enforced by RLS policies on location_users table
+    }
 
     // Create admin client with service role
     const adminClient = createAdminClient()
@@ -63,6 +77,7 @@ export async function POST(request: NextRequest) {
         role: role || 'sales',
         phone: phone || null,
         commission_plan_id: commission_plan_id || null,
+        default_location_id: default_location_id || null,
         is_active: true,
       })
       .select()

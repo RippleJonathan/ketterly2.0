@@ -46,6 +46,38 @@ export const userFormSchema = z.object({
 
 export type UserFormData = z.infer<typeof userFormSchema>
 
+// Password validation schema
+export const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+
+// Auth validation schemas
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+})
+
+export const resetPasswordSchema = z.object({
+  password: passwordSchema,
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
+
+export const signupSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: passwordSchema,
+  fullName: z.string().min(2, 'Name must be at least 2 characters'),
+  companyName: z.string().min(2, 'Company name must be at least 2 characters'),
+})
+
+export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
+export type SignupFormData = z.infer<typeof signupSchema>
+
 // Activity validation schema
 export const activityFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),

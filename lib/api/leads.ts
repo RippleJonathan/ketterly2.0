@@ -62,6 +62,15 @@ export async function getLeads(
       }
     }
 
+    // Multi-location filtering: If location_id is an array, show leads from all those locations
+    if (filters?.location_id) {
+      if (Array.isArray(filters.location_id)) {
+        query = query.in('location_id', filters.location_id)
+      } else {
+        query = query.eq('location_id', filters.location_id)
+      }
+    }
+
     if (filters?.created_from) {
       query = query.gte('created_at', filters.created_from)
     }

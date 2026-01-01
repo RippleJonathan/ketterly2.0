@@ -70,7 +70,8 @@ const statusConfig = {
 
 // Helper function to parse date strings without timezone issues
 // Parses "YYYY-MM-DD" as local date, not UTC
-function parseLocalDate(dateString: string): Date {
+function parseLocalDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null
   const [year, month, day] = dateString.split('-').map(Number)
   return new Date(year, month - 1, day)
 }
@@ -244,7 +245,8 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
       
       if (dateToSave) {
         const supabase = (await import('@/lib/supabase/client')).createClient()
-        const updateField = isWorkOrder ? 'scheduled_date' : 'expected_delivery_date'
+        // Both material and work orders use expected_delivery_date
+        const updateField = 'expected_delivery_date'
         
         // Auto-update status from 'draft' to 'scheduled' when date is set
         const updates: any = { [updateField]: dateToSave }
@@ -511,10 +513,10 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 </div>
               ) : (
                 <>
-                  {(order.expected_delivery_date || order.scheduled_date) ? (
+                  {order.expected_delivery_date ? (
                     <p className="font-medium">
                       {format(
-                        parseLocalDate(order.order_type === 'work' ? order.scheduled_date! : order.expected_delivery_date!),
+                        parseLocalDate(order.expected_delivery_date)!,
                         'MMM dd, yyyy'
                       )}
                     </p>

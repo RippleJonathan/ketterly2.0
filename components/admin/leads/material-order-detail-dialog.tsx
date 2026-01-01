@@ -20,6 +20,7 @@ import { getSuppliers } from '@/lib/api/suppliers'
 import { getMaterials } from '@/lib/api/materials'
 import { getMaterialVariants } from '@/lib/api/material-variants'
 import { useCreateEventFromMaterialOrder, useCreateEventFromLaborOrder, useUpdateMaterialOrderDate, useUpdateWorkOrderDate } from '@/lib/hooks/use-calendar'
+import { getMaterialPriceForLocation } from '@/lib/utils/location-pricing'
 import { toast } from 'sonner'
 
 interface MaterialOrderDetailDialogProps {
@@ -55,6 +56,7 @@ export function MaterialOrderDetailDialog({
   const [notes, setNotes] = useState('')
   
   // Data states
+  const [leadLocationId, setLeadLocationId] = useState<string | null>(null)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([])
@@ -89,9 +91,9 @@ export function MaterialOrderDetailDialog({
 
   const isWorkOrder = order.order_type === 'work'
 
-  // Load suppliers and materials when company is available
+  // Load suppliers, materials, and lead location when company is available
   useEffect(() => {
-    if (!company?.id || !open) return
+    if (!company?.id || !open || !order) return
     
     const loadData = async () => {
       // Load suppliers filtered by type
@@ -105,10 +107,112 @@ export function MaterialOrderDetailDialog({
       // Load materials for all orders (useful for searching)
       const { data: materialsData } = await getMaterials(company.id, { is_active: true })
       if (materialsData) setMaterials(materialsData)
+
+      // Fetch lead's location for pricing
+      if (order.lead_id) {
+        try {
+          const { createClient } = await import('@/lib/supabase/client')
+          const supabase = createClient()
+          
+          const { data: leadData, error } = await supabase
+            .from('leads')
+            .select('location_id')
+            .eq('id', order.lead_id)
+            .single()
+
+          if (!error && leadData) {
+            setLeadLocationId(leadData.location_id)
+            console.log('Material order location for pricing:', leadData.location_id)
+          }
+        } catch (error) {
+          console.error('Failed to fetch lead location:', error)
+        }
+      }
     }
     
     loadData()
-  }, [company?.id, isWorkOrder, open])
+  }, [company?.id, isWorkOrder, open, order])
+
+  // Update all item prices when supplier changes
+  useEffect(() => {
+    if (!supplierId || !order?.items || order.items.length === 0 || !leadLocationId) {
+      console.log('Skipping price update - missing required data:', { 
+        supplierId, 
+        hasItems: !!order?.items, 
+        itemCount: order?.items?.length,
+        leadLocationId 
+      })
+      return
+    }
+    
+    // Prevent infinite loop by checking if we've already processed this supplier
+    const processingKey = `${order.id}-${supplierId}`
+    if ((window as any).__processingSupplierUpdate === processingKey) {
+      console.log('Already processing this supplier update, skipping to prevent loop')
+      return
+    }
+    
+    const updateItemPrices = async () => {
+      (window as any).__processingSupplierUpdate = processingKey
+      
+      console.log('Supplier changed, updating prices for supplier:', supplierId)
+      console.log('Order has', order.items.length, 'items to update')
+      
+      let updatedCount = 0
+      
+      for (const item of order.items) {
+        if (!item.material_id) {
+          console.log('Skipping item without material_id:', item.description)
+          continue
+        }
+        
+        try {
+          // Get supplier-specific pricing for this material
+          console.log(`Fetching pricing for material ${item.material_id} at location ${leadLocationId} with supplier ${supplierId}`)
+          
+          const pricingResult = await getMaterialPriceForLocation(
+            item.material_id,
+            leadLocationId,
+            supplierId
+          )
+          
+          console.log(`Pricing result for ${item.description}:`, pricingResult)
+          console.log(`Updating ${item.description}: $${item.estimated_unit_cost} → $${pricingResult.price} (${pricingResult.source})`)
+          
+          // Update the item's price in the database - correct function signature
+          const { error } = await updateMaterialOrderItem(item.id, {
+            estimated_unit_cost: pricingResult.price,
+          })
+          
+          if (error) {
+            console.error(`Database update failed for ${item.description}:`, error)
+          } else {
+            updatedCount++
+            console.log(`✓ Successfully updated ${item.description}`)
+          }
+        } catch (error) {
+          console.error(`Failed to update price for ${item.description}:`, error)
+        }
+      }
+      
+      console.log(`Updated ${updatedCount} of ${order.items.length} items`)
+      
+      // Refresh the order to show updated prices
+      if (onUpdate && updatedCount > 0) {
+        toast.success(`Prices updated for ${updatedCount} item(s) with supplier pricing`)
+        // Small delay to allow database updates to complete
+        setTimeout(() => {
+          onUpdate()
+          // Clear the processing flag after refresh
+          delete (window as any).__processingSupplierUpdate
+        }, 100)
+      } else {
+        delete (window as any).__processingSupplierUpdate
+      }
+    }
+    
+    updateItemPrices()
+  }, [supplierId, leadLocationId]) // Only depend on supplierId and leadLocationId, not order or onUpdate
 
   // Initialize form when order changes or editing starts
   const handleStartEdit = () => {

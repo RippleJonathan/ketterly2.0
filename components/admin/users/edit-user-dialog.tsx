@@ -31,6 +31,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useUpdateUser } from '@/lib/hooks/use-users'
+import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { useCommissionPlans } from '@/lib/hooks/use-commission-plans'
 import { UserWithRelations } from '@/lib/types/users'
 
@@ -53,6 +54,8 @@ interface EditUserDialogProps {
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const updateUser = useUpdateUser()
   const { data: plansResponse } = useCommissionPlans()
+  const { data: currentUserData } = useCurrentUser()
+  const currentUser = currentUserData?.data
 
   const plans = plansResponse?.data || []
 
@@ -156,21 +159,41 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={currentUser?.id === user?.id}  // Users cannot change their own role
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a role" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="office">Office Staff</SelectItem>
+                        {/* Admin/super_admin can assign any role */}
+                        {currentUser?.role && ['admin', 'super_admin'].includes(currentUser.role) && (
+                          <>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="office">Office Staff</SelectItem>
+                          </>
+                        )}
+                        {/* All authorized users can assign these roles */}
                         <SelectItem value="sales_manager">Sales Manager</SelectItem>
                         <SelectItem value="sales">Sales Rep</SelectItem>
                         <SelectItem value="production">Production/Crew</SelectItem>
                         <SelectItem value="marketing">Marketing</SelectItem>
                       </SelectContent>
                     </Select>
+                    {currentUser?.id === user?.id && (
+                      <FormDescription className="text-amber-600">
+                        You cannot change your own role
+                      </FormDescription>
+                    )}
+                    {currentUser?.role === 'office' && (
+                      <FormDescription className="text-muted-foreground text-sm">
+                        Office staff can assign Sales, Production, and Marketing roles only
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

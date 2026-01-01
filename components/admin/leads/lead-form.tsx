@@ -24,6 +24,8 @@ import {
 import { createLeadAction, updateLeadAction } from '@/lib/actions/leads'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { useLocations } from '@/lib/hooks/use-locations'
+import { useUserLocations } from '@/lib/hooks/use-location-users'
 import { createClient } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -41,6 +43,7 @@ const leadFormSchema = z.object({
   source: z.string().min(1, 'Source is required'),
   status: z.string().min(1, 'Status is required'),
   priority: z.string().min(1, 'Priority is required'),
+  location_id: z.string().optional(),
   sales_rep_id: z.string().optional(),
   marketing_rep_id: z.string().optional(),
   sales_manager_id: z.string().optional(),
@@ -63,6 +66,14 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
   const { data: userData } = useCurrentUser()
   const user = userData?.data
   const queryClient = useQueryClient()
+  const { data: locations } = useLocations(true) // Only active locations
+  const { data: userLocations } = useUserLocations(user?.id) // User's assigned locations
+  
+  // Determine which locations to show based on user role
+  const isAdmin = user?.role && ['admin', 'office', 'super_admin'].includes(user.role as string)
+  const availableLocations = isAdmin
+    ? locations?.data || [] // Admins see all locations
+    : userLocations?.data?.map((ul: any) => ul.locations).filter(Boolean) || [] // Others see only their assigned locations
 
   const {
     register,
@@ -84,6 +95,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           service_type: lead.service_type,
           source: lead.source,
           status: lead.status,
+          location_id: (lead as any).location_id || '',
           priority: lead.priority,
           sales_rep_id: (lead as any).sales_rep_id || (lead as any).assigned_to || '',
           marketing_rep_id: (lead as any).marketing_rep_id || '',
@@ -101,6 +113,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           zip: '',
           service_type: 'repair',
           source: 'website',
+          location_id: '',
           status: 'new',
           priority: 'medium',
           sales_rep_id: '',
@@ -115,6 +128,20 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
   useEffect(() => {
     if (mode === 'create' && user?.id && user?.role) {
       const role = user.role as string
+      
+      // Auto-fill location based on user's assigned locations
+      if (!watch('location_id')) {
+        // For non-admins, auto-fill with their first assigned location
+        if (!isAdmin && userLocations?.data && userLocations.data.length > 0) {
+          setValue('location_id', userLocations.data[0].location_id)
+        }
+        // For admins with a default location, use that
+        else if (isAdmin && user.default_location_id) {
+          setValue('location_id', user.default_location_id)
+        }
+      }
+      
+      // Auto-fill user assignments based on role
       if (role === 'sales' && !watch('sales_rep_id')) {
         setValue('sales_rep_id', user.id)
       } else if (role === 'marketing' && !watch('marketing_rep_id')) {
@@ -125,7 +152,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
         setValue('production_manager_id', user.id)
       }
     }
-  }, [mode, user, setValue, watch])
+  }, [mode, user, setValue, watch, isAdmin, userLocations])
 
   // Fetch users for assignment dropdown
   useEffect(() => {
@@ -161,6 +188,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
       // Convert empty strings to null for all assignment fields
       const submitData = {
         ...data,
+        location_id: data.location_id || null,
         sales_rep_id: data.sales_rep_id || null,
         marketing_rep_id: data.marketing_rep_id || null,
         sales_manager_id: data.sales_manager_id || null,
@@ -329,6 +357,37 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
               <p className="text-red-500 text-sm mt-1">{errors.source.message}</p>
             )}
           </div>
+
+          {/* Location selector - admins see all, others see their assigned locations */}
+          {availableLocations.length > 0 && (
+            <div>
+              <Label htmlFor="location_id">
+                Location {!isAdmin && '*'}
+              </Label>
+              <Select
+                value={watch('location_id') || 'none'}
+                onValueChange={(value) => setValue('location_id', value === 'none' ? '' : value)}
+              >
+                <SelectTrigger id="location_id">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isAdmin && <SelectItem value="none">No location</SelectItem>}
+                  {availableLocations.map((location: any) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                      {location.is_primary && ' (Primary)'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!isAdmin && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  You can only create leads for your assigned locations
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <Label htmlFor="status">Status *</Label>

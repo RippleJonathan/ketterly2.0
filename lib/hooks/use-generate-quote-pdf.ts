@@ -12,6 +12,7 @@ import {
 } from '@/lib/utils/pdf-generator'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { getPrimaryLocation } from '@/lib/api/locations'
 
 export function useGenerateQuotePDF() {
   const [isGenerating, setIsGenerating] = useState(false)
@@ -76,29 +77,55 @@ export function useGenerateQuotePDF() {
     try {
       // Fetch signatures, change orders, and contract
       const [signatures, changeOrders, contract] = await Promise.all([
-        fetchSignatures(quote.id),
-        fetchChangeOrders(quote.id),
-        fetchContract(quote.id),
+        fetchSignatures((quote as any).id),
+        fetchChangeOrders((quote as any).id),
+        fetchContract((quote as any).id),
       ])
 
-      // Build company address from parts, filtering out null/empty values
-      const addressParts = [
+      // Determine location data to use for PDF
+      let locationData = null
+      
+      // First, check if the lead has a specific location assigned
+      if (quote.lead?.location) {
+        locationData = quote.lead.location
+      } else {
+        // If no location on lead, get the primary location for the company
+        const primaryLocationResponse = await getPrimaryLocation(company.id)
+        if (primaryLocationResponse.data) {
+          locationData = primaryLocationResponse.data
+        }
+      }
+
+      // Use location data if available, otherwise fall back to company data
+      const entityName = locationData?.name || company.name
+      const entityLogo = locationData?.logo_url || company.logo_url || undefined
+      
+      // Build address from location or company
+      const addressParts = locationData ? [
+        locationData.address,
+        locationData.city && locationData.state ? `${locationData.city}, ${locationData.state}` : locationData.city || locationData.state,
+        locationData.zip
+      ] : [
         company.address,
         company.city && company.state ? `${company.city}, ${company.state}` : company.city || company.state,
         company.zip
-      ].filter(Boolean)
-      const companyAddress = addressParts.length > 0 ? addressParts.join(' ') : undefined
+      ]
+      const entityAddress = addressParts.filter(Boolean).length > 0 ? addressParts.filter(Boolean).join(' ') : undefined
+      
+      const entityPhone = locationData?.phone || company.contact_phone || undefined
+      const entityEmail = locationData?.email || company.contact_email || undefined
+      const contractTerms = locationData?.contract_terms || company.contract_terms || undefined
 
       // Generate PDF blob
       const blob = await generateQuotePDF(
         {
           quote,
-          companyName: company.name,
-          companyLogo: company.logo_url || undefined,
-          companyAddress,
-          companyPhone: company.contact_phone || undefined,
-          companyEmail: company.contact_email || undefined,
-          contractTerms: company.contract_terms || undefined,
+          companyName: entityName,
+          companyLogo: entityLogo,
+          companyAddress: entityAddress,
+          companyPhone: entityPhone,
+          companyEmail: entityEmail,
+          contractTerms,
           signatures,
           changeOrders: changeOrders.map(co => ({
             id: co.id,
@@ -125,7 +152,7 @@ export function useGenerateQuotePDF() {
       )
 
       // Download to user's device
-      const fileName = `${company.name.replace(/\s+/g, '_')}_Quote_${quote.quote_number}.pdf`
+      const fileName = `${entityName.replace(/\s+/g, '_')}_Quote_${(quote as any).quote_number}.pdf`
       downloadPDF(blob, fileName)
 
       toast.success('PDF downloaded successfully')
@@ -150,29 +177,55 @@ export function useGenerateQuotePDF() {
     try {
       // Fetch signatures, change orders, and contract
       const [signatures, changeOrders, contract] = await Promise.all([
-        fetchSignatures(quote.id),
-        fetchChangeOrders(quote.id),
-        fetchContract(quote.id),
+        fetchSignatures((quote as any).id),
+        fetchChangeOrders((quote as any).id),
+        fetchContract((quote as any).id),
       ])
 
-      // Build company address from parts, filtering out null/empty values
-      const addressParts = [
+      // Determine location data to use for PDF
+      let locationData = null
+      
+      // First, check if the lead has a specific location assigned
+      if (quote.lead?.location) {
+        locationData = quote.lead.location
+      } else {
+        // If no location on lead, get the primary location for the company
+        const primaryLocationResponse = await getPrimaryLocation(company.id)
+        if (primaryLocationResponse.data) {
+          locationData = primaryLocationResponse.data
+        }
+      }
+
+      // Use location data if available, otherwise fall back to company data
+      const entityName = locationData?.name || company.name
+      const entityLogo = locationData?.logo_url || company.logo_url || undefined
+      
+      // Build address from location or company
+      const addressParts = locationData ? [
+        locationData.address,
+        locationData.city && locationData.state ? `${locationData.city}, ${locationData.state}` : locationData.city || locationData.state,
+        locationData.zip
+      ] : [
         company.address,
         company.city && company.state ? `${company.city}, ${company.state}` : company.city || company.state,
         company.zip
-      ].filter(Boolean)
-      const companyAddress = addressParts.length > 0 ? addressParts.join(' ') : undefined
+      ]
+      const entityAddress = addressParts.filter(Boolean).length > 0 ? addressParts.filter(Boolean).join(' ') : undefined
+      
+      const entityPhone = locationData?.phone || company.contact_phone || undefined
+      const entityEmail = locationData?.email || company.contact_email || undefined
+      const contractTerms = locationData?.contract_terms || company.contract_terms || undefined
 
       // Generate PDF blob
       const blob = await generateQuotePDF(
         {
           quote,
-          companyName: company.name,
-          companyLogo: company.logo_url || undefined,
-          companyAddress,
-          companyPhone: company.contact_phone || undefined,
-          companyEmail: company.contact_email || undefined,
-          contractTerms: company.contract_terms || undefined,
+          companyName: entityName,
+          companyLogo: entityLogo,
+          companyAddress: entityAddress,
+          companyPhone: entityPhone,
+          companyEmail: entityEmail,
+          contractTerms,
           signatures,
           changeOrders: changeOrders.map(co => ({
             id: co.id,
@@ -211,7 +264,7 @@ export function useGenerateQuotePDF() {
       }
 
       // Update quote record with PDF URL
-      const updateResult = await updateQuotePDFUrl(quote.id, uploadResult.url)
+      const updateResult = await updateQuotePDFUrl((quote as any).id, uploadResult.url)
 
       if (updateResult.error) {
         throw new Error(updateResult.error)
@@ -240,7 +293,7 @@ export function useGenerateQuotePDF() {
     setIsGenerating(true)
     try {
       // Fetch signatures
-      const signatures = await fetchSignatures(quote.id)
+      const signatures = await fetchSignatures((quote as any).id)
 
       // Build company address from parts, filtering out null/empty values
       const addressParts = [
@@ -268,9 +321,9 @@ export function useGenerateQuotePDF() {
       // Upload to Supabase Storage
       const uploadResult = await uploadQuotePDF(
         company.id,
-        quote.id,
+        (quote as any).id,
         blob,
-        quote.version || 1
+        (quote as any).version || 1
       )
 
       if ('error' in uploadResult) {
@@ -278,10 +331,10 @@ export function useGenerateQuotePDF() {
       }
 
       // Update quote record with PDF URL
-      await updateQuotePDFUrl(quote.id, uploadResult.url)
+      await updateQuotePDFUrl((quote as any).id, uploadResult.url)
 
       // Download to user's device
-      const fileName = `${company.name.replace(/\s+/g, '_')}_Quote_${quote.quote_number}.pdf`
+      const fileName = `${company.name.replace(/\s+/g, '_')}_Quote_${(quote as any).quote_number}.pdf`
       downloadPDF(blob, fileName)
 
       toast.success('PDF downloaded and saved')

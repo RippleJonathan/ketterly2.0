@@ -109,6 +109,12 @@ export async function GET(
       supabase.from('users').select('id, full_name, email').eq('id', quote.created_by).single()
     ])
 
+    // Fetch location if lead has location_id
+    let locationResult = null
+    if (leadResult?.data?.location_id) {
+      locationResult = await supabase.from('locations').select('*').eq('id', leadResult.data.location_id).single()
+    }
+
     // Combine results
     const quoteWithRelations = {
       ...quote,
@@ -116,7 +122,8 @@ export async function GET(
       leads: leadResult.data,
       companies: companyResult.data,
       quote_signatures: signaturesResult.data || [],
-      created_by_user: userResult.data
+      created_by_user: userResult.data,
+      location: locationResult?.data // Add location data
     }
 
     // Handle company logo - fetch from private storage and convert to base64
@@ -208,8 +215,18 @@ function generateQuotePDF(quote: any, companyLogoBase64?: string | null): string
   const lineItems = quote.quote_line_items || []
   const lead = Array.isArray(quote.leads) ? quote.leads[0] : quote.leads
   const company = Array.isArray(quote.companies) ? quote.companies[0] : quote.companies
+  const location = quote.location // Get location from quote
   const createdByUser = quote.created_by_user
   const signatures = quote.quote_signatures || []
+
+  // Use location data if available, otherwise fallback to company data
+  const displayName = location?.name || company?.name || 'Company Name'
+  const displayAddress = location?.address || company?.address
+  const displayCity = location?.city || company?.city
+  const displayState = location?.state || company?.state
+  const displayZip = location?.zip || company?.zip
+  const displayPhone = location?.phone || company?.contact_phone
+  const displayEmail = location?.email || company?.contact_email
 
   // Replace placeholders in contract terms
   let contractTerms = company?.contract_terms || ''
@@ -544,14 +561,25 @@ function generateQuotePDF(quote: any, companyLogoBase64?: string | null): string
   <div class="page">
     <!-- Header with logo and company info -->
     <div class="header">
-    <div>
-      ${companyLogoBase64 ? `<img src="${companyLogoBase64}" alt="Company Logo" class="company-logo">` : ''}
-      <div class="company">${company?.name || 'Company Name'}</div>
-      <div class="quote-number">Quote #${quote.quote_number}</div>
-      ${quote.option_label ? `<div class="quote-number">${quote.option_label}</div>` : ''}
+      <div class="company-info">
+        ${companyLogoBase64 ? `<img src="${companyLogoBase64}" alt="Company Logo" class="company-logo">` : ''}
+        <div class="company-name">${company?.name || 'Company Name'}</div>
+        ${location ? `<div style="font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 10px;">${location.name}</div>` : ''}
+        <div class="company-details">
+          ${displayAddress ? `${displayAddress}<br>` : ''}
+          ${displayCity ? `${displayCity}, ${displayState} ${displayZip}<br>` : ''}
+          ${displayEmail ? `${displayEmail}<br>` : ''}
+          ${displayPhone ? `${displayPhone}<br>` : ''}
+          ${company?.license_number ? `License: ${company.license_number}` : ''}
+        </div>
+      </div>
+      <div class="quote-meta">
+        <div class="quote-title">QUOTE</div>
+        <div class="quote-number">#${quote.quote_number}</div>
+        ${quote.option_label ? `<div class="quote-number">${quote.option_label}</div>` : ''}
+        <div class="status-badge">${quote.status.toUpperCase()}</div>
+      </div>
     </div>
-    <div class="status">${quote.status.toUpperCase()}</div>
-  </div>
 
   <div class="section">
     <div class="section-title">Customer Information</div>

@@ -18,10 +18,12 @@ import { CommissionDialog } from './commission-dialog'
 import { MarkCommissionPaidDialog } from './mark-commission-paid-dialog'
 import { LeadCommission, CommissionStatus } from '@/lib/types/commissions'
 import { formatCurrency, formatDate } from '@/lib/utils/formatting'
-import { Plus, Pencil, Trash2, DollarSign, Loader2, CheckCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, DollarSign, Loader2, CheckCircle, RefreshCw } from 'lucide-react'
 import { Lead } from '@/lib/types'
 import { useQuery } from '@tanstack/react-query'
 import { getLeadFinancials } from '@/lib/api/financials'
+import { autoCreateCommission } from '@/lib/utils/auto-commission'
+import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface CommissionsTabProps {
   lead: Lead
@@ -40,8 +43,10 @@ interface CommissionsTabProps {
 
 export function CommissionsTab({ lead }: CommissionsTabProps) {
   const { data: currentUser } = useCurrentUser()
-  const { data: commissionsData, isLoading } = useLeadCommissions(lead.id)
-  const { data: summaryData } = useLeadCommissionSummary(lead.id)
+  const { data: company } = useCurrentCompany()
+  const { data: commissionsData, isLoading, refetch: refetchCommissions } = useLeadCommissions(lead.id)
+  const { data: summaryData, refetch: refetchSummary } = useLeadCommissionSummary(lead.id)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   
   // New granular permissions
   const { data: canViewOwn } = useCheckPermission(currentUser?.data?.id || '', 'can_view_own_commissions')
@@ -70,7 +75,19 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const [markPaidCommission, setMarkPaidCommission] = useState<LeadCommission | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const commissions = commissionsData?.data || []
+  const allCommissions = commissionsData?.data || []
+  
+  // Filter commissions based on role
+  // Admin, Office, Sales Manager → See all commissions
+  // Everyone else → See only their own commissions
+  const currentUserId = currentUser?.data?.id
+  const userRole = currentUser?.data?.role as string
+  const canSeeAllCommissions = ['admin', 'office', 'sales_manager', 'super_admin'].includes(userRole)
+  
+  const commissions = canSeeAllCommissions 
+    ? allCommissions 
+    : allCommissions.filter(c => c.user_id === currentUserId)
+  
   const summary = summaryData?.data || {
     total_owed: 0,
     total_paid: 0,
@@ -110,6 +127,40 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
     setDeleteConfirm(null)
   }
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      // Auto-create/update commissions for all assigned users
+      if (company?.id) {
+        const assignedUsers = [
+          lead.sales_rep_id,
+          lead.marketing_rep_id,
+          lead.sales_manager_id,
+          lead.production_manager_id,
+        ].filter(Boolean)
+
+        // Create/update commissions for each assigned user
+        const commissionPromises = assignedUsers.map(userId => 
+          autoCreateCommission(lead.id, userId, company.id, currentUser?.data?.id || null, true)
+            .catch(err => {
+              console.error(`Failed to auto-create commission for user ${userId}:`, err)
+              return { success: false }
+            })
+        )
+
+        await Promise.all(commissionPromises)
+      }
+
+      // Refresh the commission data
+      await Promise.all([refetchCommissions(), refetchSummary()])
+      toast.success('Commissions refreshed and updated')
+    } catch (error) {
+      toast.error('Failed to refresh commissions')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   // Get financials data to calculate accurate base amount for commissions
   const { data: financialsData } = useQuery({
     queryKey: ['lead-financials', lead.id],
@@ -129,12 +180,23 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
           <h2 className="text-2xl font-bold text-gray-900">Commissions</h2>
           <p className="text-gray-600 mt-1">Track and manage sales commissions for this lead</p>
         </div>
-        {canCreateFinal && (
-          <Button onClick={() => setShowAddDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Commission
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
           </Button>
-        )}
+          {canCreateFinal && (
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Commission
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Estimate Revenue Info */}

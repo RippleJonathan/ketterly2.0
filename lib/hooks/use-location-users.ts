@@ -45,12 +45,15 @@ export function useUserLocations(userId: string | undefined) {
 // Assign user to location
 export function useAssignUserToLocation() {
   const queryClient = useQueryClient()
+  const { data: company } = useCurrentCompany()
 
   return useMutation({
     mutationFn: (assignment: LocationUserInsert) => assignUserToLocation(assignment),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['location-users', variables.location_id] })
       queryClient.invalidateQueries({ queryKey: ['user-locations', variables.user_id] })
+      queryClient.invalidateQueries({ queryKey: ['all-location-users', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['users', company?.id] })
       toast.success('User assigned to location')
     },
     onError: (error: Error) => {
@@ -62,6 +65,7 @@ export function useAssignUserToLocation() {
 // Remove user from location
 export function useRemoveUserFromLocation() {
   const queryClient = useQueryClient()
+  const { data: company } = useCurrentCompany()
 
   return useMutation({
     mutationFn: ({ locationUserId, locationId, userId }: { locationUserId: string; locationId: string; userId: string }) =>
@@ -69,6 +73,8 @@ export function useRemoveUserFromLocation() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['location-users', variables.locationId] })
       queryClient.invalidateQueries({ queryKey: ['user-locations', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['all-location-users', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['users', company?.id] })
       toast.success('User removed from location')
     },
     onError: (error: Error) => {

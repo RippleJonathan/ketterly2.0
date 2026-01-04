@@ -13,8 +13,9 @@ import { OrdersTab } from '@/components/admin/leads/orders-tab'
 import { PaymentsTab } from '@/components/admin/leads/payments-tab'
 import { FinancialsTab } from '@/components/admin/leads/financials-tab'
 import { CommissionsTab } from '@/components/admin/leads/commissions-tab'
+import { EditableDetailsTab } from '@/components/admin/leads/editable-details-tab'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, Users, CheckSquare, Image, TrendingUp, Banknote, Calendar } from 'lucide-react'
+import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, CheckSquare, Image, TrendingUp, Banknote, Calendar } from 'lucide-react'
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -23,9 +24,10 @@ import {
   getStatusBadgeClasses,
   getPriorityBadgeClasses,
 } from '@/lib/constants/leads'
-import { formatDistanceToNow, format } from 'date-fns'
+import { format } from 'date-fns'
 import { DeleteLeadButton } from '@/components/admin/leads/delete-lead-button'
 import { LeadDetailClient } from '@/components/admin/leads/lead-detail-client'
+import { LeadSummaryCard } from '@/components/admin/leads/lead-summary-card'
 import type { Lead } from '@/lib/types'
 
 interface LeadDetailPageProps {
@@ -45,16 +47,32 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     redirect('/login')
   }
 
-  // Get user's company
-  const { data: userData } = await supabase
+  // Get user's company and permissions
+  const { data: userData, error: userDataError } = await supabase
     .from('users')
-    .select('company_id')
+    .select(`
+      company_id, 
+      id,
+      user_permissions (*)
+    `)
     .eq('id', user.id)
     .single()
 
   if (!userData) {
+    console.error('Failed to load user data:', userDataError)
     redirect('/login')
   }
+
+  // Extract permissions - Supabase returns object for one-to-one relationship
+  const userPermissions = (userData.user_permissions as any) || null
+  
+  // Debug: Log permissions (remove after testing)
+  console.log('User permissions loaded:', {
+    userId: userData.id,
+    hasPermissions: !!userPermissions,
+    financialsPermission: userPermissions?.can_view_lead_financials,
+    allPermissions: userPermissions
+  })
 
   // Use admin client to fetch lead
   const adminClient = createAdminClient()
@@ -64,6 +82,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     .from('leads')
     .select(`
       *,
+      location:location_id(id, name, address, city, state, zip),
       sales_rep_user:sales_rep_id(id, full_name, email),
       marketing_rep_user:marketing_rep_id(id, full_name, email),
       sales_manager_user:sales_manager_id(id, full_name, email),
@@ -83,40 +102,33 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
   const lead: any = leadData
 
-  const tabs = [
-    { id: 'details', label: 'Details', icon: FileText },
-    { id: 'checklist', label: 'Checklist', icon: CheckSquare },
-    { id: 'measurements', label: 'Measurements', icon: Ruler },
-    { id: 'estimates', label: 'Estimates', icon: DollarSign },
-    { id: 'work-orders', label: 'Orders', icon: ClipboardList },
-    { id: 'photos', label: 'Photos', icon: Image },
-    { id: 'notes', label: 'Notes & Activity', icon: StickyNote },
-    { id: 'documents', label: 'Documents', icon: FileText },
-    { id: 'payments', label: 'Invoice/Payments', icon: CreditCard },
-    { id: 'financials', label: 'Financials', icon: TrendingUp },
-    { id: 'commissions', label: 'Commissions', icon: Banknote },
-    { id: 'team', label: 'Team', icon: Users },
+  // Define all tabs with their permission requirements
+  const allTabs = [
+    { id: 'details', label: 'Details', icon: FileText, permission: 'can_view_lead_details' },
+    { id: 'checklist', label: 'Checklist', icon: CheckSquare, permission: 'can_view_lead_checklist' },
+    { id: 'measurements', label: 'Measurements', icon: Ruler, permission: 'can_view_lead_measurements' },
+    { id: 'estimates', label: 'Estimates', icon: DollarSign, permission: 'can_view_lead_estimates' },
+    { id: 'work-orders', label: 'Orders', icon: ClipboardList, permission: 'can_view_lead_orders' },
+    { id: 'photos', label: 'Photos', icon: Image, permission: 'can_view_lead_photos' },
+    { id: 'notes', label: 'Notes & Activity', icon: StickyNote, permission: 'can_view_lead_notes' },
+    { id: 'documents', label: 'Documents', icon: FileText, permission: 'can_view_lead_documents' },
+    { id: 'payments', label: 'Invoice/Payments', icon: CreditCard, permission: 'can_view_lead_payments' },
+    { id: 'financials', label: 'Financials', icon: TrendingUp, permission: 'can_view_lead_financials' },
+    { id: 'commissions', label: 'Commissions', icon: Banknote, permission: 'can_view_lead_commissions' },
   ]
+
+  // Filter tabs based on user permissions
+  const tabs = allTabs.filter((tabItem) => {
+    // If no permissions found, show all tabs (will be fixed by running fix-missing-permissions.js)
+    if (!userPermissions) return true
+    // Check if user has permission for this tab
+    return userPermissions[tabItem.permission] === true
+  })
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/leads">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Leads
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{lead.full_name}</h1>
-            <p className="text-gray-600 mt-1">
-              Created {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Lead Summary Card */}
+      <LeadSummaryCard lead={lead} leadId={id} />
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">
@@ -146,9 +158,9 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
       </div>
       {/* Tab Content */}
       <div className="pb-6">
-        {tab === 'details' && <DetailsTab lead={lead} />}
-        {tab === 'checklist' && <ChecklistTab leadId={id} currentStage={lead.status} />}
-        {tab === 'measurements' && (
+        {tab === 'details' && (!userPermissions || userPermissions.can_view_lead_details) && <EditableDetailsTab lead={lead} />}
+        {tab === 'checklist' && (!userPermissions || userPermissions.can_view_lead_checklist) && <ChecklistTab leadId={id} currentStage={lead.status} />}
+        {tab === 'measurements' && (!userPermissions || userPermissions.can_view_lead_measurements) && (
           <MeasurementsTab 
             leadId={id}
             address={`${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`}
@@ -156,7 +168,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
             longitude={lead.longitude}
           />
         )}
-        {tab === 'estimates' && (
+        {tab === 'estimates' && (!userPermissions || userPermissions.can_view_lead_estimates) && (
           <EstimatesTab 
             leadId={id} 
             leadName={lead.full_name}
@@ -168,19 +180,18 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
             longitude={lead.longitude}
           />
         )}
-        {tab === 'work-orders' && (
+        {tab === 'work-orders' && (!userPermissions || userPermissions.can_view_lead_orders) && (
           <OrdersTab 
             leadId={id} 
             leadAddress={`${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`}
           />
         )}
-        {tab === 'photos' && <PhotosTab leadId={id} leadName={lead.full_name} />}
-        {tab === 'notes' && <ActivityTab leadId={id} />}
-        {tab === 'documents' && <FilesTab leadId={id} leadName={lead.full_name} />}
-        {tab === 'payments' && <PaymentsTab leadId={id} />}
-        {tab === 'financials' && <FinancialsTab leadId={id} />}
-        {tab === 'commissions' && <CommissionsTab lead={lead} />}
-        {tab === 'team' && <PlaceholderTab title="Team" description="Assign team members and manage crew schedules" />}
+        {tab === 'photos' && (!userPermissions || userPermissions.can_view_lead_photos) && <PhotosTab leadId={id} leadName={lead.full_name} />}
+        {tab === 'notes' && (!userPermissions || userPermissions.can_view_lead_notes) && <ActivityTab leadId={id} />}
+        {tab === 'documents' && (!userPermissions || userPermissions.can_view_lead_documents) && <FilesTab leadId={id} leadName={lead.full_name} />}
+        {tab === 'payments' && (!userPermissions || userPermissions.can_view_lead_payments) && <PaymentsTab leadId={id} />}
+        {tab === 'financials' && (!userPermissions || userPermissions.can_view_lead_financials) && <FinancialsTab leadId={id} />}
+        {tab === 'commissions' && (!userPermissions || userPermissions.can_view_lead_commissions) && <CommissionsTab lead={lead} />}
       </div>
     </div>
   )
@@ -228,7 +239,7 @@ function DetailsTab({ lead }: { lead: any }) {
         </div>
       </div>
 
-      {/* Lead Details */}
+      {/* Lead Information */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Lead Information</h2>
         <div className="space-y-3">
@@ -256,6 +267,86 @@ function DetailsTab({ lead }: { lead: any }) {
             <p className="text-sm text-gray-500">Last Updated</p>
             <p className="text-gray-900">
               {format(new Date(lead.updated_at), 'MMM d, yyyy h:mm a')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Team */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Team</h2>
+        <div className="space-y-3">
+          {(lead as any).sales_rep_user && (
+            <div>
+              <p className="text-sm text-gray-500">Sales Rep</p>
+              <p className="text-gray-900 font-medium">
+                {(lead as any).sales_rep_user.full_name}
+              </p>
+            </div>
+          )}
+          {(lead as any).marketing_rep_user && (
+            <div>
+              <p className="text-sm text-gray-500">Marketing Rep</p>
+              <p className="text-gray-900 font-medium">
+                {(lead as any).marketing_rep_user.full_name}
+              </p>
+            </div>
+          )}
+          {(lead as any).sales_manager_user && (
+            <div>
+              <p className="text-sm text-gray-500">Sales Manager</p>
+              <p className="text-gray-900 font-medium">
+                {(lead as any).sales_manager_user.full_name}
+              </p>
+            </div>
+          )}
+          {(lead as any).production_manager_user && (
+            <div>
+              <p className="text-sm text-gray-500">Production Manager</p>
+              <p className="text-gray-900 font-medium">
+                {(lead as any).production_manager_user.full_name}
+              </p>
+            </div>
+          )}
+          {!(lead as any).sales_rep_user && !(lead as any).marketing_rep_user && 
+           !(lead as any).sales_manager_user && !(lead as any).production_manager_user && (
+            <p className="text-gray-500 text-sm">No team members assigned</p>
+          )}
+        </div>
+      </div>
+
+      {/* Lead Details */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Lead Details</h2>
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm text-gray-500">Service Type</p>
+            <p className="text-gray-900 font-medium">
+              {SERVICE_TYPE_LABELS[lead.service_type as keyof typeof SERVICE_TYPE_LABELS] || lead.service_type}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Lead Source</p>
+            <p className="text-gray-900 font-medium">
+              {LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS]}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Location</p>
+            <p className="text-gray-900 font-medium">
+              {(lead as any).location?.name || 'No Location'}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Status</p>
+            <p className="text-gray-900 font-medium">
+              {LEAD_STATUS_LABELS[lead.status as keyof typeof LEAD_STATUS_LABELS] || lead.status}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Priority</p>
+            <p className="text-gray-900 font-medium">
+              {LEAD_PRIORITY_LABELS[lead.priority as keyof typeof LEAD_PRIORITY_LABELS] || lead.priority}
             </p>
           </div>
         </div>

@@ -177,7 +177,30 @@ export function EstimatesTab({
         .select(`
           *,
           line_items:quote_line_items(*),
-          lead:leads(id, full_name, email, phone, address, city, state, zip),
+          lead:leads(
+            id, 
+            full_name, 
+            email, 
+            phone, 
+            address, 
+            city, 
+            state, 
+            zip,
+            location:locations(
+              id,
+              name,
+              address,
+              city,
+              state,
+              zip,
+              phone,
+              email,
+              logo_url,
+              primary_color,
+              contract_terms,
+              license_number
+            )
+          ),
           company:companies(*)
         `)
         .eq('id', quoteId)

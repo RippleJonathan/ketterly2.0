@@ -47,7 +47,6 @@ const createUserSchema = z.object({
   role: z.enum(['admin', 'office', 'sales_manager', 'sales', 'production', 'marketing']),
   phone: z.string().optional(),
   commission_plan_id: z.string().optional(),
-  role_template_id: z.string().optional(),
   location_id: z.string().optional(),
 })
 
@@ -102,7 +101,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       phone: '',
       role: 'sales',
       commission_plan_id: 'none',
-      role_template_id: 'none',
       location_id: getDefaultLocationId(),
     },
   })
@@ -112,7 +110,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       // Convert "none" values to null for optional fields
       const submitData = {
         ...data,
-        role_template_id: data.role_template_id === 'none' ? undefined : data.role_template_id,
         commission_plan_id: data.commission_plan_id === 'none' ? undefined : data.commission_plan_id,
       }
       
@@ -258,34 +255,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="role_template_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Permission Template (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a template" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Apply a pre-configured set of permissions
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Commission Plan */}

@@ -29,18 +29,20 @@ function mapPlanPaidWhenToLeadCommissionPaidWhen(
  * 2. Finds the latest approved quote/invoice total as base amount
  * 3. Calculates commission based on plan
  * 4. Creates/updates commission record
- * 5. Handles reassignment by canceling old user's commission
+ * 5. Handles reassignment by canceling old user's commission (unless skipCancelOthers=true)
  * 
  * @param leadId - The lead ID
  * @param userId - The newly assigned user ID (null if unassigning)
  * @param companyId - The company ID
  * @param currentUserId - The user making the change
+ * @param skipCancelOthers - If true, don't cancel other users' commissions (for multi-user scenarios)
  */
 export async function autoCreateCommission(
   leadId: string,
   userId: string | null,
   companyId: string,
-  currentUserId: string | null
+  currentUserId: string | null,
+  skipCancelOthers: boolean = false
 ): Promise<{ success: boolean; message?: string }> {
   const supabase = createClient()
 
@@ -185,7 +187,7 @@ export async function autoCreateCommission(
       calculatedAmount = baseAmount * ((commissionRate || 0) / 100)
     }
 
-    // Cancel any existing pending commissions for OTHER users
+    // Cancel any existing pending commissions for OTHER users (unless skipCancelOthers=true)
     const { data: existingCommissions } = await supabase
       .from('lead_commissions')
       .select('id, user_id, status')
@@ -193,7 +195,7 @@ export async function autoCreateCommission(
       .eq('company_id', companyId)
       .is('deleted_at', null)
 
-    if (existingCommissions && existingCommissions.length > 0) {
+    if (!skipCancelOthers && existingCommissions && existingCommissions.length > 0) {
       for (const commission of existingCommissions) {
         // Cancel commissions for other users
         if (commission.user_id !== userId && 

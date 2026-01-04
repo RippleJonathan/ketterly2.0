@@ -12,6 +12,7 @@ import {
   notifyQuoteApproved,
   notifyContractSigned,
 } from '@/lib/email/user-notifications'
+import { autoCreateCommission } from '@/lib/utils/auto-commission'
 import { revalidatePath } from 'next/cache'
 
 /**
@@ -98,7 +99,7 @@ export async function signContractAction(data: {
     // Get lead and quote details
     const { data: lead } = await supabase
       .from('leads')
-      .select('id, full_name, assigned_to, created_by')
+      .select('id, full_name, assigned_to, created_by, sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id')
       .eq('id', data.leadId)
       .eq('company_id', data.companyId)
       .single()
@@ -145,6 +146,21 @@ export async function signContractAction(data: {
         totalAmount: quote.grand_total || 0,
         signedAt: data.signedAt,
       }).catch(err => console.error('Failed to send contract signed notification:', err))
+    }
+
+    // Auto-create/update commissions for all assigned users when contract is signed
+    const assignedUsers = [
+      lead.sales_rep_id,
+      lead.marketing_rep_id,
+      lead.sales_manager_id,
+      lead.production_manager_id,
+    ].filter(Boolean) // Remove null/undefined values
+
+    // Create commissions for each assigned user (non-blocking)
+    // Pass skipCancelOthers=true to support multiple users having commissions simultaneously
+    for (const userId of assignedUsers) {
+      autoCreateCommission(data.leadId, userId, data.companyId, null, true)
+        .catch(err => console.error(`Failed to auto-create commission for user ${userId}:`, err))
     }
 
     revalidatePath('/admin/leads')

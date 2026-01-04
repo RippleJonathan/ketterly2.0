@@ -9,6 +9,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyPaymentReceived } from '@/lib/email/user-notifications'
+import { getNextPaymentNumber } from '@/lib/api/invoices'
 import { revalidatePath } from 'next/cache'
 
 /**
@@ -28,25 +29,39 @@ export async function recordPaymentAction(data: {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
     
-    // Get lead details
-    const { data: lead } = await supabase
+    // Get lead details (use admin client to bypass RLS in server action)
+    const { data: lead, error: leadError } = await adminSupabase
       .from('leads')
-      .select('id, full_name, assigned_to, created_by')
+      .select('id, full_name, created_by, sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id')
       .eq('id', data.leadId)
       .eq('company_id', data.companyId)
+      .is('deleted_at', null)
       .single()
 
+    if (leadError) {
+      console.error('Error fetching lead:', leadError)
+      throw new Error(`Lead query failed: ${leadError.message}`)
+    }
+
     if (!lead) {
+      console.error('Lead not found for ID:', data.leadId, 'Company:', data.companyId)
       throw new Error('Lead not found')
     }
 
-    // Record payment in database (adjust table name as needed)
-    const { error: paymentError } = await supabase
+    // Generate next payment number
+    const { data: paymentNumber, error: paymentNumberError } = await getNextPaymentNumber(data.companyId)
+    if (paymentNumberError || !paymentNumber) {
+      throw new Error('Failed to generate payment number')
+    }
+
+    // Record payment in database using admin client
+    const { error: paymentError } = await adminSupabase
       .from('payments')
       .insert({
         company_id: data.companyId,
         lead_id: data.leadId,
         invoice_id: data.invoiceId,
+        payment_number: paymentNumber,
         amount: data.amount,
         payment_method: data.paymentMethod,
         payment_date: data.paymentDate,
@@ -56,12 +71,15 @@ export async function recordPaymentAction(data: {
 
     if (paymentError) {
       console.error('Payment recording error:', paymentError)
-      // Continue with notifications even if payment table doesn't exist
+      throw new Error(`Failed to record payment: ${paymentError.message}`)
     }
 
     // Gather team members to notify
     const userIdsToNotify = new Set<string>()
-    if (lead.assigned_to) userIdsToNotify.add(lead.assigned_to)
+    if (lead.sales_rep_id) userIdsToNotify.add(lead.sales_rep_id)
+    if (lead.marketing_rep_id) userIdsToNotify.add(lead.marketing_rep_id)
+    if (lead.sales_manager_id) userIdsToNotify.add(lead.sales_manager_id)
+    if (lead.production_manager_id) userIdsToNotify.add(lead.production_manager_id)
     if (lead.created_by) userIdsToNotify.add(lead.created_by)
     // Remove the person who recorded the payment
     userIdsToNotify.delete(data.createdBy)
@@ -103,16 +121,24 @@ export async function markInvoicePaidAction(data: {
 }) {
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     
-    // Get lead and invoice details
-    const { data: lead } = await supabase
+    // Get lead and invoice details (use admin client to bypass RLS in server action)
+    const { data: lead, error: leadError } = await adminSupabase
       .from('leads')
-      .select('id, full_name, assigned_to, created_by')
+      .select('id, full_name, created_by, sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id')
       .eq('id', data.leadId)
       .eq('company_id', data.companyId)
+      .is('deleted_at', null)
       .single()
 
+    if (leadError) {
+      console.error('Error fetching lead:', leadError)
+      throw new Error(`Lead query failed: ${leadError.message}`)
+    }
+
     if (!lead) {
+      console.error('Lead not found for ID:', data.leadId, 'Company:', data.companyId)
       throw new Error('Lead not found')
     }
 
@@ -134,7 +160,10 @@ export async function markInvoicePaidAction(data: {
 
     // Gather team members to notify
     const userIdsToNotify = new Set<string>()
-    if (lead.assigned_to) userIdsToNotify.add(lead.assigned_to)
+    if (lead.sales_rep_id) userIdsToNotify.add(lead.sales_rep_id)
+    if (lead.marketing_rep_id) userIdsToNotify.add(lead.marketing_rep_id)
+    if (lead.sales_manager_id) userIdsToNotify.add(lead.sales_manager_id)
+    if (lead.production_manager_id) userIdsToNotify.add(lead.production_manager_id)
     if (lead.created_by) userIdsToNotify.add(lead.created_by)
     userIdsToNotify.delete(data.paidBy) // Don't notify the person who marked it paid
 

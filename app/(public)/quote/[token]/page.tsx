@@ -185,10 +185,20 @@ export default function PublicQuotePage() {
   // but we also support legacy names for backwards compatibility
   const company = quote.company || quote.companies
   const lead = quote.lead || quote.leads
+  const location = lead?.location // Get location from lead
   const lineItems = quote.line_items || quote.quote_line_items || []
   const signatures = quote.signature || quote.quote_signatures || []
   const customerSignature = signatures.find(s => s.signer_type === 'customer')
   const companySignature = signatures.find(s => s.signer_type === 'company_rep')
+
+  // Use location data if available, otherwise fallback to company data
+  const displayName = location?.name || company?.name || 'Company Name'
+  const displayAddress = location?.address || company?.address
+  const displayCity = location?.city || company?.city
+  const displayState = location?.state || company?.state
+  const displayZip = location?.zip || company?.zip
+  const displayPhone = location?.phone || company?.contact_phone
+  const displayEmail = location?.email || company?.contact_email
 
   // Replace placeholders in contract terms
   let contractTerms = company?.contract_terms || ''
@@ -218,11 +228,16 @@ export default function PublicQuotePage() {
               <h1 className="text-3xl font-bold mb-2" style={{ color: primaryColor }}>
                 {company?.name || 'Company Name'}
               </h1>
+              {location && (
+                <div className="text-lg font-semibold text-gray-800 mb-2">
+                  {location.name}
+                </div>
+              )}
               <div className="text-sm text-gray-600 space-y-1">
-                {company?.address && <div>{company.address}</div>}
-                {company?.city && <div>{company.city}, {company.state} {company.zip}</div>}
-                {company?.contact_email && <div>{company.contact_email}</div>}
-                {company?.contact_phone && <div>{company.contact_phone}</div>}
+                {displayAddress && <div>{displayAddress}</div>}
+                {displayCity && <div>{displayCity}, {displayState} {displayZip}</div>}
+                {displayEmail && <div>{displayEmail}</div>}
+                {displayPhone && <div>{displayPhone}</div>}
                 {company?.license_number && <div className="font-medium">License: {company.license_number}</div>}
               </div>
             </div>

@@ -154,28 +154,39 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
     }
   }, [mode, user, setValue, watch, isAdmin, userLocations])
 
-  // Fetch users for assignment dropdown
+  // Fetch users for assignment dropdown - filtered by location
   useEffect(() => {
     async function fetchUsers() {
-      if (!company?.id) return
+      if (!company?.id || !user?.id) return
 
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, email, role')
-        .eq('company_id', company.id)
-        .order('full_name')
-
-      if (error) {
-        console.error('Error fetching users:', error)
+      const selectedLocationId = watch('location_id')
+      
+      if (!selectedLocationId) {
+        // If no location selected yet, show no users
+        setUsers([])
         return
       }
-
-      setUsers(data || [])
+      
+      // Get users assigned to the selected location
+      // Specify the exact foreign key relationship to avoid ambiguity
+      const { data: locationUserData, error } = await supabase
+        .from('location_users')
+        .select('user_id, users!location_users_user_id_fkey(id, full_name, email, role)')
+        .eq('location_id', selectedLocationId)
+      
+      if (error) {
+        console.error('Error fetching location users:', error)
+        return
+      }
+      
+      // Extract unique users
+      const locationUsers = locationUserData?.map((lu: any) => lu.users) || []
+      setUsers(locationUsers)
     }
 
     fetchUsers()
-  }, [company?.id])
+  }, [company?.id, user?.id, watch('location_id')])
 
   const onSubmit = async (data: LeadFormData) => {
     if (!company?.id || !user?.id) {
@@ -438,9 +449,10 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
             <Select
               value={watch('sales_rep_id') || 'unassigned'}
               onValueChange={(value) => setValue('sales_rep_id', value === 'unassigned' ? '' : value)}
+              disabled={!watch('location_id')}
             >
               <SelectTrigger id="sales_rep_id">
-                <SelectValue placeholder="Select sales rep" />
+                <SelectValue placeholder={watch('location_id') ? "Select sales rep" : "Select location first"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
@@ -451,6 +463,11 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
                 ))}
               </SelectContent>
             </Select>
+            {!watch('location_id') && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Select a location to see available users
+              </p>
+            )}
           </div>
 
           <div>
@@ -458,9 +475,10 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
             <Select
               value={watch('marketing_rep_id') || 'unassigned'}
               onValueChange={(value) => setValue('marketing_rep_id', value === 'unassigned' ? '' : value)}
+              disabled={!watch('location_id')}
             >
               <SelectTrigger id="marketing_rep_id">
-                <SelectValue placeholder="Select marketing rep" />
+                <SelectValue placeholder={watch('location_id') ? "Select marketing rep" : "Select location first"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
@@ -478,9 +496,10 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
             <Select
               value={watch('sales_manager_id') || 'unassigned'}
               onValueChange={(value) => setValue('sales_manager_id', value === 'unassigned' ? '' : value)}
+              disabled={!watch('location_id')}
             >
               <SelectTrigger id="sales_manager_id">
-                <SelectValue placeholder="Select sales manager" />
+                <SelectValue placeholder={watch('location_id') ? "Select sales manager" : "Select location first"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
@@ -498,9 +517,10 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
             <Select
               value={watch('production_manager_id') || 'unassigned'}
               onValueChange={(value) => setValue('production_manager_id', value === 'unassigned' ? '' : value)}
+              disabled={!watch('location_id')}
             >
               <SelectTrigger id="production_manager_id">
-                <SelectValue placeholder="Select production manager" />
+                <SelectValue placeholder={watch('location_id') ? "Select production manager" : "Select location first"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>

@@ -300,6 +300,7 @@ export function UserList() {
               {/* Users can edit their own details OR admins/office can edit others in their scope */}
               {(
                 user.id === currentUser?.id || 
+                ['admin', 'super_admin'].includes(currentUser?.role || '') ||
                 currentUser?.can_edit_users || 
                 (currentUser?.role === 'office' && isLocationAdmin)
               ) && (

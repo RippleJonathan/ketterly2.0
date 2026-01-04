@@ -54,19 +54,11 @@ export default async function EditLeadPage({ params }: EditLeadPageProps) {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href={`/admin/leads/${id}`}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Lead
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Lead</h1>
-            <p className="text-gray-600 mt-1">
-              Update information for {lead.full_name}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Edit Lead</h1>
+          <p className="text-gray-600 mt-1">
+            Update information for {lead.full_name}
+          </p>
         </div>
         <DeleteLeadButton leadId={id} leadName={lead.full_name} />
       </div>

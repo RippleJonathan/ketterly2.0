@@ -14,12 +14,56 @@ export async function getLeads(
 ): Promise<ApiResponse<Lead[]>> {
   try {
     const supabase = createClient()
+    
+    // Get current user for role-based filtering
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return createErrorResponse(new Error('Not authenticated'))
+    }
+    
+    // Get user role to determine if they can see all leads
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    const userRole = userData?.role || ''
+    const canSeeAllLeads = ['admin', 'super_admin', 'office', 'sales_manager', 'production_manager'].includes(userRole)
+    const isAssignmentRestricted = ['sales', 'marketing'].includes(userRole)
+    const isCompanyAdmin = ['admin', 'super_admin'].includes(userRole)
+    
     let query = supabase
       .from('leads')
       .select('*')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+    
+    // Add location filter for non-admin users
+    if (!isCompanyAdmin) {
+      // Get user's assigned locations
+      const { data: locationUsers } = await supabase
+        .from('location_users')
+        .select('location_id')
+        .eq('user_id', user.id)
+      
+      const userLocationIds = locationUsers?.map(lu => lu.location_id) || []
+      
+      if (userLocationIds.length > 0) {
+        // Filter to assigned locations and exclude leads without location
+        query = query.in('location_id', userLocationIds).not('location_id', 'is', null)
+      } else {
+        // User has no location assignments - show no leads
+        query = query.eq('location_id', '00000000-0000-0000-0000-000000000000')
+      }
+    }
+
+    // Apply role-based filtering for sales/marketing users
+    if (isAssignmentRestricted) {
+      // Sales and marketing users can only see leads they're assigned to
+      query = query.or(`sales_rep_id.eq.${user.id},marketing_rep_id.eq.${user.id},sales_manager_id.eq.${user.id},production_manager_id.eq.${user.id}`)
+    }
 
     // Apply filters
     if (filters?.status) {
@@ -100,6 +144,24 @@ export async function getLead(
 ): Promise<ApiResponse<LeadWithUser>> {
   try {
     const supabase = createClient()
+    
+    // Get current user for role-based access control
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return createErrorResponse(new Error('Not authenticated'))
+    }
+    
+    // Get user role to determine if they can see all leads
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    
+    const userRole = userData?.role || ''
+    const canSeeAllLeads = ['admin', 'super_admin', 'office', 'sales_manager', 'production_manager'].includes(userRole)
+    const isAssignmentRestricted = ['sales', 'marketing'].includes(userRole)
+    
     const { data, error } = await supabase
       .from('leads')
       .select(`
@@ -114,6 +176,21 @@ export async function getLead(
       .eq('id', leadId)
       .is('deleted_at', null)
       .single()
+
+    if (error) throw error
+    
+    // Additional access check for sales/marketing users
+    if (isAssignmentRestricted && data) {
+      const isAssigned = 
+        data.sales_rep_id === user.id ||
+        data.marketing_rep_id === user.id ||
+        data.sales_manager_id === user.id ||
+        data.production_manager_id === user.id
+      
+      if (!isAssigned) {
+        return createErrorResponse(new Error('You do not have permission to access this lead'))
+      }
+    }
 
     if (error) throw error
     

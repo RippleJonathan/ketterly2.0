@@ -11,13 +11,6 @@ export function useIsLocationAdmin() {
   const user = userData?.data
   const { data: userLocations } = useUserLocations(user?.id)
   
-  console.log('🔍 useIsLocationAdmin Debug:', {
-    user: user ? { id: user.id, email: user.email, role: user.role, default_location_id: user.default_location_id } : null,
-    userLocations,
-    userLocationsData: userLocations?.data,
-    userLocationsCount: userLocations?.data?.length || 0
-  })
-  
   return useQuery({
     queryKey: ['is-location-admin', user?.id],
     queryFn: () => {
@@ -64,12 +57,6 @@ export function useManagedLocations() {
   const { data: userData } = useCurrentUser()
   const user = userData?.data
   const { data: locationAdminData } = useIsLocationAdmin()
-  
-  console.log('🏢 useManagedLocations Debug:', {
-    user: user ? { id: user.id, email: user.email, role: user.role, default_location_id: user.default_location_id } : null,
-    locationAdminData,
-    managedLocationIds: locationAdminData?.locations || []
-  })
   
   return {
     isCompanyAdmin: locationAdminData?.isCompanyAdmin || false,

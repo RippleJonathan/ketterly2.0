@@ -268,6 +268,7 @@ export async function deleteUser(
 ): Promise<ApiResponse<void>> {
   const supabase = createClient()
   try {
+    // Soft delete the user
     const { error } = await supabase
       .from('users')
       .update({ deleted_at: new Date().toISOString() })
@@ -275,6 +276,18 @@ export async function deleteUser(
       .eq('company_id', companyId)
 
     if (error) throw error
+
+    // Remove user from all location assignments
+    const { error: locationError } = await supabase
+      .from('location_users')
+      .delete()
+      .eq('user_id', userId)
+
+    if (locationError) {
+      console.error('Failed to remove user from locations:', locationError)
+      // Don't fail the whole operation, just log the error
+    }
+
     return { data: null, error: null }
   } catch (error) {
     console.error('Failed to delete user:', error)

@@ -95,10 +95,11 @@ export function RecordPaymentDialog({
       })
 
       if (result.success) {
-        // Invalidate queries to refresh UI
-        queryClient.invalidateQueries({ queryKey: ['invoices'] })
-        queryClient.invalidateQueries({ queryKey: ['payments'] })
-        queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+        // Invalidate queries to refresh UI - include company ID in query keys
+        queryClient.invalidateQueries({ queryKey: ['invoices', company.id] })
+        queryClient.invalidateQueries({ queryKey: ['payments', company.id] })
+        queryClient.invalidateQueries({ queryKey: ['lead-financials', leadId] })
+        queryClient.invalidateQueries({ queryKey: ['next-payment-number', company.id] })
         
         toast.success('Payment recorded successfully!')
         onOpenChange(false)
@@ -242,7 +243,6 @@ export function RecordPaymentDialog({
             <Button 
               type="submit" 
               disabled={createPayment.isPending}
-              onClick={() => console.log('Button clicked!', { disabled: createPayment.isPending, paymentNumber: nextPaymentNumber })}
             >
               {createPayment.isPending ? (
                 <>

@@ -21,6 +21,7 @@ import { UpcomingSchedule } from '@/components/admin/dashboard/upcoming-schedule
 import { RecentActivity } from '@/components/admin/dashboard/recent-activity'
 import { UrgencyAlerts } from '@/components/admin/dashboard/urgency-alerts'
 import { CommissionTracker } from '@/components/admin/dashboard/commission-tracker'
+import { QuickTextButton } from '@/components/admin/quick-text-button'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -29,10 +30,10 @@ export default function DashboardPage() {
   const user = userData?.data
   const { data: stats, isLoading } = useDashboardStats()
 
-  const isSales = user?.role === 'sales' || user?.role === 'marketing'
-  const isProduction = user?.role === 'production_manager' || user?.role === 'installer'
-  const isOffice = user?.role === 'office'
-  const isAdmin = user?.role === 'admin'
+  const isSales = user?.role === 'manager' || user?.role === 'user'
+  const isProduction = user?.role === 'manager' || user?.role === 'user'
+  const isOffice = user?.role === 'admin' || user?.role === 'manager'
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -46,13 +47,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-          Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Here's what's happening with {company?.name || 'your business'} today
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Here's what's happening with {company?.name || 'your business'} today
+          </p>
+        </div>
+        <QuickTextButton />
       </div>
 
       {/* Key Metrics - Role Specific */}

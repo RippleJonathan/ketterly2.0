@@ -25,6 +25,7 @@ import type { LocationRole } from '@/lib/api/location-users'
 import { getLocationRoleFromCompanyRole, getLocationRoleDescription } from '@/lib/utils/location-roles'
 import { useUsers } from '@/lib/hooks/use-users'
 import type { UserRole } from '@/lib/types/users'
+import { useManagedLocations } from '@/lib/hooks/use-location-admin'
 
 interface UserLocationAssignmentsProps {
   userId: string
@@ -34,34 +35,42 @@ interface UserLocationAssignmentsProps {
 export function UserLocationAssignments({ userId, currentUserRole }: UserLocationAssignmentsProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [selectedLocationId, setSelectedLocationId] = useState<string>('')
-  const [selectedLocationRole, setSelectedLocationRole] = useState<LocationRole>('member')
 
   const { data: allLocations } = useLocations(true)
   const { data: userLocations } = useUserLocations(userId)
   const { data: usersData } = useUsers()
   const assignUser = useAssignUserToLocation()
   const removeUser = useRemoveUserFromLocation()
+  const { isCompanyAdmin, isLocationAdmin, managedLocationIds } = useManagedLocations()
   
-  // Get the user's company role to suggest default location role
+  // Get the user's company role to auto-derive location role
   const targetUser = usersData?.data?.find(u => u.id === userId)
   const userCompanyRole = targetUser?.role as UserRole
-  const suggestedLocationRole = userCompanyRole ? getLocationRoleFromCompanyRole(userCompanyRole) : 'member'
+  const autoLocationRole = userCompanyRole ? getLocationRoleFromCompanyRole(userCompanyRole) : 'member'
+  const locationRoleDescription = getLocationRoleDescription(userCompanyRole)
 
-  // Only admin/super_admin can manage location assignments
-  const canManage = ['admin', 'super_admin'].includes(currentUserRole)
+  // Admin/super_admin can manage all locations, office users can manage their locations
+  const canManage = ['admin', 'super_admin', 'office'].includes(currentUserRole)
+  
+  // Office users can only assign to their managed locations
+  const locationsToShow = currentUserRole === 'office' && !isCompanyAdmin
+    ? allLocations?.data?.filter(loc => managedLocationIds.includes(loc.id)) || []
+    : allLocations?.data || []
 
   const handleAssign = async () => {
     if (!selectedLocationId) return
 
+    // Auto-derive location role from company role
+    const locationRole = getLocationRoleFromCompanyRole(userCompanyRole)
+
     await assignUser.mutateAsync({
       user_id: userId,
       location_id: selectedLocationId,
-      location_role: selectedLocationRole,
+      location_role: locationRole,
     })
 
     setIsAddDialogOpen(false)
     setSelectedLocationId('')
-    setSelectedLocationRole('member')
   }
 
   const handleRemove = async (locationUserId: string, locationId: string) => {
@@ -74,7 +83,7 @@ export function UserLocationAssignments({ userId, currentUserRole }: UserLocatio
 
   // Filter out already assigned locations
   const assignedLocationIds = new Set(userLocations?.data?.map(ul => ul.location_id) || [])
-  const availableLocations = allLocations?.data?.filter(loc => !assignedLocationIds.has(loc.id)) || []
+  const availableLocations = locationsToShow.filter(loc => !assignedLocationIds.has(loc.id))
 
   return (
     <div className="space-y-4">
@@ -150,7 +159,7 @@ export function UserLocationAssignments({ userId, currentUserRole }: UserLocatio
           <DialogHeader>
             <DialogTitle>Assign to Location</DialogTitle>
             <DialogDescription>
-              Add location access for this user and choose their role at that location.
+              Add location access for this user. Their permissions at this location are determined by their company role.
             </DialogDescription>
           </DialogHeader>
 
@@ -175,45 +184,19 @@ export function UserLocationAssignments({ userId, currentUserRole }: UserLocatio
               </Select>
             </div>
 
-            <div>
-              <Label>Location Role</Label>
-              <Select
-                value={selectedLocationRole}
-                onValueChange={(value) => setSelectedLocationRole(value as LocationRole)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="location_admin">
-                    <div>
-                      <p className="font-medium">Location Admin</p>
-                      <p className="text-xs text-muted-foreground">Full control of this location (office role)</p>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="manager">
-                    <div>
-                      <p className="font-medium">Manager</p>
-                      <p className="text-xs text-muted-foreground">Manage team and operations (sales manager role)</p>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="member">
-                    <div>
-                      <p className="font-medium">Member</p>
-                      <p className="text-xs text-muted-foreground">Regular employee (work leads, quotes, projects)</p>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {suggestedLocationRole !== selectedLocationRole && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  💡 Suggested: <span className="font-medium">
-                    {suggestedLocationRole === 'location_admin' && 'Location Admin'}
-                    {suggestedLocationRole === 'manager' && 'Manager'}
-                    {suggestedLocationRole === 'member' && 'Member'}
-                  </span> (based on company role: {userCompanyRole})
-                </p>
-              )}
+            <div className="rounded-lg bg-muted p-3">
+              <Label className="text-xs font-semibold">Location Permissions</Label>
+              <p className="text-sm font-medium mt-1">
+                {autoLocationRole === 'location_admin' && 'Location Admin'}
+                {autoLocationRole === 'manager' && 'Manager'}
+                {autoLocationRole === 'member' && 'Member'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {locationRoleDescription}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Automatically assigned based on company role: <span className="font-medium">{userCompanyRole}</span>
+              </p>
             </div>
 
             <div className="flex justify-end gap-2">

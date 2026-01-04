@@ -287,6 +287,19 @@ export interface UserPermissions {
   can_edit_all_events: boolean
   can_manage_recurring_events: boolean
   
+  // Lead Tab Visibility
+  can_view_lead_details: boolean
+  can_view_lead_checklist: boolean
+  can_view_lead_measurements: boolean
+  can_view_lead_estimates: boolean
+  can_view_lead_orders: boolean
+  can_view_lead_photos: boolean
+  can_view_lead_notes: boolean
+  can_view_lead_documents: boolean
+  can_view_lead_payments: boolean
+  can_view_lead_financials: boolean
+  can_view_lead_commissions: boolean
+  
   // Metadata
   created_at: string
   updated_at: string
@@ -369,6 +382,19 @@ export interface UserPermissionsUpdate {
   can_create_production_events?: boolean
   can_edit_all_events?: boolean
   can_manage_recurring_events?: boolean
+  
+  // Lead Tab Visibility
+  can_view_lead_details?: boolean
+  can_view_lead_checklist?: boolean
+  can_view_lead_measurements?: boolean
+  can_view_lead_estimates?: boolean
+  can_view_lead_orders?: boolean
+  can_view_lead_photos?: boolean
+  can_view_lead_notes?: boolean
+  can_view_lead_documents?: boolean
+  can_view_lead_payments?: boolean
+  can_view_lead_financials?: boolean
+  can_view_lead_commissions?: boolean
 }
 
 // Helper to convert permissions object to array of permission names
@@ -430,6 +456,17 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'can_create_production_events',
   'can_edit_all_events',
   'can_manage_recurring_events',
+  'can_view_lead_details',
+  'can_view_lead_checklist',
+  'can_view_lead_measurements',
+  'can_view_lead_estimates',
+  'can_view_lead_orders',
+  'can_view_lead_photos',
+  'can_view_lead_notes',
+  'can_view_lead_documents',
+  'can_view_lead_payments',
+  'can_view_lead_financials',
+  'can_view_lead_commissions',
 ]
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -488,6 +525,17 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   can_create_production_events: 'Schedule Production Events',
   can_edit_all_events: 'Edit All Calendar Events',
   can_manage_recurring_events: 'Manage Recurring Events',
+  can_view_lead_details: 'View Lead Details Tab',
+  can_view_lead_checklist: 'View Lead Checklist Tab',
+  can_view_lead_measurements: 'View Lead Measurements Tab',
+  can_view_lead_estimates: 'View Lead Estimates Tab',
+  can_view_lead_orders: 'View Lead Orders Tab',
+  can_view_lead_photos: 'View Lead Photos Tab',
+  can_view_lead_notes: 'View Lead Notes/Activity Tab',
+  can_view_lead_documents: 'View Lead Documents Tab',
+  can_view_lead_payments: 'View Lead Invoice/Payments Tab',
+  can_view_lead_financials: 'View Lead Financials Tab',
+  can_view_lead_commissions: 'View Lead Commissions Tab',
 }
 
 // Group permissions by category for UI
@@ -569,6 +617,19 @@ export const PERMISSION_CATEGORIES = {
     'can_edit_all_events',
     'can_manage_recurring_events',
   ],
+  'Lead Tab Visibility': [
+    'can_view_lead_details',
+    'can_view_lead_checklist',
+    'can_view_lead_measurements',
+    'can_view_lead_estimates',
+    'can_view_lead_orders',
+    'can_view_lead_photos',
+    'can_view_lead_notes',
+    'can_view_lead_documents',
+    'can_view_lead_payments',
+    'can_view_lead_financials',
+    'can_view_lead_commissions',
+  ],
 } as const
 
 // =====================================================
@@ -646,6 +707,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_create_production_events: true,
     can_edit_all_events: true,
     can_manage_recurring_events: true,
+    // Lead Tab Visibility
+    can_view_lead_details: true,
+    can_view_lead_checklist: true,
+    can_view_lead_measurements: true,
+    can_view_lead_estimates: true,
+    can_view_lead_orders: true,
+    can_view_lead_photos: true,
+    can_view_lead_notes: true,
+    can_view_lead_documents: true,
+    can_view_lead_payments: true,
+    can_view_lead_financials: true,
+    can_view_lead_commissions: true,
   },
 
   // Office - Office Staff (Quotes, Invoices, Customers, Scheduling)
@@ -713,6 +786,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_create_production_events: true,
     can_edit_all_events: false,  // Can only edit own events
     can_manage_recurring_events: false,
+    // Lead Tab Visibility
+    can_view_lead_details: true,
+    can_view_lead_checklist: true,
+    can_view_lead_measurements: true,
+    can_view_lead_estimates: true,
+    can_view_lead_orders: true,
+    can_view_lead_photos: true,
+    can_view_lead_notes: true,
+    can_view_lead_documents: true,
+    can_view_lead_payments: true,
+    can_view_lead_financials: true,   // Office sees all tabs
+    can_view_lead_commissions: true,  // Office sees all tabs
   },
 
   // Sales Manager - Sales Team Lead (Manage Sales Team & Leads)
@@ -780,6 +865,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_create_production_events: false,
     can_edit_all_events: false,
     can_manage_recurring_events: false,
+    // Lead Tab Visibility
+    can_view_lead_details: true,
+    can_view_lead_checklist: true,
+    can_view_lead_measurements: true,
+    can_view_lead_estimates: true,
+    can_view_lead_orders: true,
+    can_view_lead_photos: true,
+    can_view_lead_notes: true,
+    can_view_lead_documents: true,
+    can_view_lead_payments: true,
+    can_view_lead_financials: true,
+    can_view_lead_commissions: true,
   },
 
   // Sales - Sales Representative (Leads, Quotes, Customer-Facing)
@@ -843,6 +940,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_create_production_events: false,
     can_edit_all_events: false,
     can_manage_recurring_events: false,
+    // Lead Tab Visibility
+    can_view_lead_details: true,
+    can_view_lead_checklist: true,
+    can_view_lead_measurements: true,
+    can_view_lead_estimates: true,
+    can_view_lead_orders: true,       // Sales sees all tabs
+    can_view_lead_photos: true,
+    can_view_lead_notes: true,
+    can_view_lead_documents: true,
+    can_view_lead_payments: true,     // Sales sees all tabs
+    can_view_lead_financials: true,   // Sales sees all tabs
+    can_view_lead_commissions: true,  // Sales sees commissions (filtered to own)
   },
 
   // Production - Production/Crew (Work Orders, Photos, Status Updates)
@@ -910,6 +1019,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_create_production_events: true,  // Schedule materials/labor
     can_edit_all_events: false,
     can_manage_recurring_events: false,
+    // Lead Tab Visibility
+    can_view_lead_details: true,
+    can_view_lead_checklist: true,
+    can_view_lead_measurements: true,
+    can_view_lead_estimates: true,       // Production sees all tabs
+    can_view_lead_orders: true,
+    can_view_lead_photos: true,
+    can_view_lead_notes: true,
+    can_view_lead_documents: true,       // Production sees all tabs
+    can_view_lead_payments: true,        // Production sees all tabs
+    can_view_lead_financials: true,      // Production sees all tabs
+    can_view_lead_commissions: true,     // Production sees commissions (filtered to own)
   },
 
   // Marketing - Marketing Team (Leads, Analytics, Reports)
@@ -977,6 +1098,18 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_create_production_events: false,
     can_edit_all_events: false,
     can_manage_recurring_events: false,
+    // Lead Tab Visibility
+    can_view_lead_details: true,
+    can_view_lead_checklist: true,
+    can_view_lead_measurements: true,
+    can_view_lead_estimates: true,
+    can_view_lead_orders: false,         // Marketing: Hidden
+    can_view_lead_photos: true,
+    can_view_lead_notes: true,
+    can_view_lead_documents: true,
+    can_view_lead_payments: false,       // Marketing: Hidden
+    can_view_lead_financials: false,     // Marketing: Hidden
+    can_view_lead_commissions: false,    // Marketing: Hidden
   },
 }
 

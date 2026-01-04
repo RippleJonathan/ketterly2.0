@@ -92,7 +92,6 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -156,23 +155,6 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
             locationId={id} 
             locationName={loc.name}
           />
-        </TabsContent>
-
-        {/* Team Tab */}
-        <TabsContent value="team">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Members</CardTitle>
-              <CardDescription>
-                Users assigned to this location
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">
-                Team management coming soon...
-              </p>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

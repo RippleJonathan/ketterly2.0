@@ -282,10 +282,6 @@ export interface InvoiceLineItemUpdate {
   notes?: string | null
   sort_order?: number
 }
-  quantity?: number
-  unit_price?: number
-  sort_order?: number
-}
 
 // =============================================
 // PAYMENTS

@@ -3,22 +3,11 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useLead } from '@/lib/hooks/use-leads'
-import { LEAD_SOURCE_LABELS } from '@/lib/constants/leads'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
-import { useCurrentUser } from '@/lib/hooks/use-current-user'
-import { Button } from '@/components/ui/button'
-import { Pencil, Phone, Mail, MapPin, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
-import { PipelineProgress } from '@/components/admin/leads/pipeline-progress'
-import { EventQuickAddModal } from '@/components/admin/calendar/event-quick-add-modal'
-import { useCheckPermission } from '@/lib/hooks/use-permissions'
-import { useState } from 'react'
 
 export function DynamicSidebarHeader() {
   const pathname = usePathname()
   const { data: company } = useCurrentCompany()
-  const { data: currentUser } = useCurrentUser()
-  const [isExpanded, setIsExpanded] = useState(true)
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   
   // Extract lead ID from pathname if we're on a lead detail page
   const leadIdMatch = pathname.match(/\/admin\/leads\/([^\/\?]+)/)
@@ -27,10 +16,6 @@ export function DynamicSidebarHeader() {
   // Only fetch lead data if we're on a lead detail page
   const { data: leadResponse } = useLead(leadId || '')
   const lead = leadResponse?.data
-  
-  // Check permissions for calendar events using user ID
-  const { data: canCreateConsultations } = useCheckPermission(currentUser?.id || '', 'can_create_consultations')
-  const { data: canCreateProductionEvents } = useCheckPermission(currentUser?.id || '', 'can_create_production_events')
 
   // Lead detail page
   if (leadId && lead) {
@@ -42,125 +27,16 @@ export function DynamicSidebarHeader() {
               {company?.name || 'Ketterly'}
             </h1>
           </Link>
-          
-          <div className="flex items-start justify-between gap-2">
-            {/* Name */}
-            <h2 className="text-lg font-bold text-gray-900 leading-tight flex-1">
-              {lead.full_name}
-            </h2>
-            
-            {/* Collapse/Expand Button */}
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 hover:bg-blue-100 rounded transition-colors flex-shrink-0"
-              aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4 text-gray-600" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-gray-600" />
-              )}
-            </button>
+
+          <div className="text-sm text-gray-600">
+            Lead Details
           </div>
         </div>
-        
-        {isExpanded && (
-          <div className="px-4 pb-4 space-y-3">
-          {/* Contact Info */}
-          <div className="space-y-1.5 text-xs">
-            {lead.phone && (
-              <div className="flex items-center gap-2 text-gray-700">
-                <Phone className="h-3 w-3 text-gray-500" />
-                <a href={`tel:${lead.phone}`} className="hover:text-blue-600 transition-colors">
-                  {lead.phone}
-                </a>
-              </div>
-            )}
-            
-            {lead.email && (
-              <div className="flex items-center gap-2 text-gray-700">
-                <Mail className="h-3 w-3 text-gray-500" />
-                <a href={`mailto:${lead.email}`} className="hover:text-blue-600 transition-colors truncate">
-                  {lead.email}
-                </a>
-              </div>
-            )}
-            
-            {lead.address && (
-              <div className="flex items-start gap-2 text-gray-700">
-                <MapPin className="h-3 w-3 text-gray-500 mt-0.5 flex-shrink-0" />
-                <div className="leading-tight">
-                  {lead.address}
-                  {(lead.city || lead.state || lead.zip) && (
-                    <div>
-                      {[lead.city, lead.state, lead.zip].filter(Boolean).join(', ')}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Lead Source */}
-          <div className="pt-2 border-t border-gray-200">
-            <div className="text-xs text-gray-600 mb-1">Lead Source:</div>
-            <div className="text-xs font-medium text-gray-900">
-              {LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS]}
-            </div>
-          </div>
-
-          {/* Assigned To */}
-          <div>
-            <div className="text-xs text-gray-600 mb-1">Assigned to:</div>
-            <div className="text-xs font-medium text-gray-900">
-              {(lead as any).assigned_user?.full_name || 'Unassigned'}
-            </div>
-          </div>
-
-          {/* Status Bar */}
-          <div>
-            <div className="text-xs text-gray-600 mb-2">Status:</div>
-            <PipelineProgress leadId={leadId} currentStatus={lead.status} compact />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-2">
-            <Link href={`/admin/leads/${leadId}/edit`}>
-              <Button variant="outline" size="sm" className="w-full">
-                <Pencil className="h-3 w-3 mr-2" />
-                Edit Lead
-              </Button>
-            </Link>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full"
-              onClick={() => setShowAppointmentModal(true)}
-            >
-              <Calendar className="h-3 w-3 mr-2" />
-              Schedule
-            </Button>
-          </div>
-        </div>
-        )}
-        
-        {/* Appointment Modal */}
-        {leadId && lead && currentUser && (
-          <EventQuickAddModal
-            open={showAppointmentModal}
-            onClose={() => setShowAppointmentModal(false)}
-            userId={currentUser.id}
-            canCreateConsultations={canCreateConsultations || false}
-            canCreateProductionEvents={canCreateProductionEvents || false}
-            defaultLeadId={leadId}
-            defaultDate={new Date().toISOString().split('T')[0]}
-          />
-        )}
       </div>
     )
   }
-
-  // Settings page
+        
+        {/* Settings page */}
   if (pathname.includes('/admin/settings')) {
     return (
       <div className="p-6 border-b border-gray-200">

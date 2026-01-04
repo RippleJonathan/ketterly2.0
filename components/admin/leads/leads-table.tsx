@@ -56,17 +56,13 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
+  const [columnVisibility, setColumnVisibility] = useState({ rep: false }) // Hide rep column
   
   // Use React Query to get live data
   const { data: leadsResponse, isLoading } = useLeads()
   const leads = leadsResponse?.data || initialData
   
   const deleteLead = useDeleteLead()
-
-  // Show skeleton while loading
-  if (isLoading && !initialData.length) {
-    return <LeadsTableSkeleton />
-  }
 
   const handleDelete = async (leadId: string, leadName: string) => {
     if (confirm(`Are you sure you want to delete ${leadName}? This action cannot be undone.`)) {
@@ -84,7 +80,7 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
         accessorKey: 'full_name',
         header: ({ column }) => (
           <button
-            className="flex items-center gap-1 font-semibold hover:text-blue-600"
+            className="flex items-center gap-1 font-semibold hover:text-blue-600 whitespace-nowrap"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           >
             Name
@@ -94,23 +90,24 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
         cell: ({ row }) => (
           <Link 
             href={`/admin/leads/${row.original.id}`}
-            className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+            className="font-medium text-blue-600 hover:text-blue-800 hover:underline whitespace-nowrap"
           >
             {row.getValue('full_name')}
           </Link>
         ),
       },
       {
-        accessorKey: 'email',
-        header: 'Email',
-        cell: ({ row }) => (
-          <a 
-            href={`mailto:${row.getValue('email')}`}
-            className="text-gray-700 hover:text-blue-600"
-          >
-            {row.getValue('email')}
-          </a>
-        ),
+        accessorKey: 'address',
+        header: 'Address',
+        cell: ({ row }) => {
+          const lead = row.original
+          return (
+            <span className="text-sm text-gray-700" title={`${lead.address}${lead.city ? ', ' + lead.city : ''}`}>
+              {lead.address}
+              {lead.city && `, ${lead.city}`}
+            </span>
+          )
+        },
       },
       {
         accessorKey: 'phone',
@@ -118,7 +115,7 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
         cell: ({ row }) => (
           <a 
             href={`tel:${row.getValue('phone')}`}
-            className="text-gray-700 hover:text-blue-600"
+            className="text-gray-700 hover:text-blue-600 whitespace-nowrap"
           >
             {row.getValue('phone')}
           </a>
@@ -135,47 +132,10 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
         },
       },
       {
-        accessorKey: 'source',
-        header: 'Source',
-        cell: ({ row }) => {
-          const source = row.getValue('source') as string
-          return (
-            <span className="text-sm text-gray-700">
-              {LEAD_SOURCE_LABELS[source as keyof typeof LEAD_SOURCE_LABELS]}
-            </span>
-          )
-        },
-        filterFn: (row, id, value) => {
-          return value.includes(row.getValue(id))
-        },
-      },
-      {
-        accessorKey: 'priority',
-        header: 'Priority',
-        cell: ({ row }) => {
-          const priority = row.getValue('priority') as string
-          return (
-            <span className={getPriorityBadgeClasses(priority as any)}>
-              {LEAD_PRIORITY_LABELS[priority as keyof typeof LEAD_PRIORITY_LABELS]}
-            </span>
-          )
-        },
-        filterFn: (row, id, value) => {
-          return value.includes(row.getValue(id))
-        },
-      },
-      {
-        accessorKey: 'assigned_to',
-        header: 'Assigned To',
-        cell: ({ row }) => {
-          return <AssignUserDropdown leadId={row.original.id} currentAssignedTo={row.getValue('assigned_to')} />
-        },
-      },
-      {
         accessorKey: 'created_at',
         header: ({ column }) => (
           <button
-            className="flex items-center gap-1 font-semibold hover:text-blue-600"
+            className="flex items-center gap-1 font-semibold hover:text-blue-600 whitespace-nowrap"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           >
             Created
@@ -183,10 +143,24 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
           </button>
         ),
         cell: ({ row }) => (
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-600 whitespace-nowrap">
             {formatDistanceToNow(new Date(row.getValue('created_at')), { addSuffix: true })}
           </span>
         ),
+      },
+      {
+        id: 'rep',
+        accessorFn: (row: any) => {
+          // Only check sales_rep_id for filtering
+          return row.sales_rep_id || null
+        },
+        filterFn: (row, id, filterValue: string[]) => {
+          const salesRepId = row.getValue(id) as string | null
+          if (!salesRepId) return false
+          return filterValue.includes(salesRepId)
+        },
+        // Hide this column from the table - it's only used for filtering
+        enableHiding: true,
       },
       {
         id: 'actions',
@@ -236,10 +210,12 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
       sorting,
       columnFilters,
       globalFilter,
+      columnVisibility,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -250,6 +226,11 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
       },
     },
   })
+
+  // Show skeleton while loading (after all hooks are called)
+  if (isLoading && !initialData.length) {
+    return <LeadsTableSkeleton />
+  }
 
   return (
     <div className="space-y-4">
@@ -271,7 +252,7 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
                     >
                       {header.isPlaceholder
                         ? null
@@ -301,7 +282,7 @@ export function LeadsTable({ initialData }: LeadsTableProps) {
                     className="hover:bg-gray-50 transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
+                      <td key={cell.id} className="px-4 py-4">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()

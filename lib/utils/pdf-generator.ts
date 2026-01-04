@@ -18,6 +18,11 @@ interface GeneratePDFOptions {
   companyPhone?: string
   companyEmail?: string
   contractTerms?: string | null
+  signatures?: QuoteSignature[]
+  changeOrders?: any[]
+  originalContractPrice?: number | null
+  originalSubtotal?: number | null
+  currentContractPrice?: number | null
 }
 
 /**

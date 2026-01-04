@@ -29,8 +29,13 @@ export default async function LeadsPage() {
     redirect('/login')
   }
 
+  // Check role-based permissions
+  const userRole = userData.role || ''
+  const canSeeAllLeads = ['admin', 'super_admin', 'office', 'sales_manager', 'production_manager'].includes(userRole)
+  const isAssignmentRestricted = ['sales', 'marketing'].includes(userRole)
+  
   // Check if user is location-scoped (not admin/super_admin)
-  const isCompanyAdmin = ['admin', 'super_admin'].includes(userData.role || '')
+  const isCompanyAdmin = ['admin', 'super_admin'].includes(userRole)
   let userLocationIds: string[] = []
   
   if (!isCompanyAdmin) {
@@ -46,7 +51,7 @@ export default async function LeadsPage() {
   // Use admin client to fetch leads (since RLS is disabled temporarily)
   const adminClient = createAdminClient()
   
-  // Build query with location filtering
+  // Build query with location and role-based filtering
   let query = adminClient
     .from('leads')
     .select(`
@@ -62,7 +67,18 @@ export default async function LeadsPage() {
   
   // Add location filter for location-scoped users
   if (!isCompanyAdmin && userLocationIds.length > 0) {
-    query = query.in('location_id', userLocationIds)
+    // Non-admins can only see leads from their assigned locations
+    // Also exclude leads without a location_id (null)
+    query = query.in('location_id', userLocationIds).not('location_id', 'is', null)
+  } else if (!isCompanyAdmin) {
+    // User has no location assignments - show no leads
+    query = query.eq('location_id', '00000000-0000-0000-0000-000000000000') // Impossible UUID
+  }
+  
+  // Add assignment filter for sales/marketing users
+  if (isAssignmentRestricted) {
+    // Sales and marketing users can only see leads they're assigned to
+    query = query.or(`sales_rep_id.eq.${user.id},marketing_rep_id.eq.${user.id},sales_manager_id.eq.${user.id},production_manager_id.eq.${user.id}`)
   }
   
   const { data: leads, error: leadsError } = await query.order('created_at', { ascending: false })

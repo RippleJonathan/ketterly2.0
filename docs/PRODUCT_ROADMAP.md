@@ -196,9 +196,10 @@
 - [x] **Multi-location filtering** (leads, quotes show data from all assigned locations)
 - [x] **Role creation restrictions** (office cannot create admin/office users)
 - [x] **Auto-select location when only one exists**
+- [x] **Location team management tab** (view and remove users)
 - [ ] Location-specific branding/contract terms (future)
-- [ ] Location detail page with tabs (Material Pricing, Labor Rates, Team) (future)
-- [ ] PDF generation with location data (future)
+- [x] Location detail page with tabs (Material Pricing, Labor Rates, Team) ✅
+- [x] PDF generation with location data ✅
 - [ ] Location-based dashboard widgets (future)
 
 **Completed:** December 30, 2024  

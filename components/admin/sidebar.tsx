@@ -18,7 +18,10 @@ import {
   BarChart3,
   User,
   FolderOpen,
-  MapPin
+  MapPin,
+  Plus,
+  LogOut,
+  Bell
 } from 'lucide-react'
 import { useState } from 'react'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
@@ -26,6 +29,18 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { DynamicSidebarHeader } from './dynamic-sidebar-header'
 import { useCheckPermission } from '@/lib/hooks/use-permissions'
 import { useManagedLocations } from '@/lib/hooks/use-location-admin'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface NavItem {
   name: string
@@ -38,6 +53,12 @@ interface NavItem {
 
 // Sales workflow navigation
 const salesNavigation: NavItem[] = [
+  { 
+    name: 'Add Lead', 
+    href: '/admin/leads/new', 
+    icon: Plus,
+    permission: 'can_create_leads'
+  },
   { 
     name: 'Dashboard', 
     href: '/admin/dashboard', 
@@ -65,6 +86,12 @@ const officeNavigation: NavItem[] = [
     href: '/admin/documents', 
     icon: FolderOpen,
     // Everyone can view documents (company isolation via RLS)
+  },
+  { 
+    name: 'Notifications', 
+    href: '/admin/notifications', 
+    icon: Bell,
+    // Everyone can view their own notifications
   },
   { 
     name: 'Reports', 
@@ -135,18 +162,6 @@ function NavItemWithPermission({ item, isActive, onClick }: {
   // Check role if specified
   const hasRole = !item.roles || (user?.role && item.roles.includes(user.role))
 
-  // Debug logging for Users page
-  if (item.href === '/admin/users' && user) {
-    console.log('🔍 Users Page Check:', {
-      itemName: item.name,
-      userRole: user.role,
-      permission: item.permission,
-      hasPermission,
-      hasRole,
-      userId: user.id
-    })
-  }
-
   // Show if:
   // 1. No permission/role required, OR
   // 2. User has required permission (e.g., can_view_users), OR
@@ -196,8 +211,32 @@ export function Sidebar() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { data: company } = useCurrentCompany()
+  const { data: userResponse } = useCurrentUser()
+  const supabase = createClient()
+  const router = useRouter()
+  
+  const user = userResponse?.data
 
   const closeMenu = () => setMobileMenuOpen(false)
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      toast.success('Signed out successfully')
+      router.push('/login')
+      router.refresh()
+    } catch (error) {
+      toast.error('Failed to sign out')
+    }
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+  }
 
   return (
     <>
@@ -286,21 +325,52 @@ export function Sidebar() {
 
         {/* User Footer */}
         <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
-              <span className="text-sm font-medium text-white">
-                {company?.name?.[0] || 'U'}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {company?.name}
-              </p>
-              <p className="text-xs text-gray-600 truncate">
-                {company?.contact_email}
-              </p>
-            </div>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-3 px-3 py-2 w-full hover:bg-gray-50 rounded-lg transition-colors">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.avatar_url || undefined} />
+                  <AvatarFallback className="text-sm">
+                    {user?.full_name ? getInitials(user.full_name) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user?.full_name || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-600 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{user?.full_name || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin/profile" className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  My Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/settings" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
     </>

@@ -127,6 +127,17 @@ export async function POST(request: NextRequest) {
         })
     }
 
+    // Step 4: Add user to location_users table if they have a default_location_id
+    if (default_location_id) {
+      await adminClient
+        .from('location_users')
+        .insert({
+          user_id: newUser.id,
+          location_id: default_location_id,
+          assigned_by: authUser.id,
+        })
+    }
+
     return NextResponse.json({ data: newUser, error: null }, { status: 201 })
   } catch (error) {
     console.error('API error:', error)

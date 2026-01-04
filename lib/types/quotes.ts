@@ -44,6 +44,20 @@ export interface QuoteWithRelations extends Quote {
     city: string
     state: string
     zip: string
+    location?: {
+      id: string
+      name: string
+      address: string
+      city: string
+      state: string
+      zip: string
+      phone: string | null
+      email: string | null
+      logo_url?: string | null
+      primary_color?: string | null
+      contract_terms?: string | null
+      license_number?: string | null
+    }
   }
   signatures?: QuoteSignature[]  // Changed from singular to array for dual signatures
   company?: {

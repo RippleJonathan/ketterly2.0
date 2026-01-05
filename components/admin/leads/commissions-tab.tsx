@@ -18,12 +18,19 @@ import { CommissionDialog } from './commission-dialog'
 import { MarkCommissionPaidDialog } from './mark-commission-paid-dialog'
 import { LeadCommission, CommissionStatus } from '@/lib/types/commissions'
 import { formatCurrency, formatDate } from '@/lib/utils/formatting'
-import { Plus, Pencil, Trash2, DollarSign, Loader2, CheckCircle, RefreshCw } from 'lucide-react'
+import { Plus, Pencil, Trash2, DollarSign, Loader2, CheckCircle, RefreshCw, ThumbsUp, CreditCard, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { Lead } from '@/lib/types'
 import { useQuery } from '@tanstack/react-query'
 import { getLeadFinancials } from '@/lib/api/financials'
 import { autoCreateCommission } from '@/lib/utils/auto-commission'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
+import { approveCommission } from '@/lib/actions/commissions'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,7 +62,11 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const { data: canEdit } = useCheckPermission(currentUser?.data?.id || '', 'can_edit_commissions')
   const { data: canDelete } = useCheckPermission(currentUser?.data?.id || '', 'can_delete_commissions')
   const { data: canMarkPaid } = useCheckPermission(currentUser?.data?.id || '', 'can_mark_commissions_paid')
+  const { data: canApprove } = useCheckPermission(currentUser?.data?.id || '', 'can_approve_commissions')
   const deleteCommission = useDeleteLeadCommission()
+  
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set())
   
   // Determine if user can view at all (own or all)
   // If permissions haven't loaded (undefined) and user exists, allow access
@@ -99,6 +110,19 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
     count_approved: 0,
   }
 
+  // Get financials data to calculate accurate base amount for commissions
+  // MUST be before any conditional returns to maintain hook order
+  const { data: financialsData } = useQuery({
+    queryKey: ['lead-financials', lead.id],
+    queryFn: () => getLeadFinancials(lead.id),
+    enabled: !!lead.id && !!canView, // Only fetch if user has permission
+  })
+
+  // Calculate base amount from financials (quote + change orders = revenue)
+  const defaultBaseAmount = financialsData?.data?.summary?.estimated_revenue || 0
+  const quoteTotal = financialsData?.data?.summary?.quote_total || 0
+  const changeOrdersTotal = financialsData?.data?.summary?.change_orders_total || 0
+
   if (!canView) {
     return (
       <div className="text-center py-12">
@@ -110,11 +134,33 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const getStatusBadge = (status: CommissionStatus) => {
     switch (status) {
       case 'paid':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Paid</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Paid
+          </Badge>
+        )
       case 'approved':
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Approved</Badge>
+        return (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 flex items-center gap-1">
+            <ThumbsUp className="h-3 w-3" />
+            Approved
+          </Badge>
+        )
+      case 'eligible':
+        return (
+          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 flex items-center gap-1">
+            <CreditCard className="h-3 w-3" />
+            Eligible
+          </Badge>
+        )
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 flex items-center gap-1">
+            <Loader2 className="h-3 w-3" />
+            Pending
+          </Badge>
+        )
       case 'cancelled':
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Cancelled</Badge>
       default:
@@ -125,6 +171,39 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const handleDelete = async (id: string) => {
     await deleteCommission.mutateAsync({ id, leadId: lead.id })
     setDeleteConfirm(null)
+  }
+
+  const handleApprove = async (commissionId: string) => {
+    setApprovingIds(prev => new Set(prev).add(commissionId))
+    try {
+      const result = await approveCommission(commissionId)
+      if (result.success) {
+        toast.success('Commission approved successfully')
+        await Promise.all([refetchCommissions(), refetchSummary()])
+      } else {
+        toast.error(result.error || 'Failed to approve commission')
+      }
+    } catch (error) {
+      toast.error('Failed to approve commission')
+    } finally {
+      setApprovingIds(prev => {
+        const next = new Set(prev)
+        next.delete(commissionId)
+        return next
+      })
+    }
+  }
+
+  const toggleRowExpansion = (commissionId: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(commissionId)) {
+        next.delete(commissionId)
+      } else {
+        next.add(commissionId)
+      }
+      return next
+    })
   }
 
   const handleRefresh = async () => {
@@ -160,17 +239,6 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
       setIsRefreshing(false)
     }
   }
-
-  // Get financials data to calculate accurate base amount for commissions
-  const { data: financialsData } = useQuery({
-    queryKey: ['lead-financials', lead.id],
-    queryFn: () => getLeadFinancials(lead.id),
-  })
-
-  // Calculate base amount from financials (quote + change orders = revenue)
-  const defaultBaseAmount = financialsData?.data?.summary?.estimated_revenue || 0
-  const quoteTotal = financialsData?.data?.summary?.quote_total || 0
-  const changeOrdersTotal = financialsData?.data?.summary?.change_orders_total || 0
 
   return (
     <div className="space-y-6">
@@ -289,102 +357,247 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>User</TableHead>
                 <TableHead>Plan</TableHead>
-                <TableHead>Type</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Paid When</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Paid Date</TableHead>
+                <TableHead>Paid When</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {commissions.map((commission) => (
-                <TableRow key={commission.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{commission.user?.full_name}</p>
-                      <p className="text-xs text-gray-500">{commission.user?.email}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {commission.commission_plan?.name || (
-                      <span className="text-gray-400">None</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">
-                        {commission.commission_type === 'percentage'
-                          ? `${commission.commission_rate}%`
-                          : commission.commission_type === 'flat_amount'
-                          ? 'Flat'
-                          : 'Custom'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Base: {formatCurrency(commission.base_amount)}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <p className="font-bold text-lg">
-                      {formatCurrency(commission.calculated_amount)}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs capitalize">
-                      {commission.paid_when.replace('when_', '').replace(/_/g, ' ')}
-                    </span>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(commission.status)}</TableCell>
-                  <TableCell>
-                    {commission.paid_at ? (
-                      <div>
-                        <p className="text-sm">{formatDate(commission.paid_at)}</p>
-                        {commission.paid_by_user && (
-                          <p className="text-xs text-gray-500">
-                            by {commission.paid_by_user.full_name}
+              {commissions.map((commission) => {
+                const isExpanded = expandedRows.has(commission.id)
+                const isApproving = approvingIds.has(commission.id)
+                
+                return (
+                  <>
+                    <TableRow key={commission.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => toggleRowExpansion(commission.id)}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{commission.user?.full_name}</p>
+                          <p className="text-xs text-gray-500">{commission.user?.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">
+                            {commission.commission_plan?.name || (
+                              <span className="text-gray-400">None</span>
+                            )}
                           </p>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">—</span>
+                          <p className="text-xs text-gray-500">
+                            {commission.commission_type === 'percentage'
+                              ? `${commission.commission_rate}%`
+                              : commission.commission_type === 'flat_amount'
+                              ? 'Flat Amount'
+                              : 'Custom'}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-bold text-lg">
+                            {formatCurrency(commission.calculated_amount)}
+                          </p>
+                          {commission.balance_owed !== 0 && commission.balance_owed !== commission.calculated_amount && (
+                            <p className="text-xs text-orange-600 font-medium">
+                              Balance: {formatCurrency(commission.balance_owed)}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(commission.status)}
+                            {commission.status === 'eligible' && commission.triggered_by_payment && (
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="h-4 w-4 text-blue-500" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Triggered by {commission.triggered_by_payment.payment_method} payment</p>
+                                  <p className="text-xs text-gray-500">
+                                    {formatDate(commission.triggered_by_payment.payment_date)}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs capitalize">
+                          {commission.paid_when.replace('when_', '').replace(/_/g, ' ')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {canApprove && commission.status === 'eligible' && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleApprove(commission.id)}
+                              disabled={isApproving}
+                              className="bg-blue-600 hover:bg-blue-700"
+                            >
+                              {isApproving ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                  Approving...
+                                </>
+                              ) : (
+                                <>
+                                  <ThumbsUp className="h-4 w-4 mr-1" />
+                                  Approve
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          {canMarkPaidFinal && commission.status === 'approved' && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => setMarkPaidCommission(commission)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Mark Paid
+                            </Button>
+                          )}
+                          {canEditFinal && commission.status !== 'paid' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingCommission(commission)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDeleteFinal && commission.status !== 'paid' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDeleteConfirm(commission.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    
+                    {/* Expanded Row - Approval History & Details */}
+                    {isExpanded && (
+                      <TableRow key={`${commission.id}-expanded`} className="bg-gray-50">
+                        <TableCell colSpan={7} className="py-4">
+                          <div className="space-y-4 px-4">
+                            {/* Commission Details */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div>
+                                <p className="text-xs text-gray-500 font-medium">Base Amount</p>
+                                <p className="font-semibold">{formatCurrency(commission.base_amount)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 font-medium">Commission Type</p>
+                                <p className="font-semibold capitalize">
+                                  {commission.commission_type === 'percentage' 
+                                    ? `${commission.commission_rate}% of base`
+                                    : commission.commission_type === 'flat_amount'
+                                    ? `Flat: ${formatCurrency(commission.flat_amount || 0)}`
+                                    : 'Custom'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 font-medium">Paid Amount</p>
+                                <p className="font-semibold">{formatCurrency(commission.paid_amount)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 font-medium">Balance Owed</p>
+                                <p className={`font-semibold ${commission.balance_owed < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  {formatCurrency(commission.balance_owed)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Workflow History */}
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-700 mb-2">Status History</h4>
+                              <div className="space-y-2">
+                                {/* Created */}
+                                <div className="flex items-center gap-2 text-sm">
+                                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                                  <span className="text-gray-600">Created on {formatDate(commission.created_at)}</span>
+                                </div>
+                                
+                                {/* Eligible */}
+                                {commission.triggered_by_payment && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                                    <span className="text-gray-600">
+                                      Became eligible on {formatDate(commission.triggered_by_payment.payment_date)}
+                                      {' '}(triggered by {commission.triggered_by_payment.payment_method} payment of{' '}
+                                      {formatCurrency(commission.triggered_by_payment.amount)})
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {/* Approved */}
+                                {commission.approved_at && commission.approved_by_user && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                    <span className="text-gray-600">
+                                      Approved by {commission.approved_by_user.full_name} on{' '}
+                                      {formatDate(commission.approved_at)}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {/* Paid */}
+                                {commission.paid_date && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="text-gray-600">
+                                      Paid on {formatDate(commission.paid_date)}
+                                      {commission.payment_reference && (
+                                        <> (Ref: {commission.payment_reference})</>
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Notes */}
+                            {commission.notes && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-700 mb-1">Notes</h4>
+                                <p className="text-sm text-gray-600">{commission.notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {canMarkPaidFinal && commission.status !== 'paid' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setMarkPaidCommission(commission)}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canEditFinal && commission.status !== 'paid' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingCommission(commission)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDeleteFinal && commission.status !== 'paid' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDeleteConfirm(commission.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </>
+                )
+              })}
             </TableBody>
           </Table>
         )}

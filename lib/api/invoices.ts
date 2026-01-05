@@ -429,41 +429,73 @@ export async function deletePayment(
 
 /**
  * Generate next payment number for company
+ * Finds the highest payment number and increments, checking ALL payments (including deleted)
+ * to avoid conflicts with the unique constraint
  */
 export async function getNextPaymentNumber(
   companyId: string
 ): Promise<ApiResponse<string>> {
   try {
-    const { data, error } = await supabase
+    const year = new Date().getFullYear()
+    console.log('🔍 [PAYMENT NUMBER] Generating for company:', companyId, 'year:', year)
+    
+    // NOTE: This function is only called from server actions which use admin client
+    // It should not be called directly from browser/client code
+    const { data: allPayments, error } = await supabase
       .from('payments')
       .select('payment_number')
       .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
+      .like('payment_number', `PAY-${year}-%`)
+      .order('payment_number', { ascending: false })
+    
+    console.log('🔍 [PAYMENT NUMBER] Found payments:', allPayments?.length || 0)
+    if (allPayments && allPayments.length > 0) {
+      console.log('🔍 [PAYMENT NUMBER] Payment numbers:', allPayments.map(p => p.payment_number))
+    }
+    
     if (error) throw error
-
-    const year = new Date().getFullYear()
-    if (!data || data.length === 0) {
+    
+    if (!allPayments || allPayments.length === 0) {
+      // No payments this year yet, start at 001
       return { data: `PAY-${year}-001`, error: null }
     }
-
-    const lastNumber = data[0].payment_number
-    const match = lastNumber.match(/PAY-(\d{4})-(\d{3})/)
     
-    if (match) {
-      const lastYear = parseInt(match[1])
-      const lastNum = parseInt(match[2])
-      
-      if (lastYear < year) {
-        return { data: `PAY-${year}-001`, error: null }
+    // Extract all numbers and find the maximum
+    let maxNum = 0
+    for (const payment of allPayments) {
+      const match = payment.payment_number.match(/PAY-\d{4}-(\d+)/)
+      if (match) {
+        const num = parseInt(match[1])
+        if (num > maxNum) {
+          maxNum = num
+        }
       }
-      
-      const nextNum = (lastNum + 1).toString().padStart(3, '0')
-      return { data: `PAY-${year}-${nextNum}`, error: null }
     }
-
-    return { data: `PAY-${year}-001`, error: null }
+    
+    // Increment and return
+    const nextNum = (maxNum + 1).toString().padStart(3, '0')
+    const newNumber = `PAY-${year}-${nextNum}`
+    console.log('🔍 [PAYMENT NUMBER] Max num:', maxNum, 'Next num:', nextNum, 'New number:', newNumber)
+    
+    // Double-check it doesn't exist (safety check)
+    const { data: existingCheck } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('payment_number', newNumber)
+      .limit(1)
+    
+    console.log('🔍 [PAYMENT NUMBER] Existence check:', existingCheck?.length || 0, 'records')
+    
+    if (existingCheck && existingCheck.length > 0) {
+      // If somehow still exists, use next number
+      const fallbackNum = (maxNum + 2).toString().padStart(3, '0')
+      console.log('⚠️ [PAYMENT NUMBER] Number exists! Using fallback:', `PAY-${year}-${fallbackNum}`)
+      return { data: `PAY-${year}-${fallbackNum}`, error: null }
+    }
+    
+    console.log('✅ [PAYMENT NUMBER] Returning:', newNumber)
+    return { data: newNumber, error: null }
   } catch (error) {
     return createErrorResponse(error)
   }

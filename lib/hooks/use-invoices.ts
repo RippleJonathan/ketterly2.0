@@ -11,13 +11,13 @@ import {
   createPayment,
   updatePayment,
   deletePayment,
-  getNextPaymentNumber,
   getChangeOrders,
   createChangeOrder,
   updateChangeOrder,
   deleteChangeOrder,
   getNextChangeOrderNumber,
 } from '@/lib/api/invoices'
+import { getNextPaymentNumberAction } from '@/lib/actions/invoices'
 import {
   CustomerInvoiceInsert,
   CustomerInvoiceUpdate,
@@ -156,9 +156,9 @@ export function useNextPaymentNumber() {
   return useQuery({
     queryKey: ['next-payment-number', company?.id],
     queryFn: async () => {
-      const result = await getNextPaymentNumber(company!.id)
-      if (result.error) throw new Error(result.error.message)
-      return result.data
+      const result = await getNextPaymentNumberAction(company!.id)
+      if (!result) throw new Error('Failed to generate payment number')
+      return result
     },
     enabled: !!company?.id,
   })

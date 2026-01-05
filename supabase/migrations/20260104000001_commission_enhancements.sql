@@ -8,7 +8,7 @@
 
 -- Payment trigger tracking
 ALTER TABLE public.lead_commissions 
-ADD COLUMN triggered_by_payment_id UUID REFERENCES invoice_payments(id);
+ADD COLUMN triggered_by_payment_id UUID REFERENCES payments(id);
 
 -- Approval tracking
 ALTER TABLE public.lead_commissions 
@@ -306,9 +306,9 @@ BEGIN
   
   -- Calculate total paid on invoice
   SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
-  FROM invoice_payments
+  FROM payments
   WHERE invoice_id = NEW.invoice_id
-  AND status != 'failed';
+  AND deleted_at IS NULL;
   
   -- Loop through all pending commissions for this invoice's lead
   FOR v_commission IN 
@@ -356,9 +356,9 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger
-DROP TRIGGER IF EXISTS trigger_auto_update_commission_eligibility ON invoice_payments;
+DROP TRIGGER IF EXISTS trigger_auto_update_commission_eligibility ON payments;
 CREATE TRIGGER trigger_auto_update_commission_eligibility
-  AFTER INSERT OR UPDATE ON invoice_payments
+  AFTER INSERT OR UPDATE ON payments
   FOR EACH ROW
   EXECUTE FUNCTION auto_update_commission_eligibility();
 
@@ -399,8 +399,8 @@ BEGIN
         WHEN 'collected' THEN
           -- For collected, base on actual payments
           SELECT COALESCE(SUM(amount), 0) INTO v_new_base_amount
-          FROM invoice_payments
-          WHERE invoice_id = NEW.id AND status != 'failed';
+          FROM payments
+          WHERE invoice_id = NEW.id AND deleted_at IS NULL;
         ELSE
           v_new_base_amount := NEW.total_amount;
       END CASE;

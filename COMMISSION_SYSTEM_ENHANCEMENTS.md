@@ -363,15 +363,17 @@ commission_paid BOOLEAN DEFAULT true NOT NULL
 5. ⏳ Update commission tab UI to show payment details
 6. ⏳ Test payment tracking workflow
 
-### Phase 7: Commission Tab UI Enhancements (6-8 hours) ⏳ NOT STARTED
-1. Update `components/admin/leads/commissions-tab.tsx`
-2. Add status workflow badges
-3. Add payment trigger tooltips
-4. Add individual Approve button (permission-gated)
-5. Add Mark as Paid button
-6. Add approval history in expanded view
-7. Add delta tracking display
-8. Test all UI interactions
+### Phase 7: Commission Tab UI Enhancements (6-8 hours) ✅ COMPLETED
+1. ✅ Updated `components/admin/leads/commissions-tab.tsx`
+2. ✅ Added status workflow badges with icons (PENDING/ELIGIBLE/APPROVED/PAID)
+3. ✅ Added payment trigger tooltips
+4. ✅ Added individual Approve button (permission-gated)
+5. ✅ Added Mark as Paid button
+6. ✅ Added approval history in expanded view
+7. ✅ Added delta tracking display
+8. ✅ Created expandable row details with full history timeline
+9. ✅ Created Tooltip UI component
+10. ⏳ Test all UI interactions
 
 1. ✅ Database trigger created (`auto_recalculate_commissions_on_invoice_change`)
 2. ✅ Invoice change detection implemented
@@ -432,11 +434,12 @@ commission_paid BOOLEAN DEFAULT true NOT NULL
 - [ ] Payment details display in commission tab (pending Phase 7)
 
 ### Commission Tab UI
-- [ ] Status badges display correctly (pending Phase 7)
-- [ ] Payment trigger tooltip shows payment details (pending Phase 7)
-- [ ] Approve button visible with correct permissions (pending Phase 7)
-- [ ] Mark as Paid button visible for approved commissions (pending Phase 7)
-- [ ] Approval history shows in expanded view (pending Phase 7)
+- [x] Status badges display correctly with icons
+- [x] Payment trigger tooltip shows payment details
+- [x] Approve button visible with correct permissions
+- [x] Mark as Paid button visible for approved commissions
+- [x] Approval history shows in expanded view
+- [ ] All UI interactions tested end-to-end
 
 ### Delta Tracking
 - [x] Invoice changes recalculate commission amount

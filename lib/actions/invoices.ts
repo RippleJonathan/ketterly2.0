@@ -9,8 +9,53 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyPaymentReceived } from '@/lib/email/user-notifications'
-import { getNextPaymentNumber } from '@/lib/api/invoices'
 import { revalidatePath } from 'next/cache'
+
+/**
+ * Get next payment number (server action for client use)
+ */
+export async function getNextPaymentNumberAction(companyId: string): Promise<string | null> {
+  try {
+    const adminSupabase = createAdminClient()
+    const year = new Date().getFullYear()
+    
+    // Get ALL payments for this company and year (including deleted) to find max number
+    const { data: allPayments, error } = await adminSupabase
+      .from('payments')
+      .select('payment_number')
+      .eq('company_id', companyId)
+      .like('payment_number', `PAY-${year}-%`)
+      .order('payment_number', { ascending: false })
+    
+    if (error) {
+      console.error('Error fetching payments for number generation:', error)
+      return null
+    }
+    
+    if (!allPayments || allPayments.length === 0) {
+      return `PAY-${year}-001`
+    }
+    
+    // Extract all numbers and find the maximum
+    let maxNum = 0
+    for (const payment of allPayments) {
+      const match = payment.payment_number.match(/PAY-\d{4}-(\d+)/)
+      if (match) {
+        const num = parseInt(match[1])
+        if (num > maxNum) {
+          maxNum = num
+        }
+      }
+    }
+    
+    // Increment and return
+    const nextNum = (maxNum + 1).toString().padStart(3, '0')
+    return `PAY-${year}-${nextNum}`
+  } catch (error) {
+    console.error('Error generating next payment number:', error)
+    return null
+  }
+}
 
 /**
  * Record a payment and notify team
@@ -48,13 +93,16 @@ export async function recordPaymentAction(data: {
       throw new Error('Lead not found')
     }
 
-    // Generate next payment number
-    const { data: paymentNumber, error: paymentNumberError } = await getNextPaymentNumber(data.companyId)
-    if (paymentNumberError || !paymentNumber) {
+    // Generate next payment number using inline logic (uses admin client to see deleted payments)
+    console.log('🔵 [RECORD PAYMENT] Generating payment number for company:', data.companyId)
+    const paymentNumber = await getNextPaymentNumberAction(data.companyId)
+    console.log('🔵 [RECORD PAYMENT] Got payment number:', paymentNumber)
+    if (!paymentNumber) {
       throw new Error('Failed to generate payment number')
     }
 
     // Record payment in database using admin client
+    console.log('🔵 [RECORD PAYMENT] Inserting payment with number:', paymentNumber)
     const { error: paymentError } = await adminSupabase
       .from('payments')
       .insert({
@@ -68,6 +116,7 @@ export async function recordPaymentAction(data: {
         notes: data.notes,
         created_by: data.createdBy,
       })
+    console.log('🔵 [RECORD PAYMENT] Insert result - Error:', paymentError)
 
     if (paymentError) {
       console.error('Payment recording error:', paymentError)

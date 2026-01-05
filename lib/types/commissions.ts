@@ -4,7 +4,7 @@ import { User } from './users'
 
 export type CommissionType = 'percentage' | 'flat_amount' | 'custom'
 export type CommissionPaidWhen = 'when_deposit_paid' | 'when_job_completed' | 'when_final_payment' | 'custom'
-export type CommissionStatus = 'pending' | 'approved' | 'paid' | 'cancelled'
+export type CommissionStatus = 'pending' | 'eligible' | 'approved' | 'paid' | 'cancelled'
 
 export interface LeadCommission {
   id: string
@@ -20,14 +20,24 @@ export interface LeadCommission {
   calculated_amount: number // final commission owed
   base_amount: number // what commission is calculated on (quote total, revenue, etc.)
   paid_amount: number // total amount already paid (for handling partial payments)
+  balance_owed: number // new amount - already paid (can be negative for chargebacks)
   
   // Payment trigger
   paid_when: CommissionPaidWhen
+  triggered_by_payment_id: string | null // payment that triggered eligibility
+  
+  // Approval tracking
+  approved_by_user_id: string | null
+  approved_at: string | null
+  
+  // Payment tracking
+  paid_date: string | null
+  payment_reference: string | null
   
   // Status tracking
   status: CommissionStatus
-  paid_at: string | null
-  paid_by: string | null
+  paid_at: string | null // DEPRECATED: use paid_date instead
+  paid_by: string | null // DEPRECATED: use approved_by_user_id instead
   payment_notes: string | null
   notes: string | null
   
@@ -40,6 +50,13 @@ export interface LeadCommission {
   // Relations (optional)
   user?: Pick<User, 'id' | 'full_name' | 'email' | 'avatar_url'>
   paid_by_user?: Pick<User, 'id' | 'full_name'>
+  approved_by_user?: Pick<User, 'id' | 'full_name'>
+  triggered_by_payment?: {
+    id: string
+    amount: number
+    payment_date: string
+    payment_method: string
+  }
   commission_plan?: {
     id: string
     name: string
@@ -84,6 +101,12 @@ export interface LeadCommissionFilters {
 export interface LeadCommissionWithRelations extends LeadCommission {
   user: Pick<User, 'id' | 'full_name' | 'email' | 'avatar_url'>
   paid_by_user?: Pick<User, 'id' | 'full_name'>
+  approved_by_user?: Pick<User, 'id' | 'full_name'>
+  lead?: {
+    id: string
+    full_name: string
+    address: string
+  }
 }
 
 export interface CommissionSummary {

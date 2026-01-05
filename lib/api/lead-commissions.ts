@@ -307,6 +307,65 @@ export async function markCommissionPaid(
 }
 
 /**
+ * Get all company commissions with filters (for admin page)
+ * Requires can_view_all_commissions permission
+ */
+export async function getAllCompanyCommissions(
+  companyId: string,
+  filters?: {
+    userId?: string
+    status?: string | string[]
+    dateFrom?: string
+    dateTo?: string
+  }
+): Promise<ApiResponse<LeadCommissionWithRelations[]>> {
+  try {
+    const supabase = createClient()
+    
+    let query = supabase
+      .from('lead_commissions')
+      .select(`
+        *,
+        user:user_id(id, full_name, email, avatar_url),
+        lead:lead_id(id, full_name, address, city)
+      `)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+
+    // Apply filters
+    if (filters?.userId) {
+      query = query.eq('user_id', filters.userId)
+    }
+
+    if (filters?.status) {
+      if (Array.isArray(filters.status)) {
+        query = query.in('status', filters.status)
+      } else {
+        query = query.eq('status', filters.status)
+      }
+    }
+
+    if (filters?.dateFrom) {
+      query = query.gte('created_at', filters.dateFrom)
+    }
+
+    if (filters?.dateTo) {
+      query = query.lte('created_at', filters.dateTo)
+    }
+
+    query = query.order('created_at', { ascending: false })
+
+    const { data, error } = await query
+
+    if (error) throw error
+    
+    return createSuccessResponse(data)
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+}
+
+/**
  * Calculate commission amount based on type and rate
  */
 export function calculateCommission(

@@ -265,6 +265,7 @@ export interface UserPermissions {
   can_create_commissions: boolean
   can_edit_commissions: boolean
   can_delete_commissions: boolean
+  can_approve_commissions: boolean
   can_mark_commissions_paid: boolean
   
   // Users & Settings

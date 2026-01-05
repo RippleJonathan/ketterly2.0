@@ -40,6 +40,7 @@ export function useCheckPermission(userId: string | undefined, permission: Permi
     queryFn: () => checkPermission(userId!, permission),
     enabled: !!userId,
     staleTime: 1000 * 60 * 5,
+    retry: false, // Don't retry on permission checks
   })
 }
 

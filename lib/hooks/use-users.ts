@@ -59,7 +59,11 @@ export function useUser(userId: string | undefined) {
 export function useCurrentUser() {
   return useQuery({
     queryKey: ['current-user'],
-    queryFn: getCurrentUser,
+    queryFn: async () => {
+      const result = await getCurrentUser()
+      if (result.error) throw new Error(result.error)
+      return result.data
+    },
     staleTime: 1000 * 60 * 5,
   })
 }

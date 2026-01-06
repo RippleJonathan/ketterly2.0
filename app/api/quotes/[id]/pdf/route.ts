@@ -195,7 +195,7 @@ export async function GET(
     
     await browser.close()
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="Quote-${quote.quote_number}.pdf"`,

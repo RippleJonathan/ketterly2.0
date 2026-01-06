@@ -174,6 +174,8 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['payments', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['next-payment-number', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['commissions', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['commission-summary', company?.id] })
       
       // Also invalidate invoices if payment is linked to an invoice
       if (result.data?.invoice_id) {
@@ -206,6 +208,8 @@ export function useUpdatePayment() {
       queryClient.invalidateQueries({ queryKey: ['payments', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['invoices', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['commissions', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['commission-summary', company?.id] })
       toast.success('Payment updated successfully')
     },
     onError: (error: Error) => {
@@ -225,6 +229,8 @@ export function useDeletePayment() {
       queryClient.invalidateQueries({ queryKey: ['payments', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['invoices', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['commissions', company?.id] })
+      queryClient.invalidateQueries({ queryKey: ['commission-summary', company?.id] })
       toast.success('Payment deleted successfully')
     },
     onError: (error: Error) => {

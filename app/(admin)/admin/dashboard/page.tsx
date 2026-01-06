@@ -30,9 +30,9 @@ export default function DashboardPage() {
   const user = userData?.data
   const { data: stats, isLoading } = useDashboardStats()
 
-  const isSales = user?.role === 'manager' || user?.role === 'user'
-  const isProduction = user?.role === 'manager' || user?.role === 'user'
-  const isOffice = user?.role === 'admin' || user?.role === 'manager'
+  const isSales = user?.role === 'sales_manager' || user?.role === 'sales'
+  const isProduction = user?.role === 'production'
+  const isOffice = user?.role === 'admin' || user?.role === 'office' || user?.role === 'sales_manager'
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   const formatCurrency = (value: number) => {

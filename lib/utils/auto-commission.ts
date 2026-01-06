@@ -118,10 +118,22 @@ export async function autoCreateCommission(
 
     const invoiceTotal = invoice ? Number(invoice.total) || 0 : 0
 
+    // Get total base_amount already commissioned for this user on this lead
+    const { data: existingCommissions } = await supabase
+      .from('lead_commissions')
+      .select('base_amount')
+      .eq('lead_id', leadId)
+      .eq('user_id', userId)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+
+    const totalAlreadyCommissioned = existingCommissions?.reduce((sum, c) => sum + (Number(c.base_amount) || 0), 0) || 0
+
     // Calculate base amount based on commission plan's calculate_on setting
+    let fullBaseAmount = 0
     if (plan.calculate_on === 'revenue') {
       // Use invoice total as revenue (includes quote + change orders)
-      baseAmount = invoiceTotal
+      fullBaseAmount = invoiceTotal
     } else if (plan.calculate_on === 'profit') {
       // Calculate profit (invoice revenue - costs)
       const revenue = invoiceTotal
@@ -146,7 +158,7 @@ export async function autoCreateCommission(
       
       const laborCosts = workOrders?.reduce((sum, wo) => sum + (Number(wo.total_estimated) || 0), 0) || 0
       
-      baseAmount = revenue - (materialCosts + laborCosts)
+      fullBaseAmount = revenue - (materialCosts + laborCosts)
     } else if (plan.calculate_on === 'collected') {
       // Use actual payments received
       const { data: payments } = await supabase
@@ -155,11 +167,14 @@ export async function autoCreateCommission(
         .eq('lead_id', leadId)
         .is('deleted_at', null)
       
-      baseAmount = payments?.reduce((sum, pay) => pay.cleared ? sum + (Number(pay.amount) || 0) : sum, 0) || 0
+      fullBaseAmount = payments?.reduce((sum, pay) => pay.cleared ? sum + (Number(pay.amount) || 0) : sum, 0) || 0
     } else {
       // Default to revenue (invoice total)
-      baseAmount = invoiceTotal
+      fullBaseAmount = invoiceTotal
     }
+
+    // Calculate the delta - amount not yet commissioned
+    baseAmount = Math.max(0, fullBaseAmount - totalAlreadyCommissioned)
 
     // If still no base amount, create with $0 (can be updated when invoice is created)
     if (baseAmount === 0) {
@@ -188,15 +203,15 @@ export async function autoCreateCommission(
     }
 
     // Cancel any existing pending commissions for OTHER users (unless skipCancelOthers=true)
-    const { data: existingCommissions } = await supabase
+    const { data: allCommissions } = await supabase
       .from('lead_commissions')
       .select('id, user_id, status')
       .eq('lead_id', leadId)
       .eq('company_id', companyId)
       .is('deleted_at', null)
 
-    if (!skipCancelOthers && existingCommissions && existingCommissions.length > 0) {
-      for (const commission of existingCommissions) {
+    if (!skipCancelOthers && allCommissions && allCommissions.length > 0) {
+      for (const commission of allCommissions) {
         // Cancel commissions for other users
         if (commission.user_id !== userId && 
             (commission.status === 'pending' || commission.status === 'approved')) {
@@ -209,29 +224,51 @@ export async function autoCreateCommission(
     }
 
     // Check if THIS user already has a commission for this lead
-    const existingUserCommission = existingCommissions?.find(
+    const existingUserCommission = allCommissions?.find(
       c => c.user_id === userId && c.status !== 'cancelled' && c.status !== 'paid'
     )
 
     if (existingUserCommission) {
-      // Update existing commission with new calculated values
-      const updateResult = await updateLeadCommission(existingUserCommission.id, companyId, {
-        commission_plan_id: plan.id,
-        commission_type: commissionType,
-        commission_rate: commissionRate,
-        flat_amount: flatAmount,
-        calculated_amount: calculatedAmount,
-        base_amount: baseAmount,
-        paid_when: mapPlanPaidWhenToLeadCommissionPaidWhen(plan.paid_when),
-        notes: `Auto-updated: Base $${baseAmount.toFixed(2)}, Commission: $${calculatedAmount.toFixed(2)} (${plan.name})`,
-      })
+      // Get current commission details to add the delta
+      const { data: currentCommission } = await supabase
+        .from('lead_commissions')
+        .select('base_amount, calculated_amount, commission_plan_id')
+        .eq('id', existingUserCommission.id)
+        .single()
+
+      const currentBaseAmount = Number(currentCommission?.base_amount) || 0
+      const newBaseAmount = currentBaseAmount + baseAmount
+      const newCalculatedAmount = commissionType === 'percentage' 
+        ? newBaseAmount * ((commissionRate || 0) / 100)
+        : (flatAmount || 0)
+
+      // Check if plan changed
+      const planChanged = currentCommission?.commission_plan_id !== plan.id
+
+      // Update existing commission by adding the delta
+      const updateData: any = {
+        calculated_amount: newCalculatedAmount,
+        base_amount: newBaseAmount,
+        notes: `Auto-updated: Added $${baseAmount.toFixed(2)} delta. New base: $${newBaseAmount.toFixed(2)}, Commission: $${newCalculatedAmount.toFixed(2)} (${plan.name})`,
+      }
+
+      // Only update plan-related fields if the plan actually changed
+      if (planChanged) {
+        updateData.commission_plan_id = plan.id
+        updateData.commission_type = commissionType
+        updateData.commission_rate = commissionRate
+        updateData.flat_amount = flatAmount
+        updateData.paid_when = mapPlanPaidWhenToLeadCommissionPaidWhen(plan.paid_when)
+      }
+
+      const updateResult = await updateLeadCommission(existingUserCommission.id, companyId, updateData)
 
       if (updateResult.error) {
         console.error('Error updating commission:', updateResult.error)
         return { success: false, message: 'Error updating commission' }
       }
 
-      return { success: true, message: `Commission updated: $${calculatedAmount.toFixed(2)}` }
+      return { success: true, message: `Commission updated: $${newCalculatedAmount.toFixed(2)}` }
     }
 
     // Create new commission

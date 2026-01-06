@@ -185,7 +185,7 @@ export default function PublicQuotePage() {
   // but we also support legacy names for backwards compatibility
   const company = quote.company || quote.companies
   const lead = quote.lead || quote.leads
-  const location = lead?.location // Get location from lead
+  const location = (lead as any)?.location || null // Location relation if available
   const lineItems = quote.line_items || quote.quote_line_items || []
   const signatures = quote.signature || quote.quote_signatures || []
   const customerSignature = signatures.find(s => s.signer_type === 'customer')

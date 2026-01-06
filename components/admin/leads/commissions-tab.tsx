@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -63,6 +63,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const { data: canDelete } = useCheckPermission(currentUser?.data?.id || '', 'can_delete_commissions')
   const { data: canMarkPaid } = useCheckPermission(currentUser?.data?.id || '', 'can_mark_commissions_paid')
   const { data: canApprove } = useCheckPermission(currentUser?.data?.id || '', 'can_approve_commissions')
+  const { data: canManage } = useCheckPermission(currentUser?.data?.id || '', 'can_manage_commissions')
   const deleteCommission = useDeleteLeadCommission()
   
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -295,7 +296,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
             <DollarSign className="h-8 w-8 text-green-600" />
           </div>
           <p className="text-xs text-green-700 mt-2">
-            💡 Commissions calculate automatically from estimate total (quote + change orders)
+            💡 Commissions are created automatically when invoices are generated
           </p>
         </div>
       )}
@@ -305,7 +306,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
           <div className="flex items-center gap-2 text-yellow-800">
             <AlertTriangle className="h-5 w-5" />
             <p className="text-sm font-medium">
-              No estimate created yet. Create a quote in the Estimates tab to calculate commissions.
+              No estimate created yet. Create a quote in the Estimates tab first.
             </p>
           </div>
         </div>
@@ -372,8 +373,8 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
                 const isApproving = approvingIds.has(commission.id)
                 
                 return (
-                  <>
-                    <TableRow key={commission.id} className="hover:bg-gray-50">
+                  <React.Fragment key={commission.id}>
+                    <TableRow className="hover:bg-gray-50">
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -481,7 +482,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
                               Mark Paid
                             </Button>
                           )}
-                          {canEditFinal && commission.status !== 'paid' && (
+                          {canEditFinal && (commission.status !== 'paid' || canManage) && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -595,7 +596,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 )
               })}
             </TableBody>

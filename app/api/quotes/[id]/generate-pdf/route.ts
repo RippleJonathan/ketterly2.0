@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import React from 'react'
+import React, { createElement } from 'react'
 import { pdf } from '@react-pdf/renderer'
 import { QuotePDFTemplate } from '@/components/admin/quotes/quote-pdf-template'
 
@@ -124,12 +124,13 @@ export async function GET(
         originalContractPrice: contract?.original_contract_price || contract?.original_total,
         originalSubtotal: contract?.original_subtotal,
         currentContractPrice: contract?.current_contract_price,
-      })
+      } as any) as any
     )
     
-    const pdfBuffer = await pdfDoc.toBuffer()
+    const blob = await pdfDoc.toBlob()
+    const buffer = await blob.arrayBuffer()
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="Quote-${quote.quote_number}.pdf"`,

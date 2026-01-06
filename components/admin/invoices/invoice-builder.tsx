@@ -279,6 +279,14 @@ export function InvoiceBuilder({
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
       queryClient.invalidateQueries({ queryKey: ['contract-comparison'] })
+      
+      // Invalidate commission queries (commissions are auto-created by database trigger)
+      queryClient.invalidateQueries({ queryKey: ['lead-commissions'] })
+      queryClient.invalidateQueries({ queryKey: ['user-commissions'] })
+      queryClient.invalidateQueries({ queryKey: ['commissions'] })
+      queryClient.invalidateQueries({ queryKey: ['commissions-by-status'] })
+      queryClient.invalidateQueries({ queryKey: ['commissions-for-lead'] })
+      
       toast.success('Invoice created successfully')
       onSuccess?.()
       onOpenChange(false)

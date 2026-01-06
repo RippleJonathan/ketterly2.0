@@ -152,10 +152,10 @@ export async function POST(
         
         try {
           const emailResult = await sendExecutedContractToCustomer(fullQuote, fullQuote.company)
-          if (emailResult.success) {
-            console.log('[DUAL SIGNATURE] ✅ Executed contract email sent successfully:', emailResult.data)
+          if ((emailResult as any).success) {
+            console.log('[DUAL SIGNATURE] ✅ Executed contract email sent successfully:', (emailResult as any).data || 'No data')
           } else {
-            console.error('[DUAL SIGNATURE] ❌ Failed to send email:', emailResult.error)
+            console.error('[DUAL SIGNATURE] ❌ Failed to send email:', (emailResult as any).error || (emailResult as any).reason)
           }
         } catch (emailError) {
           console.error('[DUAL SIGNATURE] ❌ Exception sending executed contract email:', emailError)

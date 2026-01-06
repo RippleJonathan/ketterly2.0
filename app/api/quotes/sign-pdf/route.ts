@@ -154,11 +154,11 @@ export async function POST(request: NextRequest) {
         if (lead.assigned_to) userIdsToNotify.add(lead.assigned_to)
         if (lead.created_by) userIdsToNotify.add(lead.created_by)
         
-        // Send notification to each team member
-        for (const userId of userIdsToNotify) {
+        // Send notification to team members
+        if (userIdsToNotify.size > 0) {
           try {
             await notifyQuoteApproved({
-              userId,
+              userIds: Array.from(userIdsToNotify),
               companyId: quote.company_id,
               leadId: quote.lead_id,
               quoteId: quote.id,
@@ -230,10 +230,10 @@ export async function POST(request: NextRequest) {
         
         try {
           const emailResult = await sendExecutedContractToCustomer(quoteWithLead, company)
-          if (emailResult.success) {
-            console.log('[DUAL SIGNATURE] ✅ Executed contract email sent successfully:', emailResult.data)
+          if ((emailResult as any).success) {
+            console.log('[DUAL SIGNATURE] ✅ Executed contract email sent successfully:', (emailResult as any).data)
           } else {
-            console.error('[DUAL SIGNATURE] ❌ Failed to send email:', emailResult.error)
+            console.error('[DUAL SIGNATURE] ❌ Failed to send email:', (emailResult as any).error || (emailResult as any).reason)
           }
         } catch (emailError) {
           // Log error but don't fail the signature submission

@@ -10,7 +10,35 @@ See `URGENT_FIX_MATERIAL_CONSTRAINT.md` for complete instructions.
 
 ## ✅ Completed Updates
 
-### 1. UI Naming Changes
+### 1. Commission System Bug Fixes
+**Fixed paid_when field preservation and admin editing permissions**
+
+**Issues Fixed:**
+- ✅ **Paid_when Field Preservation**: Commission `paid_when` settings were being overwritten during updates
+- ✅ **Admin Edit Access**: Users with `can_manage_commissions` permission can now edit paid commissions
+- ✅ **Balance Calculation**: Confirmed balance = 0 for paid commissions is correct behavior
+
+**Root Causes:**
+- `auto-commission.ts` was always updating `paid_when` from commission plan, even for existing commissions
+- Commission edit dialog was restricted to non-paid commissions only
+- Balance calculation was working correctly but user was confused
+
+**Solutions Implemented:**
+- Modified `auto-commission.ts` to only update plan-related fields when `commission_plan_id` actually changes
+- Added `can_manage_commissions` permission check in `commissions-tab.tsx` to allow admin editing of paid commissions
+- Preserved existing `paid_when` values for commissions unless plan changes
+
+**Files Changed:**
+- `lib/utils/auto-commission.ts` - Added plan change detection logic
+- `components/admin/leads/commissions-tab.tsx` - Added admin permission override
+
+**Testing Verified:**
+- ✅ Development server runs without compilation errors
+- ✅ Commission plans have correct `paid_when` values in database
+- ✅ Admin users can edit paid commissions with proper permissions
+- ✅ Existing commission `paid_when` settings are preserved during updates
+
+### 2. UI Naming Changes
 **"Materials Library" → "Product Catalog"**
 
 - Updated main heading in Settings
@@ -129,6 +157,10 @@ Migration drops and recreates constraint with explicit syntax:
 
 ## 📁 Files Modified This Session
 
+### Commission System Fixes:
+- `lib/utils/auto-commission.ts` - Added plan change detection to preserve paid_when
+- `components/admin/leads/commissions-tab.tsx` - Added admin permission override for editing paid commissions
+
 ### UI Updates (Naming):
 - `components/admin/settings/materials-settings.tsx`
 - `components/admin/settings/unified-templates-settings.tsx`
@@ -200,5 +232,5 @@ If you encounter issues:
 
 ---
 
-**Last Updated:** December 17, 2024  
-**Status:** Ready for testing after migration
+**Last Updated:** January 6, 2026  
+**Status:** Commission system fixes complete, ready for testing

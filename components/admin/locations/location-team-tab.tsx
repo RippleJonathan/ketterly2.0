@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail, User, Trash2, UserCheck, Shield, Users } from 'lucide-react'
+import { Mail, User, Trash2, UserCheck, Shield, Users, Settings, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -12,6 +12,14 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -21,7 +29,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useLocationTeam, useRemoveUserFromLocation } from '@/lib/hooks/use-location-team'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useLocationTeam, useRemoveUserFromLocation, useUpdateCommissionSettings } from '@/lib/hooks/use-location-team'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 
 interface LocationTeamTabProps {
@@ -55,7 +73,28 @@ export function LocationTeamTab({ locationId, locationName }: LocationTeamTabPro
   const { data: teamMembers, isLoading } = useLocationTeam(locationId)
   const { data: currentUser } = useCurrentUser()
   const removeUser = useRemoveUserFromLocation()
+  const updateCommission = useUpdateCommissionSettings()
   const [userToRemove, setUserToRemove] = useState<{ userId: string; userName: string } | null>(null)
+  const [commissionSettings, setCommissionSettings] = useState<{
+    userId: string
+    userName: string
+    userRole: string
+    commissionEnabled: boolean
+    commissionRate: number
+    commissionType: 'percentage' | 'flat_amount'
+    flatCommissionAmount: number
+    paidWhen: 'when_deposit_paid' | 'when_final_payment' | 'when_job_completed' | 'when_invoice_created'
+    includeOwnSales: boolean
+    isTeamLead: boolean
+  } | null>(null)
+  
+  const [teamLeadSettings, setTeamLeadSettings] = useState<{
+    currentTeamLeadId: string | null
+    newTeamLeadId: string | null
+    commissionRate: number
+    paidWhen: 'when_deposit_paid' | 'when_final_payment' | 'when_job_completed' | 'when_invoice_created'
+    includeOwnSales: boolean
+  } | null>(null)
 
   const isAdmin = currentUser?.data?.role === 'admin' || currentUser?.data?.role === 'super_admin'
   const isOffice = currentUser?.data?.role === 'office'
@@ -70,6 +109,23 @@ export function LocationTeamTab({ locationId, locationName }: LocationTeamTabPro
     })
 
     setUserToRemove(null)
+  }
+
+  const handleSaveCommissionSettings = async () => {
+    if (!commissionSettings) return
+
+    await updateCommission.mutateAsync({
+      userId: commissionSettings.userId,
+      locationId,
+      commissionEnabled: commissionSettings.commissionEnabled,
+      commissionRate: commissionSettings.commissionType === 'percentage' ? commissionSettings.commissionRate : null,
+      commissionType: commissionSettings.commissionType,
+      flatCommissionAmount: commissionSettings.commissionType === 'flat_amount' ? commissionSettings.flatCommissionAmount : null,
+      paidWhen: commissionSettings.paidWhen,
+      includeOwnSales: commissionSettings.includeOwnSales,
+    })
+
+    setCommissionSettings(null)
   }
 
   if (isLoading) {
@@ -112,6 +168,7 @@ export function LocationTeamTab({ locationId, locationName }: LocationTeamTabPro
             <div className="space-y-2">
               {teamMembers.map((member) => {
                 const RoleIcon = ROLE_ICONS[member.users.role] || User
+                const isOfficeRole = member.users.role === 'office'
                 
                 return (
                   <div
@@ -128,6 +185,20 @@ export function LocationTeamTab({ locationId, locationName }: LocationTeamTabPro
                           <Badge variant="secondary">
                             {ROLE_LABELS[member.users.role] || member.users.role}
                           </Badge>
+                          {(member as any).team_lead_for_location && (
+                            <Badge className="gap-1 bg-amber-500 hover:bg-amber-600 text-white">
+                              ⭐ Team Lead
+                            </Badge>
+                          )}
+                          {(isOfficeRole || (member as any).team_lead_for_location) && member.commission_enabled && (
+                            <Badge variant="outline" className="gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              {member.commission_type === 'percentage' 
+                                ? `${member.commission_rate}%`
+                                : `$${member.flat_commission_amount}`
+                              }
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Mail className="h-3 w-3" />
@@ -136,21 +207,46 @@ export function LocationTeamTab({ locationId, locationName }: LocationTeamTabPro
                       </div>
                     </div>
 
-                    {canRemoveUsers && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setUserToRemove({
-                            userId: member.user_id,
-                            userName: member.users.full_name,
-                          })
-                        }
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {(isOfficeRole || (member as any).team_lead_for_location) && canRemoveUsers && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setCommissionSettings({
+                              userId: member.user_id,
+                              userName: member.users.full_name,
+                              userRole: member.users.role,
+                              commissionEnabled: member.commission_enabled || false,
+                              commissionRate: member.commission_rate || 0,
+                              commissionType: (member.commission_type as 'percentage' | 'flat_amount') || 'percentage',
+                              flatCommissionAmount: member.flat_commission_amount || 0,
+                              paidWhen: ((member as any).paid_when as any) || 'when_final_payment',
+                              includeOwnSales: (member as any).include_own_sales || false,
+                              isTeamLead: (member as any).team_lead_for_location || false,
+                            })
+                          }
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canRemoveUsers && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setUserToRemove({
+                              userId: member.user_id,
+                              userName: member.users.full_name,
+                            })
+                          }
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )
               })}
@@ -168,6 +264,184 @@ export function LocationTeamTab({ locationId, locationName }: LocationTeamTabPro
           </div>
         </CardContent>
       </Card>
+
+      {/* Commission Settings Dialog */}
+      <Dialog open={!!commissionSettings} onOpenChange={(open) => !open && setCommissionSettings(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Commission Settings</DialogTitle>
+            <DialogDescription>
+              Configure commission for <strong>{commissionSettings?.userName}</strong> at this location
+            </DialogDescription>
+          </DialogHeader>
+
+          {commissionSettings && (
+            <div className="space-y-4 py-4">
+              {/* Commission Enabled Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="commission-enabled">Enable Commission</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically create commissions for jobs at this location
+                  </p>
+                </div>
+                <Switch
+                  id="commission-enabled"
+                  checked={commissionSettings.commissionEnabled}
+                  onCheckedChange={(checked) =>
+                    setCommissionSettings({ ...commissionSettings, commissionEnabled: checked })
+                  }
+                />
+              </div>
+
+              {/* Commission Type */}
+              {commissionSettings.commissionEnabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="commission-type">Commission Type</Label>
+                    <Select
+                      value={commissionSettings.commissionType}
+                      onValueChange={(value: 'percentage' | 'flat_amount') =>
+                        setCommissionSettings({ ...commissionSettings, commissionType: value })
+                      }
+                    >
+                      <SelectTrigger id="commission-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage of Job Value</SelectItem>
+                        <SelectItem value="flat_amount">Flat Amount per Job</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Commission Rate (Percentage) */}
+                  {commissionSettings.commissionType === 'percentage' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="commission-rate">Commission Rate (%)</Label>
+                      <Input
+                        id="commission-rate"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={commissionSettings.commissionRate}
+                        onChange={(e) =>
+                          setCommissionSettings({
+                            ...commissionSettings,
+                            commissionRate: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        placeholder="e.g., 3.00 for 3%"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Example: 3.00 = 3% of total job value
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Flat Commission Amount */}
+                  {commissionSettings.commissionType === 'flat_amount' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="flat-commission">Flat Commission Amount ($)</Label>
+                      <Input
+                        id="flat-commission"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={commissionSettings.flatCommissionAmount}
+                        onChange={(e) =>
+                          setCommissionSettings({
+                            ...commissionSettings,
+                            flatCommissionAmount: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        placeholder="e.g., 100.00"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Fixed amount per job at this location
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Paid When Dropdown */}
+                  <div className="space-y-2">
+                    <Label htmlFor="paid-when">Commission Paid When</Label>
+                    <Select
+                      value={commissionSettings.paidWhen}
+                      onValueChange={(value: any) =>
+                        setCommissionSettings({ ...commissionSettings, paidWhen: value })
+                      }
+                    >
+                      <SelectTrigger id="paid-when">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="when_deposit_paid">When Deposit Paid</SelectItem>
+                        <SelectItem value="when_final_payment">When Final Payment</SelectItem>
+                        <SelectItem value="when_job_completed">When Job Completed</SelectItem>
+                        <SelectItem value="when_invoice_created">When Invoice Created</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Determines when this commission becomes active
+                    </p>
+                  </div>
+
+                  {/* Include Own Sales Toggle (Team Leads only) */}
+                  {commissionSettings.isTeamLead && (
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="include-own-sales">Include Own Sales</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Earn override commission on jobs where you are the sales rep
+                        </p>
+                      </div>
+                      <Switch
+                        id="include-own-sales"
+                        checked={commissionSettings.includeOwnSales}
+                        onCheckedChange={(checked) =>
+                          setCommissionSettings({ ...commissionSettings, includeOwnSales: checked })
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {/* Preview */}
+                  <div className="rounded-lg bg-muted p-3">
+                    <p className="text-sm font-medium mb-1">Preview</p>
+                    <p className="text-sm text-muted-foreground">
+                      {commissionSettings.commissionType === 'percentage'
+                        ? `${commissionSettings.userName} will receive ${commissionSettings.commissionRate}% commission on jobs at ${locationName}`
+                        : `${commissionSettings.userName} will receive $${commissionSettings.flatCommissionAmount.toFixed(2)} per job at ${locationName}`}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {!commissionSettings.commissionEnabled && (
+                <div className="rounded-lg bg-muted p-3">
+                  <p className="text-sm text-muted-foreground">
+                    Commission is disabled. {commissionSettings.userName} will not receive automatic commissions for jobs at this location.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCommissionSettings(null)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCommissionSettings}>
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Remove User Confirmation Dialog */}
       <AlertDialog open={!!userToRemove} onOpenChange={(open) => !open && setUserToRemove(null)}>

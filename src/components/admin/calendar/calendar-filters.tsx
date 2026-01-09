@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { X, Filter as FilterIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +14,6 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   EventType,
-  EventStatus,
   EVENT_TYPE_LABELS,
   EventFilters,
 } from '@/lib/types/calendar'
@@ -25,25 +23,21 @@ interface CalendarFiltersProps {
   filters: EventFilters
   onFiltersChange: (filters: EventFilters) => void
   onClear: () => void
-}
-
-const STATUS_LABELS: Record<EventStatus, string> = {
-  [EventStatus.SCHEDULED]: 'Scheduled',
-  [EventStatus.CONFIRMED]: 'Confirmed',
-  [EventStatus.COMPLETED]: 'Completed',
-  [EventStatus.CANCELLED]: 'Cancelled',
-  [EventStatus.RESCHEDULED]: 'Rescheduled',
+  locations?: Array<{ id: string; name: string }>
+  users?: Array<{ id: string; full_name: string }>
 }
 
 export function CalendarFilters({
   filters,
   onFiltersChange,
   onClear,
+  locations = [],
+  users = [],
 }: CalendarFiltersProps) {
   const activeFiltersCount = 
     (filters.event_types?.length || 0) +
-    (filters.statuses?.length || 0) +
-    (filters.exclude_cancelled ? 1 : 0)
+    (filters.assigned_user_ids?.length || 0) +
+    (filters.location_id ? 1 : 0)
 
   const handleEventTypeToggle = (type: EventType) => {
     const currentTypes = filters.event_types || []
@@ -57,22 +51,22 @@ export function CalendarFilters({
     })
   }
 
-  const handleStatusToggle = (status: EventStatus) => {
-    const currentStatuses = filters.statuses || []
-    const newStatuses = currentStatuses.includes(status)
-      ? currentStatuses.filter(s => s !== status)
-      : [...currentStatuses, status]
+  const handleAssignedUserToggle = (userId: string) => {
+    const currentUsers = filters.assigned_user_ids || []
+    const newUsers = currentUsers.includes(userId)
+      ? currentUsers.filter(u => u !== userId)
+      : [...currentUsers, userId]
     
     onFiltersChange({
       ...filters,
-      statuses: newStatuses.length > 0 ? newStatuses : undefined,
+      assigned_user_ids: newUsers.length > 0 ? newUsers : undefined,
     })
   }
 
-  const handleExcludeCancelledToggle = () => {
+  const handleLocationChange = (locationId: string) => {
     onFiltersChange({
       ...filters,
-      exclude_cancelled: !filters.exclude_cancelled,
+      location_id: locationId === 'all' ? undefined : locationId,
     })
   }
 
@@ -123,44 +117,52 @@ export function CalendarFilters({
         </div>
       </div>
 
-      {/* Status */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Status</Label>
+      {/* Location */}
+      {locations.length > 0 && (
         <div className="space-y-2">
-          {Object.values(EventStatus).map(status => (
-            <div key={status} className="flex items-center space-x-2">
-              <Checkbox
-                id={`status-${status}`}
-                checked={filters.statuses?.includes(status) || false}
-                onCheckedChange={() => handleStatusToggle(status)}
-              />
-              <label
-                htmlFor={`status-${status}`}
-                className="text-sm cursor-pointer flex-1"
-              >
-                {STATUS_LABELS[status]}
-              </label>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Options */}
-      <div className="space-y-2 pt-2 border-t">
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="exclude-cancelled"
-            checked={filters.exclude_cancelled || false}
-            onCheckedChange={handleExcludeCancelledToggle}
-          />
-          <label
-            htmlFor="exclude-cancelled"
-            className="text-sm cursor-pointer flex-1 font-medium"
+          <Label className="text-sm font-medium">Location</Label>
+          <Select
+            value={filters.location_id || 'all'}
+            onValueChange={handleLocationChange}
           >
-            Hide cancelled events
-          </label>
+            <SelectTrigger>
+              <SelectValue placeholder="All Locations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Locations</SelectItem>
+              {locations.map(location => (
+                <SelectItem key={location.id} value={location.id}>
+                  {location.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
+      )}
+
+      {/* Assigned Users */}
+      {users.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Assigned To</Label>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {users.map(user => (
+              <div key={user.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`user-${user.id}`}
+                  checked={filters.assigned_user_ids?.includes(user.id) || false}
+                  onCheckedChange={() => handleAssignedUserToggle(user.id)}
+                />
+                <label
+                  htmlFor={`user-${user.id}`}
+                  className="text-sm cursor-pointer flex-1"
+                >
+                  {user.full_name}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

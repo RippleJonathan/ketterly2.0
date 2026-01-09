@@ -67,13 +67,36 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
   const user = userData?.data
   const queryClient = useQueryClient()
   const { data: locations } = useLocations(true) // Only active locations
-  const { data: userLocations } = useUserLocations(user?.id) // User's assigned locations
+  const { data: userLocationsData, isLoading: userLocationsLoading, isSuccess: userLocationsSuccess, error: userLocationsError } = useUserLocations(user?.id) // User's assigned locations
+  
+  console.log('[LEAD FORM] useUserLocations result:', {
+    userId: user?.id,
+    userLocationsData,
+    userLocationsLoading,
+    userLocationsSuccess,
+    userLocationsError
+  })
   
   // Determine which locations to show based on user role
-  const isAdmin = user?.role && ['admin', 'office', 'super_admin'].includes(user.role as string)
+  const isAdmin = Boolean(
+    (user?.role && ['admin', 'office', 'super_admin'].includes(user.role as string)) || 
+    (user?.permissions?.can_edit_users) || 
+    (user?.permissions?.can_view_all_leads) ||
+    (user?.permissions?.can_manage_permissions)
+  )
+  
   const availableLocations = isAdmin
     ? locations?.data || [] // Admins see all locations
-    : userLocations?.data?.map((ul: any) => ul.locations).filter(Boolean) || [] // Others see only their assigned locations
+    : (Array.isArray(userLocationsData?.data) && locations?.data
+        ? userLocationsData.data
+            .map((ul: any) => {
+              // Find the actual location object from the locations query
+              const location = locations?.data?.find((loc: any) => loc.id === ul.location_id)
+              console.log('[LEAD FORM] Mapping location:', { ul, location })
+              return location
+            })
+            .filter(Boolean) 
+        : []) // Others see only their assigned locations
 
   const {
     register,
@@ -124,35 +147,74 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
         },
   })
 
-  // Auto-fill assignment based on current user's role
+  // Auto-fill location when creating a lead
   useEffect(() => {
-    if (mode === 'create' && user?.id && user?.role) {
-      const role = user.role as string
+    console.log('[LEAD FORM] Location auto-assign useEffect triggered')
+    if (mode === 'create' && user?.id && !userLocationsLoading) {
+      const currentLocation = watch('location_id')
       
-      // Auto-fill location based on user's assigned locations
-      if (!watch('location_id')) {
+      console.log('[LEAD FORM] Auto-assign check:', {
+        mode,
+        userId: user?.id,
+        userRole: user?.role,
+        currentLocation,
+        isAdmin,
+        userLocationsLoading,
+        userLocationsSuccess,
+        userLocationsError,
+        userLocationsData,
+        userLocationsDataLength: Array.isArray(userLocationsData?.data) ? userLocationsData.data.length : 0,
+        userDefaultLocation: user?.default_location_id,
+        availableLocations: availableLocations.length,
+        locationsData: locations?.data?.length,
+        CONDITION_CHECK: !isAdmin && userLocationsSuccess && userLocationsData?.data && userLocationsData.data.length > 0
+      })
+      
+      // Only auto-fill if location is not already set
+      if (!currentLocation) {
         // For non-admins, auto-fill with their first assigned location
-        if (!isAdmin && userLocations?.data && userLocations.data.length > 0) {
-          setValue('location_id', userLocations.data[0].location_id)
+        if (!isAdmin && userLocationsSuccess && userLocationsData?.data && userLocationsData.data.length > 0) {
+          const locationToAssign = userLocationsData.data[0].location_id
+          console.log('[LEAD FORM] Auto-assigning location:', locationToAssign)
+          console.log('[LEAD FORM] Available locations:', availableLocations)
+          console.log('[LEAD FORM] User locations data:', userLocationsData.data)
+          setValue('location_id', locationToAssign, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+          
+          // Also auto-assign team members based on user role
+          const role = user.role as string
+          const userId = user.id
+          console.log('[LEAD FORM] Auto-assigning team for role:', role, userId)
+          
+          if (role === 'sales') {
+            setValue('sales_rep_id', userId, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+            setValue('marketing_rep_id', userId, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+            console.log('[LEAD FORM] Set sales_rep_id and marketing_rep_id to:', userId)
+          } else if (role === 'marketing') {
+            setValue('marketing_rep_id', userId, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+            console.log('[LEAD FORM] Set marketing_rep_id to:', userId)
+          } else if (role === 'sales_manager') {
+            setValue('sales_manager_id', userId, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+            console.log('[LEAD FORM] Set sales_manager_id to:', userId)
+          } else if (role === 'production') {
+            setValue('production_manager_id', userId, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+            console.log('[LEAD FORM] Set production_manager_id to:', userId)
+          }
         }
         // For admins with a default location, use that
         else if (isAdmin && user.default_location_id) {
+          console.log('[LEAD FORM] Auto-assigning admin default location:', user.default_location_id)
           setValue('location_id', user.default_location_id)
         }
-      }
-      
-      // Auto-fill user assignments based on role
-      if (role === 'sales' && !watch('sales_rep_id')) {
-        setValue('sales_rep_id', user.id)
-      } else if (role === 'marketing' && !watch('marketing_rep_id')) {
-        setValue('marketing_rep_id', user.id)
-      } else if (role === 'sales_manager' && !watch('sales_manager_id')) {
-        setValue('sales_manager_id', user.id)
-      } else if (role === 'production' && !watch('production_manager_id')) {
-        setValue('production_manager_id', user.id)
+        // For admins without default location, use first available location
+        else if (isAdmin && locations?.data && locations.data.length > 0) {
+          console.log('[LEAD FORM] Auto-assigning first available location for admin:', locations.data[0].id)
+          setValue('location_id', locations.data[0].id)
+        } else {
+          console.log('[LEAD FORM] No auto-assignment conditions met')
+        }
       }
     }
-  }, [mode, user, setValue, watch, isAdmin, userLocations])
+  }, [mode, user, setValue, watch, isAdmin, userLocationsSuccess, userLocationsData, userLocationsError])
 
   // Fetch users for assignment dropdown - filtered by location
   useEffect(() => {
@@ -163,8 +225,27 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
       const selectedLocationId = watch('location_id')
       
       if (!selectedLocationId) {
-        // If no location selected yet, show no users
-        setUsers([])
+        // If no location selected, show all users who have at least one location assignment
+        const { data: locationUserData, error } = await supabase
+          .from('location_users')
+          .select('user_id, users!location_users_user_id_fkey(id, full_name, email, role)')
+          .eq('users.company_id', company.id)
+        
+        if (error) {
+          console.error('Error fetching users with locations:', error)
+          setUsers([])
+          return
+        }
+        
+        // Extract unique users (users may be in multiple locations)
+        const uniqueUsers = new Map()
+        locationUserData?.forEach((lu: any) => {
+          if (lu.users && !uniqueUsers.has(lu.users.id)) {
+            uniqueUsers.set(lu.users.id, lu.users)
+          }
+        })
+        
+        setUsers(Array.from(uniqueUsers.values()))
         return
       }
       
@@ -182,6 +263,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
       
       // Extract unique users
       const locationUsers = locationUserData?.map((lu: any) => lu.users) || []
+      console.log('[LEAD FORM] Fetched users for location:', { locationId: selectedLocationId, users: locationUsers })
       setUsers(locationUsers)
     }
 
@@ -370,14 +452,17 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           </div>
 
           {/* Location selector - admins see all, others see their assigned locations */}
-          {availableLocations.length > 0 && (
+          {(availableLocations.length > 0 || (isAdmin && locations?.data)) && (
             <div>
               <Label htmlFor="location_id">
                 Location {!isAdmin && '*'}
               </Label>
               <Select
                 value={watch('location_id') || 'none'}
-                onValueChange={(value) => setValue('location_id', value === 'none' ? '' : value)}
+                onValueChange={(value) => {
+                  console.log('[LEAD FORM] Location changed to:', value)
+                  setValue('location_id', value === 'none' ? '' : value)
+                }}
               >
                 <SelectTrigger id="location_id">
                   <SelectValue placeholder="Select location" />
@@ -447,6 +532,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           <div>
             <Label htmlFor="sales_rep_id">Sales Rep</Label>
             <Select
+              key={`sales-rep-select-${watch('location_id')}-${users.length}`}
               value={watch('sales_rep_id') || 'unassigned'}
               onValueChange={(value) => setValue('sales_rep_id', value === 'unassigned' ? '' : value)}
               disabled={!watch('location_id')}
@@ -473,6 +559,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
           <div>
             <Label htmlFor="marketing_rep_id">Marketing Rep (Optional)</Label>
             <Select
+              key={`marketing-rep-select-${watch('location_id')}-${users.length}`}
               value={watch('marketing_rep_id') || 'unassigned'}
               onValueChange={(value) => setValue('marketing_rep_id', value === 'unassigned' ? '' : value)}
               disabled={!watch('location_id')}

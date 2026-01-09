@@ -39,7 +39,6 @@ import { formatBytes } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { ScanDocumentDialog } from './scan-document-dialog'
-import { GenerateDocumentButton } from '@/components/admin/document-builder/generate-document-button'
 import { CompanySignatureDialog } from '@/components/admin/document-builder/company-signature-dialog'
 import { useRouter } from 'next/navigation'
 
@@ -146,24 +145,6 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
         }}
       />
 
-      {/* Generate from Template Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Generate from Template
-              </CardTitle>
-              <CardDescription>
-                Create contracts, work orders, or custom documents from templates
-              </CardDescription>
-            </div>
-            <GenerateDocumentButton leadId={leadId} />
-          </div>
-        </CardHeader>
-      </Card>
-
       {/* Upload Section - Collapsible */}
       <Card>
         <CardHeader className="cursor-pointer" onClick={() => setIsUploadExpanded(!isUploadExpanded)}>
@@ -269,7 +250,6 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
               <SelectContent>
                 <SelectItem value="all">All Documents</SelectItem>
                 <SelectItem value="uploaded">Uploaded Files</SelectItem>
-                <SelectItem value="generated">Generated Documents</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -394,7 +374,7 @@ function DocumentUploadForm({ leadId }: { leadId: string }) {
           id="file"
           type="file"
           onChange={handleFileChange}
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.wav,.m4a,.ogg,.aac"
           required
         />
         {file && (

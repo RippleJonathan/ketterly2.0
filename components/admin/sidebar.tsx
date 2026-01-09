@@ -152,6 +152,9 @@ function NavItemWithPermission({ item, isActive, onClick }: {
   const user = userData?.data
   const { isLocationAdmin } = useManagedLocations()
   const Icon = item.icon
+  
+  // Hide Users nav item completely for sales, marketing, and production roles
+  const shouldHideUsersNav = item.href === '/admin/users' && user?.role && ['sales', 'marketing', 'production'].includes(user.role)
 
   // Check permission if required
   const { data: hasPermission } = useCheckPermission(
@@ -168,7 +171,8 @@ function NavItemWithPermission({ item, isActive, onClick }: {
   // 3. User has required role
   const canSee = (!item.permission && !item.roles) || hasPermission === true || hasRole
 
-  if (!canSee) return null
+  // Don't render if hidden or not permitted
+  if (shouldHideUsersNav || !canSee) return null
 
   // Render "Coming Soon" items as disabled
   if (item.comingSoon) {

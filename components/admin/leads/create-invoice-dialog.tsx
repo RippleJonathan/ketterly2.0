@@ -29,9 +29,17 @@ export function CreateInvoiceDialog({
   quoteId: initialQuoteId,
 }: CreateInvoiceDialogProps) {
   const { data: company } = useCurrentCompany()
-  const { data: nextInvoiceNumber } = useNextInvoiceNumber()
+  const { data: nextInvoiceNumber, isLoading: invoiceNumberLoading, error: invoiceNumberError } = useNextInvoiceNumber()
   const createInvoice = useCreateInvoice()
   const supabase = createClient()
+
+  // Debug logging
+  console.log('🔢 Next invoice number state:', { 
+    data: nextInvoiceNumber,  // This is the string directly, not an object
+    isLoading: invoiceNumberLoading,
+    error: invoiceNumberError?.message,
+    companyId: company?.id
+  })
 
   const [loading, setLoading] = useState(false)
   const [quotes, setQuotes] = useState<any[]>([])
@@ -124,7 +132,7 @@ export function CreateInvoiceDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!company || !nextInvoiceNumber?.data) return
+    if (!company || !nextInvoiceNumber) return
 
     const { total } = calculateTotal()
 
@@ -165,7 +173,7 @@ export function CreateInvoiceDialog({
       company_id: company.id,
       lead_id: leadId,
       quote_id: selectedQuoteId || null,
-      invoice_number: nextInvoiceNumber.data,
+      invoice_number: nextInvoiceNumber,
       invoice_date: formData.invoice_date,
       due_date: formData.due_date || null,
       subtotal: total, // Use total as subtotal since quote already has tax included
@@ -259,11 +267,22 @@ export function CreateInvoiceDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Invoice Number</Label>
-                    <Input
-                      value={nextInvoiceNumber?.data || ''}
-                      disabled
-                      className="bg-gray-50"
-                    />
+                    {invoiceNumberLoading ? (
+                      <div className="flex items-center h-10 px-3 bg-gray-50 border rounded-md">
+                        <Loader2 className="h-4 w-4 animate-spin text-gray-400 mr-2" />
+                        <span className="text-sm text-gray-500">Generating...</span>
+                      </div>
+                    ) : invoiceNumberError ? (
+                      <div className="h-10 px-3 bg-red-50 border border-red-200 rounded-md flex items-center">
+                        <span className="text-sm text-red-600">Error: {invoiceNumberError.message}</span>
+                      </div>
+                    ) : (
+                      <Input
+                        value={nextInvoiceNumber || ''}
+                        disabled
+                        className="bg-gray-50"
+                      />
+                    )}
                   </div>
                   <div>
                     <Label>Invoice Date</Label>

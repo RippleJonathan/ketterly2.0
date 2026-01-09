@@ -78,13 +78,6 @@ export async function POST(request: NextRequest) {
       leadId: quote.lead_id
     })
     
-    if (quote.status === 'accepted') {
-      console.log('Quote already accepted, rejecting signature')
-      return NextResponse.json(
-        { error: 'Quote already accepted' },
-        { status: 400 }
-      )
-    }
     if (quote.status === 'declined') {
       console.log('Quote declined, rejecting signature')
       return NextResponse.json(
@@ -97,33 +90,49 @@ export async function POST(request: NextRequest) {
 
     // 3. Insert signature record
     console.log('Attempting signature insert for quote:', quote_id)
+    
+    // Cast to any to bypass TypeScript type checking (quote_signatures doesn't have deleted_at)
+    const signatureInsert: any = {
+      quote_id,
+      company_id: quote.company_id,
+      signer_name,
+      signer_email,
+      signature_data,
+      accepted_terms,
+      signer_user_agent,
+      signer_ip_address: request.headers.get('x-forwarded-for') || null,
+      signer_type,
+      signer_title,
+      deleted_at: null, // Explicitly set to null to avoid any column reference issues
+    }
+    
+    // Debug: Log exactly what we're trying to insert
+    console.log('🔍 DEBUG - Signature insert object:', JSON.stringify(signatureInsert, null, 2))
+    console.log('🔍 DEBUG - Object keys:', Object.keys(signatureInsert))
+    console.log('🔍 DEBUG - Has deleted_at?', 'deleted_at' in signatureInsert)
+    
     const { data: signature, error: signatureError } = await supabase
       .from('quote_signatures')
-      .insert({
-        quote_id,
-        company_id: quote.company_id,
-        signer_name,
-        signer_email,
-        signature_data,
-        accepted_terms,
-        signer_user_agent,
-        signer_ip_address: request.headers.get('x-forwarded-for') || null,
-        signer_type,
-        signer_title,
-      })
+      .insert(signatureInsert)
       .select('id')
       .single()
 
     if (signatureError) {
-      console.error('Signature insert error:', {
+      console.error('❌ Signature insert FAILED:', {
         error: signatureError,
         code: signatureError.code,
         message: signatureError.message,
         details: signatureError.details,
-        hint: signatureError.hint
+        hint: signatureError.hint,
+        table: 'quote_signatures',
+        fullError: JSON.stringify(signatureError, null, 2)
       })
       return NextResponse.json(
-        { error: 'Failed to create signature: ' + signatureError.message },
+        { 
+          error: 'Failed to create signature: ' + signatureError.message,
+          code: signatureError.code,
+          details: signatureError.details
+        },
         { status: 500 }
       )
     }
@@ -255,9 +264,8 @@ export async function POST(request: NextRequest) {
               userId,
               companyId: quote.company_id,
               leadId: quote.lead_id,
-              quoteId: quote.id,
               customerName: lead.full_name,
-              quoteNumber: quote.quote_number,
+              contractNumber: quote.quote_number,
               totalAmount: quote.total_amount,
               signedAt: new Date().toISOString(),
             })
@@ -276,6 +284,74 @@ export async function POST(request: NextRequest) {
     // - Update quote status based on which signatures exist
     // - Update lead status to 'production' if both signatures complete
     // - Decline other quotes for the same lead
+
+    // If both signatures are complete, auto-generate invoice with quote PDF
+    if (hasCustomerSig && hasCompanySig) {
+      console.log('[AUTO-INVOICE] Both signatures complete - generating invoice with quote PDF')
+      try {
+        // Generate quote PDF
+        const pdfResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/quotes/${quote_id}/generate-pdf`, {
+          headers: {
+            'x-internal-key': supabaseServiceKey,
+          },
+        })
+
+        if (pdfResponse.ok) {
+          const pdfBuffer = await pdfResponse.arrayBuffer()
+          const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' })
+          
+          // Upload PDF to storage
+          const fileName = `quote-${quote.quote_number}-${Date.now()}.pdf`
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('quote-pdfs')
+            .upload(`${quote.company_id}/${fileName}`, pdfBlob, {
+              contentType: 'application/pdf',
+              upsert: false,
+            })
+
+          if (uploadError) {
+            console.error('[AUTO-INVOICE] Failed to upload quote PDF:', uploadError)
+          } else {
+            const { data: { publicUrl } } = supabase.storage
+              .from('quote-pdfs')
+              .getPublicUrl(uploadData.path)
+
+            console.log('[AUTO-INVOICE] Quote PDF uploaded:', publicUrl)
+
+            // Create invoice with quote PDF attached
+            const { data: invoice, error: invoiceError } = await supabase
+              .from('invoices')
+              .insert({
+                company_id: quote.company_id,
+                lead_id: quote.lead_id,
+                quote_id: quote.id,
+                invoice_number: `INV-${Date.now()}`, // Temporary - will be replaced by trigger
+                invoice_date: new Date().toISOString(),
+                due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+                subtotal: quote.subtotal || 0,
+                tax_amount: quote.tax_amount || 0,
+                total_amount: quote.total_amount || 0,
+                amount_due: quote.total_amount || 0,
+                status: 'draft',
+                quote_pdf_url: publicUrl,
+                created_by: quote.created_by,
+              })
+              .select()
+              .single()
+
+            if (invoiceError) {
+              console.error('[AUTO-INVOICE] Failed to create invoice:', invoiceError)
+            } else {
+              console.log('[AUTO-INVOICE] ✅ Invoice created with quote PDF:', invoice.invoice_number)
+            }
+          }
+        } else {
+          console.error('[AUTO-INVOICE] Failed to generate quote PDF:', await pdfResponse.text())
+        }
+      } catch (error) {
+        console.error('[AUTO-INVOICE] Exception during auto-invoice generation:', error)
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -214,11 +214,34 @@ export function RoofMeasurementMap({
   // Load Google Maps API
   useEffect(() => {
     const loadGoogleMaps = () => {
-      if (window.google) {
+      // Check if Google Maps is already loaded with required libraries
+      if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
         setApiLoaded(true)
         return
       }
 
+      // Check if script already exists (might be loading)
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+      if (existingScript) {
+        // Script exists, wait for it to load with required libraries
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
+            clearInterval(checkInterval)
+            setApiLoaded(true)
+          }
+        }, 100)
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval)
+          if (!window.google?.maps?.drawing || !window.google?.maps?.geometry) {
+            console.error('Google Maps drawing/geometry libraries failed to load')
+          }
+        }, 10000)
+        return
+      }
+
+      // No script exists yet - create one
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       if (!apiKey) {
         console.error('Google Maps API key not found')
@@ -226,11 +249,26 @@ export function RoofMeasurementMap({
       }
 
       const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing,geometry`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,drawing,geometry`
       script.async = true
       script.defer = true
       script.onload = () => {
-        setApiLoaded(true)
+        // Wait for libraries to be ready
+        const checkLibraries = setInterval(() => {
+          if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
+            clearInterval(checkLibraries)
+            setApiLoaded(true)
+          }
+        }, 50)
+        
+        setTimeout(() => {
+          clearInterval(checkLibraries)
+          if (window.google?.maps?.drawing && window.google?.maps?.geometry) {
+            setApiLoaded(true)
+          } else {
+            console.error('Drawing/geometry libraries not available after load')
+          }
+        }, 5000)
       }
       document.head.appendChild(script)
     }

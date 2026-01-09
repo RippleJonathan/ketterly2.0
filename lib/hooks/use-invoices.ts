@@ -84,6 +84,8 @@ export function useCreateInvoice() {
       queryClient.invalidateQueries({ queryKey: ['invoices', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['next-invoice-number', company?.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-financials'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-commissions'] })
+      queryClient.invalidateQueries({ queryKey: ['commission-summary'] })
       toast.success('Invoice created successfully')
     },
     onError: (error: Error) => {

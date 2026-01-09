@@ -27,7 +27,8 @@ export async function getUsers(
       .select(`
         *,
         commission_plan:commission_plans!commission_plan_id(*),
-        permissions:user_permissions(*)
+        permissions:user_permissions(*),
+        location_assignments:location_users!user_id(location_id)
       `)
       .eq('company_id', companyId)
       .is('deleted_at', null)

@@ -6,6 +6,7 @@ import { ActivityTimeline } from '@/components/admin/leads/activity-timeline'
 import { AddActivityForm } from '@/components/admin/leads/add-activity-form'
 import { StageChecklist } from '@/components/admin/leads/stage-checklist'
 import { EstimatesTab } from '@/components/admin/leads/estimates-tab'
+import { EventsTab } from '@/components/admin/leads/events-tab'
 import { FilesTab } from '@/components/admin/leads/files-tab'
 import { PhotosTab } from '@/components/admin/leads/photos-tab'
 import { MeasurementsTab } from '@/components/admin/leads/measurements-tab'
@@ -105,6 +106,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   // Define all tabs with their permission requirements
   const allTabs = [
     { id: 'details', label: 'Details', icon: FileText, permission: 'can_view_lead_details' },
+    { id: 'events', label: 'Events', icon: Calendar, permission: null }, // No specific permission - open to all
     { id: 'checklist', label: 'Checklist', icon: CheckSquare, permission: 'can_view_lead_checklist' },
     { id: 'measurements', label: 'Measurements', icon: Ruler, permission: 'can_view_lead_measurements' },
     { id: 'estimates', label: 'Estimates', icon: DollarSign, permission: 'can_view_lead_estimates' },
@@ -119,6 +121,8 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
   // Filter tabs based on user permissions
   const tabs = allTabs.filter((tabItem) => {
+    // If no permission required, show to everyone
+    if (!tabItem.permission) return true
     // If no permissions found, show all tabs (will be fixed by running fix-missing-permissions.js)
     if (!userPermissions) return true
     // Check if user has permission for this tab
@@ -159,6 +163,17 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
       {/* Tab Content */}
       <div className="pb-6">
         {tab === 'details' && (!userPermissions || userPermissions.can_view_lead_details) && <EditableDetailsTab lead={lead} />}
+        {tab === 'events' && (
+          <EventsTab 
+            leadId={id} 
+            leadName={lead.full_name}
+            leadAddress={lead.address}
+            leadCity={lead.city}
+            leadState={lead.state}
+            leadZip={lead.zip}
+            leadLocationId={lead.location_id}
+          />
+        )}
         {tab === 'checklist' && (!userPermissions || userPermissions.can_view_lead_checklist) && <ChecklistTab leadId={id} currentStage={lead.status} />}
         {tab === 'measurements' && (!userPermissions || userPermissions.can_view_lead_measurements) && (
           <MeasurementsTab 

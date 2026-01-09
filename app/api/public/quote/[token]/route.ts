@@ -64,6 +64,12 @@ export async function GET(
           financing_option_3_months,
           financing_option_3_apr,
           financing_option_3_enabled
+        ),
+        creator:users!quotes_created_by_fkey(
+          id,
+          full_name,
+          email,
+          phone
         )
       `)
       .eq('share_token', token)

@@ -38,7 +38,17 @@ export async function GET(
     // Fetch quote with all relations
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
-      .select('*')
+      .select(`
+        *,
+        line_items:quote_line_items(*),
+        lead:leads(
+          *,
+          assigned_user:users!leads_assigned_to_fkey(id, full_name, email, phone)
+        ),
+        company:companies(*),
+        signatures:quote_signatures(*),
+        creator:users!quotes_created_by_fkey(id, full_name, email, phone)
+      `)
       .eq('id', quoteId)
       .is('deleted_at', null)
       .single()
@@ -47,12 +57,15 @@ export async function GET(
       return new NextResponse('Quote not found', { status: 404 })
     }
 
-    // Fetch related data
-    const [lineItemsResult, leadResult, companyResult, signaturesResult, changeOrdersResult, contractResult] = await Promise.all([
-      supabase.from('quote_line_items').select('*').eq('quote_id', quoteId),
-      supabase.from('leads').select('*').eq('id', quote.lead_id).single(),
-      supabase.from('companies').select('*').eq('id', quote.company_id).single(),
-      supabase.from('quote_signatures').select('*').eq('quote_id', quoteId),
+    // Extract related data from quote
+    const lineItems = quote.line_items || []
+    const lead = quote.lead
+    const company = quote.company
+    const signatures = quote.signatures || []
+    const creator = quote.creator
+
+    // Fetch change orders and contract separately
+    const [changeOrdersResult, contractResult] = await Promise.all([
       supabase.from('change_orders').select(`
         *,
         line_items:change_order_line_items(*)
@@ -60,16 +73,8 @@ export async function GET(
       supabase.from('signed_contracts').select('*').eq('quote_id', quoteId).is('deleted_at', null).maybeSingle(),
     ])
 
-    const lead = leadResult.data
-    const company = companyResult.data
-    const lineItems = lineItemsResult.data || []
-    const signatures = signaturesResult.data || []
     const changeOrders = changeOrdersResult.data || []
     const contract = contractResult.data
-
-    if (!lead || !company) {
-      return new NextResponse('Missing quote data', { status: 404 })
-    }
 
     // Build company address
     const addressParts = [
@@ -85,7 +90,19 @@ export async function GET(
       line_items: lineItems,
       lead: lead,
       company: company, // Add full company object for financing options
+      creator: creator,
     }
+
+    // Debug: Log the sales rep information being passed to PDF
+    console.log('PDF Generation Debug:', {
+      quoteId: quote.id,
+      assignedUser: lead?.assigned_user,
+      creator: creator,
+      companyContact: {
+        email: company.contact_email,
+        phone: company.contact_phone
+      }
+    })
 
     // Generate PDF using React PDF template (same as client-side download)
     const pdfDoc = pdf(

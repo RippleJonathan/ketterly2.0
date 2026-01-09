@@ -44,6 +44,12 @@ export interface QuoteWithRelations extends Quote {
     city: string
     state: string
     zip: string
+    assigned_user?: {
+      id: string
+      full_name: string
+      email: string
+      phone: string | null
+    }
     location?: {
       id: string
       name: string
@@ -69,6 +75,12 @@ export interface QuoteWithRelations extends Quote {
     id: string
     full_name: string
     email: string
+  }
+  creator?: {
+    id: string
+    full_name: string
+    email: string
+    phone: string | null
   }
 }
 

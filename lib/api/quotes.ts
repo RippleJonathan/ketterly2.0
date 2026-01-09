@@ -85,7 +85,8 @@ export async function getQuotes(
           address,
           city,
           state,
-          zip
+          zip,
+          deleted_at
         ),
         created_by_user:users!quotes_created_by_fkey(
           id,
@@ -96,6 +97,7 @@ export async function getQuotes(
       )
       .eq('company_id', companyId)
       .is('deleted_at', null)
+      .is('lead.deleted_at', null)
       .order('created_at', { ascending: false })
 
     // Apply filters

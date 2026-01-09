@@ -60,11 +60,13 @@ export async function getUserCommissions(
         *,
         user:users!lead_commissions_user_id_fkey(id, full_name, email, avatar_url),
         paid_by_user:users!lead_commissions_paid_by_fkey(id, full_name),
-        commission_plan:commission_plans(id, name, commission_type, commission_rate)
+        commission_plan:commission_plans(id, name, commission_type, commission_rate),
+        lead:leads!inner(id, full_name, deleted_at)
       `)
       .eq('user_id', userId)
       .eq('company_id', companyId)
       .is('deleted_at', null)
+      .is('lead.deleted_at', null)
 
     // Apply filters
     if (filters?.status) {
@@ -110,11 +112,13 @@ export async function getCommissionsByStatus(
       .select(`
         *,
         user:users!lead_commissions_user_id_fkey(id, full_name, email, avatar_url),
-        paid_by_user:users!lead_commissions_paid_by_fkey(id, full_name)
+        paid_by_user:users!lead_commissions_paid_by_fkey(id, full_name),
+        lead:leads!inner(id, full_name, deleted_at)
       `)
       .eq('company_id', companyId)
       .eq('status', status)
       .is('deleted_at', null)
+      .is('lead.deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (error) throw error

@@ -32,7 +32,8 @@ export default async function LeadsPage() {
   // Check role-based permissions
   const userRole = userData.role || ''
   const canSeeAllLeads = ['admin', 'super_admin', 'office', 'sales_manager', 'production_manager'].includes(userRole)
-  const isAssignmentRestricted = ['sales', 'marketing'].includes(userRole)
+  const isSalesRole = userRole === 'sales'
+  const isMarketingRole = userRole === 'marketing'
   
   // Check if user is location-scoped (not admin/super_admin)
   const isCompanyAdmin = ['admin', 'super_admin'].includes(userRole)
@@ -75,11 +76,15 @@ export default async function LeadsPage() {
     query = query.eq('location_id', '00000000-0000-0000-0000-000000000000') // Impossible UUID
   }
   
-  // Add assignment filter for sales/marketing users
-  if (isAssignmentRestricted) {
-    // Sales and marketing users can only see leads they're assigned to
-    query = query.or(`sales_rep_id.eq.${user.id},marketing_rep_id.eq.${user.id},sales_manager_id.eq.${user.id},production_manager_id.eq.${user.id}`)
+  // Add assignment filter based on role
+  if (isSalesRole) {
+    // Sales reps can only see leads where they are the sales rep
+    query = query.eq('sales_rep_id', user.id)
+  } else if (isMarketingRole) {
+    // Marketing reps can only see leads where they are the marketing rep
+    query = query.eq('marketing_rep_id', user.id)
   }
+  // Managers, office, and admin see all leads (filtered by location above if applicable)
   
   const { data: leads, error: leadsError } = await query.order('created_at', { ascending: false })
 

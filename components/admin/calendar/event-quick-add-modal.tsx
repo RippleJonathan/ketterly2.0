@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,7 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import { useCreateEvent, useUpdateEvent } from '@/lib/hooks/use-calendar'
+import { useUsers } from '@/lib/hooks/use-users'
 import {
   EventType,
   EVENT_TYPE_LABELS,
@@ -45,6 +47,9 @@ const eventFormSchema = z.object({
   is_all_day: z.boolean().default(false),
   location: z.string().optional(),
   lead_id: z.string().optional(),
+  assigned_users: z.array(z.string()).default([]),
+  send_email_to_customer: z.boolean().default(false),
+  meeting_url: z.string().optional(),
 })
 
 type EventFormData = z.infer<typeof eventFormSchema>
@@ -57,6 +62,9 @@ interface EventQuickAddModalProps {
   canCreateProductionEvents: boolean
   defaultDate?: string
   defaultLeadId?: string
+  leadName?: string
+  leadAddress?: string
+  leadLocationId?: string
   existingEvent?: CalendarEventWithRelations
 }
 
@@ -68,10 +76,28 @@ export function EventQuickAddModal({
   canCreateProductionEvents,
   defaultDate,
   defaultLeadId,
+  leadName,
+  leadAddress,
+  leadLocationId,
   existingEvent,
 }: EventQuickAddModalProps) {
   const createEvent = useCreateEvent()
   const updateEvent = useUpdateEvent()
+  const { data: usersData } = useUsers() // Fetch all users for assignment
+  const allUsers = usersData?.data || []
+  
+  // Filter users by location if leadLocationId is provided
+  // Include admins/super_admins regardless of location
+  // Check location_assignments array for location match
+  const users = leadLocationId 
+    ? allUsers.filter(user => {
+        const hasLocationAccess = user.location_assignments?.some(
+          (assignment: any) => assignment.location_id === leadLocationId
+        )
+        const isAdmin = user.role === 'admin' || user.role === 'super_admin'
+        return hasLocationAccess || isAdmin
+      })
+    : allUsers
   
   const isEditing = !!existingEvent
 
@@ -96,6 +122,9 @@ export function EventQuickAddModal({
       is_all_day: existingEvent.is_all_day,
       location: existingEvent.location || '',
       lead_id: existingEvent.lead_id || '',
+      assigned_users: existingEvent.assigned_users || [userId],
+      send_email_to_customer: existingEvent.send_email_to_customer ?? true, // Default to true
+      meeting_url: existingEvent.meeting_url || '',
     } : {
       event_type: availableTypes[0] || EventType.CONSULTATION,
       title: '',
@@ -104,13 +133,39 @@ export function EventQuickAddModal({
       start_time: '09:00',
       end_time: '10:00',
       is_all_day: false,
-      location: '',
+      location: leadAddress || '', // Prefill with customer address
       lead_id: defaultLeadId || '',
+      assigned_users: [userId], // Default to current user
+      send_email_to_customer: true, // Default to true
+      meeting_url: '',
     },
   })
 
   const selectedType = form.watch('event_type')
   const isAllDay = form.watch('is_all_day')
+  const assignedUsers = form.watch('assigned_users')
+  const startTime = form.watch('start_time')
+
+  // Auto-update title when event type changes
+  useEffect(() => {
+    if (selectedType && leadName && !isEditing) {
+      const typeLabel = selectedType.split('_').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ')
+      form.setValue('title', `${typeLabel} - ${leadName}`)
+    }
+  }, [selectedType, leadName, isEditing, form])
+
+  // Auto-update end time when start time changes (+1 hour)
+  const handleStartTimeChange = (newStartTime: string) => {
+    form.setValue('start_time', newStartTime)
+    if (newStartTime && !isAllDay) {
+      const [hours, minutes] = newStartTime.split(':').map(Number)
+      const endHour = (hours + 1) % 24
+      const endMinutes = minutes.toString().padStart(2, '0')
+      form.setValue('end_time', `${endHour.toString().padStart(2, '0')}:${endMinutes}`)
+    }
+  }
 
   // Update default duration when event type changes
   const handleTypeChange = (type: EventType) => {
@@ -122,10 +177,12 @@ export function EventQuickAddModal({
     
     if (!defaultAllDay && defaultDuration) {
       const startTime = '09:00'
-      const [hours] = startTime.split(':').map(Number)
-      const endHour = hours + defaultDuration
+      const [hours, minutes] = startTime.split(':').map(Number)
+      const totalMinutes = hours * 60 + minutes + defaultDuration
+      const endHours = Math.floor(totalMinutes / 60) % 24
+      const endMinutes = totalMinutes % 60
       form.setValue('start_time', startTime)
-      form.setValue('end_time', `${endHour.toString().padStart(2, '0')}:00`)
+      form.setValue('end_time', `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`)
     }
   }
 
@@ -137,10 +194,9 @@ export function EventQuickAddModal({
         updates: data,
       })
     } else {
-      // Create new event
+      // Create new event - use assigned_users from form
       const event: Omit<CalendarEventInsert, 'company_id'> = {
         ...data,
-        assigned_users: [userId],
         created_by: userId,
       }
       await createEvent.mutateAsync(event as CalendarEventInsert)
@@ -257,7 +313,8 @@ export function EventQuickAddModal({
                 <Input
                   id="start_time"
                   type="time"
-                  {...form.register('start_time')}
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -279,6 +336,91 @@ export function EventQuickAddModal({
               {...form.register('location')}
               placeholder="e.g., Customer site, Office, etc."
             />
+          </div>
+
+          {/* Meeting URL */}
+          <div className="space-y-2">
+            <Label htmlFor="meeting_url">Meeting URL (Optional)</Label>
+            <Input
+              id="meeting_url"
+              {...form.register('meeting_url')}
+              placeholder="e.g., Zoom or Google Meet link"
+            />
+          </div>
+
+          {/* Send Email to Customer */}
+          {defaultLeadId && (
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex-1">
+                <Label htmlFor="send_email" className="font-medium text-blue-900 cursor-pointer">
+                  Email appointment details to customer
+                </Label>
+                <p className="text-xs text-blue-700 mt-1">
+                  Sends appointment date, time, and location to customer via email
+                </p>
+              </div>
+              <Switch
+                id="send_email"
+                checked={form.watch('send_email_to_customer')}
+                onCheckedChange={(checked) => form.setValue('send_email_to_customer', checked)}
+              />
+            </div>
+          )}
+
+          {/* Assign Users */}
+          <div className="space-y-2">
+            <Label>Assign to Users</Label>
+            <p className="text-xs text-gray-500 mb-2">
+              Select team members who should be notified about this appointment
+            </p>
+            <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+              {users.map((user) => {
+                const isAssigned = assignedUsers.includes(user.id)
+                return (
+                  <label
+                    key={user.id}
+                    className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isAssigned}
+                      onChange={(e) => {
+                        const currentUsers = form.getValues('assigned_users')
+                        if (e.target.checked) {
+                          form.setValue('assigned_users', [...currentUsers, user.id])
+                        } else {
+                          form.setValue('assigned_users', currentUsers.filter(id => id !== user.id))
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                      <div className="text-xs text-gray-500">{user.role}</div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+            {assignedUsers.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {assignedUsers.map((userId) => {
+                  const user = users.find(u => u.id === userId)
+                  if (!user) return null
+                  return (
+                    <Badge key={userId} variant="secondary" className="gap-1">
+                      {user.full_name}
+                      <X
+                        className="h-3 w-3 cursor-pointer hover:text-red-600"
+                        onClick={() => {
+                          form.setValue('assigned_users', assignedUsers.filter(id => id !== userId))
+                        }}
+                      />
+                    </Badge>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

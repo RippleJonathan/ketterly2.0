@@ -1,6 +1,6 @@
 'use client'
 
-import { format, parseISO, isSameDay } from 'date-fns'
+import { format, parseISO, isSameDay, startOfDay, isAfter, isBefore } from 'date-fns'
 import { Calendar as CalendarIcon, MapPin, User, Clock } from 'lucide-react'
 import { CalendarEventWithRelations, EVENT_TYPE_BG_COLORS, EVENT_TYPE_BORDER_COLORS, EVENT_TYPE_TEXT_COLORS, EVENT_TYPE_LABELS, EventStatus } from '@/lib/types/calendar'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,57 +25,83 @@ export function ListView({ events, onEventClick }: ListViewProps) {
     )
   }
 
-  // Group events by date
-  const groupedEvents = events.reduce((groups, event) => {
-    const dateKey = event.event_date
-    if (!groups[dateKey]) {
-      groups[dateKey] = []
-    }
-    groups[dateKey].push(event)
-    return groups
-  }, {} as Record<string, CalendarEventWithRelations[]>)
+  // Filter to show only today and future events
+  // Note: Events are already filtered at API level for List view
+  const todayString = format(new Date(), 'yyyy-MM-dd')
 
-  // Sort dates
-  const sortedDates = Object.keys(groupedEvents).sort()
+  const upcomingEvents = events.filter(e => {
+    // Compare date strings directly - reliable across timezones
+    return e.event_date >= todayString
+  })
+  // Past events are filtered out to reduce clutter
+
+  // Group events by date
+  const groupEventsByDate = (events: CalendarEventWithRelations[]) => {
+    return events.reduce((groups, event) => {
+      const dateKey = event.event_date
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(event)
+      return groups
+    }, {} as Record<string, CalendarEventWithRelations[]>)
+  }
+
+  const upcomingGrouped = groupEventsByDate(upcomingEvents)
+
+  const renderEventGroup = (dateKey: string, dateEvents: CalendarEventWithRelations[], isPast = false) => {
+    const eventDate = parseISO(dateKey)
+    const isToday = isSameDay(eventDate, new Date())
+
+    return (
+      <div key={dateKey} className={cn("space-y-3", isPast && "opacity-60")}>
+        {/* Date Header */}
+        <div className={cn(
+          "sticky top-0 z-10 bg-white border-b pb-2",
+          isToday && "border-blue-500"
+        )}>
+          <h3 className={cn(
+            "text-lg font-semibold",
+            isToday && "text-blue-600",
+            isPast && "text-gray-500"
+          )}>
+            {format(eventDate, 'EEEE, MMMM d, yyyy')}
+            {isToday && (
+              <Badge variant="default" className="ml-2">Today</Badge>
+            )}
+          </h3>
+        </div>
+
+        {/* Events for this date */}
+        <div className="space-y-2">
+          {dateEvents.map(event => (
+            <EventCard
+              key={event.id}
+              event={event}
+              onClick={() => onEventClick(event)}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      {sortedDates.map(dateKey => {
-        const dateEvents = groupedEvents[dateKey]
-        const eventDate = parseISO(dateKey)
-        const isToday = isSameDay(eventDate, new Date())
-
-        return (
-          <div key={dateKey} className="space-y-3">
-            {/* Date Header */}
-            <div className={cn(
-              "sticky top-0 z-10 bg-white border-b pb-2",
-              isToday && "border-blue-500"
-            )}>
-              <h3 className={cn(
-                "text-lg font-semibold",
-                isToday && "text-blue-600"
-              )}>
-                {format(eventDate, 'EEEE, MMMM d, yyyy')}
-                {isToday && (
-                  <Badge variant="default" className="ml-2">Today</Badge>
-                )}
-              </h3>
-            </div>
-
-            {/* Events for this date */}
-            <div className="space-y-2">
-              {dateEvents.map(event => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onClick={() => onEventClick(event)}
-                />
-              ))}
-            </div>
-          </div>
+      {/* Upcoming Events */}
+      {Object.keys(upcomingGrouped).length > 0 ? (
+        Object.keys(upcomingGrouped).map(dateKey => 
+          renderEventGroup(dateKey, upcomingGrouped[dateKey], false)
         )
-      })}
+      ) : (
+        <div className="text-center text-gray-500 py-12">
+          <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium mb-2">No upcoming events</p>
+          <p className="text-sm">
+            Schedule your first appointment to get started
+          </p>
+        </div>
+      )}
     </div>
   )
 }

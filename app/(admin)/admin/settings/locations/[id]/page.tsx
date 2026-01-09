@@ -2,7 +2,7 @@
 
 import { use } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, MapPin } from 'lucide-react'
+import { ArrowLeft, MapPin, UserCheck, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge'
 import { useLocation } from '@/lib/hooks/use-locations'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { LocationPricingTab } from '@/components/admin/locations/location-pricing-tab'
+import { OfficeManagerCard } from '@/components/admin/locations/office-manager-card'
+import { LocationTeamsTab } from '@/components/admin/locations/location-teams-tab'
 
 interface LocationDetailPageProps {
   params: Promise<{ id: string }>
@@ -26,8 +28,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
   const router = useRouter()
   
   const { data: location, isLoading } = useLocation(id)
-  const { data: currentUser } = useCurrentUser()
-  
+  const { data: currentUser } = useCurrentUser()  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -92,6 +93,7 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -147,6 +149,9 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
               </div>
             </CardContent>
           </Card>
+
+          {/* Office Manager Card - With Edit Functionality */}
+          <OfficeManagerCard locationId={id} locationName={loc.name} />
         </TabsContent>
 
         {/* Pricing Tab */}
@@ -154,6 +159,15 @@ export default function LocationDetailPage({ params }: LocationDetailPageProps) 
           <LocationPricingTab 
             locationId={id} 
             locationName={loc.name}
+          />
+        </TabsContent>
+
+        {/* Teams Tab */}
+        <TabsContent value="teams">
+          <LocationTeamsTab
+            locationId={id}
+            locationName={loc.name}
+            companyId={loc.company_id}
           />
         </TabsContent>
       </Tabs>

@@ -393,11 +393,35 @@ export const QuotePDFTemplate: React.FC<QuotePDFTemplateProps> = ({
 
           <View style={styles.infoBox}>
             <Text style={styles.infoBoxTitle}>Company Representative</Text>
-            {companyEmail && (
-              <Text style={styles.infoBoxText}>{companyEmail}</Text>
+            {quote.lead?.assigned_user?.full_name && (
+              <Text style={styles.infoBoxText}>{quote.lead.assigned_user.full_name}</Text>
             )}
-            {companyPhone && (
-              <Text style={styles.infoBoxText}>{companyPhone}</Text>
+            {quote.lead?.assigned_user?.email && (
+              <Text style={styles.infoBoxText}>{quote.lead.assigned_user.email}</Text>
+            )}
+            {quote.lead?.assigned_user?.phone && (
+              <Text style={styles.infoBoxText}>{quote.lead.assigned_user.phone}</Text>
+            )}
+            {/* Fallback to creator if no assigned user */}
+            {(!quote.lead?.assigned_user || (!quote.lead.assigned_user.full_name && !quote.lead.assigned_user.email && !quote.lead.assigned_user.phone)) && quote.creator?.full_name && (
+              <Text style={styles.infoBoxText}>{quote.creator.full_name}</Text>
+            )}
+            {(!quote.lead?.assigned_user || (!quote.lead.assigned_user.full_name && !quote.lead.assigned_user.email && !quote.lead.assigned_user.phone)) && quote.creator?.email && (
+              <Text style={styles.infoBoxText}>{quote.creator.email}</Text>
+            )}
+            {(!quote.lead?.assigned_user || (!quote.lead.assigned_user.full_name && !quote.lead.assigned_user.email && !quote.lead.assigned_user.phone)) && quote.creator?.phone && (
+              <Text style={styles.infoBoxText}>{quote.creator.phone}</Text>
+            )}
+            {/* Final fallback to company contact info */}
+            {(!quote.lead?.assigned_user || (!quote.lead.assigned_user.full_name && !quote.lead.assigned_user.email && !quote.lead.assigned_user.phone)) && (!quote.creator || (!quote.creator.full_name && !quote.creator.email && !quote.creator.phone)) && (
+              <>
+                {companyEmail && (
+                  <Text style={styles.infoBoxText}>{companyEmail}</Text>
+                )}
+                {companyPhone && (
+                  <Text style={styles.infoBoxText}>{companyPhone}</Text>
+                )}
+              </>
             )}
           </View>
         </View>

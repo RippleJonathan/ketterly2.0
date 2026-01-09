@@ -86,6 +86,7 @@ export interface LeadCommissionUpdate {
   flat_amount?: number | null
   calculated_amount?: number
   base_amount?: number
+  balance_owed?: number
   paid_when?: CommissionPaidWhen
   status?: CommissionStatus
   notes?: string | null

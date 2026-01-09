@@ -40,6 +40,17 @@ export interface User {
   commission_plan_id: string | null
   hire_date: string | null
   
+  // Role-Based Commission Rates (per assignment role)
+  sales_commission_type: 'percentage' | 'flat_amount' | null
+  sales_commission_rate: number | null
+  sales_flat_amount: number | null
+  marketing_commission_type: 'percentage' | 'flat_amount' | null
+  marketing_commission_rate: number | null
+  marketing_flat_amount: number | null
+  production_commission_type: 'percentage' | 'flat_amount' | null
+  production_commission_rate: number | null
+  production_flat_amount: number | null
+  
   // Personal
   date_of_birth: string | null
   emergency_contact_name: string | null
@@ -301,6 +312,12 @@ export interface UserPermissions {
   can_view_lead_financials: boolean
   can_view_lead_commissions: boolean
   
+  // Team Assignment Permissions
+  can_assign_sales_rep: boolean
+  can_assign_sales_manager: boolean
+  can_assign_marketing_rep: boolean
+  can_assign_production_manager: boolean
+  
   // Metadata
   created_at: string
   updated_at: string
@@ -468,7 +485,11 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'can_view_lead_payments',
   'can_view_lead_financials',
   'can_view_lead_commissions',
-]
+  'can_assign_sales_rep',
+  'can_assign_sales_manager',
+  'can_assign_marketing_rep',
+  'can_assign_production_manager',
+] as const
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   can_view_leads: 'View Leads',
@@ -537,6 +558,10 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   can_view_lead_payments: 'View Lead Invoice/Payments Tab',
   can_view_lead_financials: 'View Lead Financials Tab',
   can_view_lead_commissions: 'View Lead Commissions Tab',
+  can_assign_sales_rep: 'Assign/Change Sales Representative',
+  can_assign_sales_manager: 'Assign/Change Sales Manager',
+  can_assign_marketing_rep: 'Assign/Change Marketing Representative',
+  can_assign_production_manager: 'Assign/Change Production Manager',
 }
 
 // Group permissions by category for UI
@@ -631,6 +656,12 @@ export const PERMISSION_CATEGORIES = {
     'can_view_lead_financials',
     'can_view_lead_commissions',
   ],
+  'Team Assignment': [
+    'can_assign_sales_rep',
+    'can_assign_sales_manager',
+    'can_assign_marketing_rep',
+    'can_assign_production_manager',
+  ],
 } as const
 
 // =====================================================
@@ -720,6 +751,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_lead_payments: true,
     can_view_lead_financials: true,
     can_view_lead_commissions: true,
+    // Team Assignment
+    can_assign_sales_rep: true,
+    can_assign_sales_manager: true,
+    can_assign_marketing_rep: true,
+    can_assign_production_manager: true,
   },
 
   // Office - Office Staff (Quotes, Invoices, Customers, Scheduling)
@@ -799,6 +835,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_lead_payments: true,
     can_view_lead_financials: true,   // Office sees all tabs
     can_view_lead_commissions: true,  // Office sees all tabs
+    // Team Assignment
+    can_assign_sales_rep: true,
+    can_assign_sales_manager: true,
+    can_assign_marketing_rep: true,
+    can_assign_production_manager: true,
   },
 
   // Sales Manager - Sales Team Lead (Manage Sales Team & Leads)
@@ -847,6 +888,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_export_reports: true,
     // Commissions
     can_view_own_commissions: true,
+    can_view_all_commissions: true,   // Sales manager can view all team commissions
     can_manage_commissions: true,
     can_mark_commissions_paid: false,
     // Users & Settings
@@ -878,6 +920,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_lead_payments: true,
     can_view_lead_financials: true,
     can_view_lead_commissions: true,
+    // Team Assignment (Sales Manager can only assign sales reps)
+    can_assign_sales_rep: true,
+    can_assign_sales_manager: false,
+    can_assign_marketing_rep: false,
+    can_assign_production_manager: false,
   },
 
   // Sales - Sales Representative (Leads, Quotes, Customer-Facing)
@@ -924,6 +971,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_profit_margins: false,
     can_view_commission_reports: true,  // Can see own commissions
     can_export_reports: true,
+    // Commissions
+    can_view_own_commissions: true,   // Sales reps can view own commissions
+    can_view_all_commissions: false,
     // Users & Settings
     can_view_users: true,
     can_create_users: false,
@@ -953,6 +1003,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_lead_payments: true,     // Sales sees all tabs
     can_view_lead_financials: true,   // Sales sees all tabs
     can_view_lead_commissions: true,  // Sales sees commissions (filtered to own)
+    // Team Assignment (Sales reps cannot assign anyone - prevent fraud)
+    can_assign_sales_rep: false,
+    can_assign_sales_manager: false,
+    can_assign_marketing_rep: false,
+    can_assign_production_manager: false,
   },
 
   // Production - Production/Crew (Work Orders, Photos, Status Updates)
@@ -1032,6 +1087,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_lead_payments: true,        // Production sees all tabs
     can_view_lead_financials: true,      // Production sees all tabs
     can_view_lead_commissions: true,     // Production sees commissions (filtered to own)
+    // Team Assignment (Production cannot assign anyone)
+    can_assign_sales_rep: false,
+    can_assign_sales_manager: false,
+    can_assign_marketing_rep: false,
+    can_assign_production_manager: false,
   },
 
   // Marketing - Marketing Team (Leads, Analytics, Reports)
@@ -1111,6 +1171,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     can_view_lead_payments: false,       // Marketing: Hidden
     can_view_lead_financials: false,     // Marketing: Hidden
     can_view_lead_commissions: false,    // Marketing: Hidden
+    // Team Assignment (Marketing cannot assign anyone)
+    can_assign_sales_rep: false,
+    can_assign_sales_manager: false,
+    can_assign_marketing_rep: false,
+    can_assign_production_manager: false,
   },
 }
 

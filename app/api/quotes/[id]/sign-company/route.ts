@@ -88,20 +88,22 @@ export async function POST(
     }
 
     // Insert company signature
+    const signatureData = {
+      quote_id: quoteId,
+      company_id: quote.company_id,
+      signer_name,
+      signer_email: userData.email,
+      signer_title,
+      signature_data,
+      accepted_terms: true,
+      signer_type: 'company_rep',
+      signer_user_agent: request.headers.get('user-agent') || null,
+      signer_ip_address: request.headers.get('x-forwarded-for') || null,
+    }
+    
     const { data: signature, error: signatureError } = await supabase
       .from('quote_signatures')
-      .insert({
-        quote_id: quoteId,
-        company_id: quote.company_id,
-        signer_name,
-        signer_email: userData.email,
-        signer_title,
-        signature_data,
-        accepted_terms: true,
-        signer_type: 'company_rep',
-        signer_user_agent: request.headers.get('user-agent') || null,
-        signer_ip_address: request.headers.get('x-forwarded-for') || null,
-      })
+      .insert(signatureData)
       .select('id')
       .single()
 

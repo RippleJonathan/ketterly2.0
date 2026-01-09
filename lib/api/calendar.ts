@@ -302,6 +302,80 @@ export async function createEvent(
       .single()
 
     if (error) throw error
+
+    // Send email to customer if requested
+    if (event.send_email_to_customer && event.lead_id) {
+      try {
+        // Get lead details for email
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('full_name, email')
+          .eq('id', event.lead_id)
+          .single()
+
+        if (lead?.email) {
+          // Send email via API route to avoid import issues
+          fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-appointment-emails`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'send_customer_email',
+              eventId: data.id,
+              customerEmail: lead.email,
+              customerName: lead.full_name,
+              companyId,
+            }),
+          }).catch(emailError => {
+            console.error('Failed to send appointment confirmation email:', emailError)
+          })
+        }
+      } catch (emailError) {
+        console.error('Failed to send appointment confirmation email:', emailError)
+        // Don't fail the event creation if email fails
+      }
+    }
+
+    // Send notifications to assigned users
+    if (event.assigned_users && event.assigned_users.length > 0) {
+      try {
+        // Get lead name if available
+        let leadName = null
+        if (event.lead_id) {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('full_name')
+            .eq('id', event.lead_id)
+            .single()
+          leadName = lead?.full_name || null
+        }
+
+        // Send notifications via API route to avoid import issues
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-appointment-emails`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_user_notifications',
+            assignedUsers: event.assigned_users,
+            eventData: {
+              eventId: data.id,
+              eventTitle: event.title,
+              eventDate: event.event_date,
+              startTime: event.start_time,
+              endTime: event.end_time,
+              location: event.location,
+              leadName,
+            },
+            companyId,
+          }),
+        }).catch(notificationError => {
+          console.error('Failed to send appointment notifications:', notificationError)
+        })
+      } catch (notificationError) {
+        console.error('Failed to send appointment notifications:', notificationError)
+        // Don't fail the event creation if notifications fail
+      }
+    }
+
     return { data, error: null }
   } catch (error) {
     return createErrorResponse(error)

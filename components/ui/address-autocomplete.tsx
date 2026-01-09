@@ -72,7 +72,8 @@ function loadGoogleMapsScript(apiKey: string): Promise<void> {
     isLoadingScript = true
     
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
+    // Load ALL libraries needed by the entire app: places, drawing, geometry
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,drawing,geometry`
     script.async = true
     script.defer = true
     

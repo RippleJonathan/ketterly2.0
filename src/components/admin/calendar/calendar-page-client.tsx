@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { CalendarView, CalendarEventWithRelations, EventFilters } from '@/lib/types/calendar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useEvents } from '@/lib/hooks/use-calendar'
-import { ListView } from './list-view'
+import { useLocations } from '@/lib/hooks/use-locations'
 import { DayView } from './day-view'
 import { WeekView } from './week-view'
 import { MonthView } from './month-view'
@@ -30,14 +30,20 @@ export function CalendarPageClient({
   canEditAllEvents,
   canManageRecurring,
 }: CalendarPageClientProps) {
-  const [currentView, setCurrentView] = useState<CalendarView>(CalendarView.LIST)
+  const [currentView, setCurrentView] = useState<CalendarView>(CalendarView.MONTH)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showFilters, setShowFilters] = useState(false)
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventWithRelations | null>(null)
-  const [filters, setFilters] = useState<EventFilters>({
-    exclude_cancelled: false,
-  })
+  const [filters, setFilters] = useState<EventFilters>({})
+
+  // Fetch locations for filter dropdown
+  const { data: locationsResponse } = useLocations()
+  const locations = locationsResponse?.data || []
+
+  // Fetch users for assigned user filtering
+  const { data: usersResponse } = useUsers()
+  const users = usersResponse?.data || []
 
   // Fetch events for current month
   const monthStart = format(startOfMonth(currentDate), 'yyyy-MM-dd')
@@ -160,7 +166,6 @@ export function CalendarPageClient({
             <TabsTrigger value={CalendarView.DAY}>Day</TabsTrigger>
             <TabsTrigger value={CalendarView.WEEK}>Week</TabsTrigger>
             <TabsTrigger value={CalendarView.MONTH}>Month</TabsTrigger>
-            <TabsTrigger value={CalendarView.LIST}>List</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -171,7 +176,9 @@ export function CalendarPageClient({
           <CalendarFilters
             filters={filters}
             onFiltersChange={setFilters}
-            onClear={() => setFilters({ exclude_cancelled: false })}
+            onClear={() => setFilters({})}
+            locations={locations}
+            users={users}
           />
         </div>
       )}
@@ -184,13 +191,6 @@ export function CalendarPageClient({
           </div>
         ) : (
           <>
-            {currentView === CalendarView.LIST && (
-              <ListView 
-                events={events} 
-                onEventClick={(event) => setSelectedEvent(event)}
-              />
-            )}
-
             {currentView === CalendarView.DAY && (
               <DayView
                 date={currentDate}

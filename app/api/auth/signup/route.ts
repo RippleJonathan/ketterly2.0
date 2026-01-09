@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         .insert({
           name: companyName,
           slug: companyName.toLowerCase().replace(/\s+/g, '-'),
-          contact_email: email,
+          contact_email: 'notifications@ketterly.com', // Use platform domain for consistency
           subscription_tier: 'trial',
           subscription_status: 'active',
         })

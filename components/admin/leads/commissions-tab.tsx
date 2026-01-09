@@ -70,10 +70,14 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set())
   
   // Determine if user can view at all (own or all)
-  // If permissions haven't loaded (undefined) and user exists, allow access
-  const isAdmin = currentUser?.data?.role === 'admin'
+  // Sales reps and marketing reps can always view their own commissions
+  // Admin and office can view all commissions
+  const currentUserId = currentUser?.data?.id
+  const userRole = currentUser?.data?.role as string
+  const isSalesOrMarketing = ['sales_rep', 'marketing_rep'].includes(userRole)
+  const isAdminOrOffice = ['admin', 'office', 'super_admin'].includes(userRole)
   const permissionsNotLoaded = canViewOwn === undefined && canViewAll === undefined
-  const canView = canViewOwn || canViewAll || (permissionsNotLoaded && !!currentUser)
+  const canView = canViewOwn || canViewAll || isSalesOrMarketing || isAdminOrOffice || (permissionsNotLoaded && !!currentUser)
   
   // Allow actions if: explicit permission OR (permissions not loaded AND user is logged in)
   const permissionsExist = canCreate !== undefined || canEdit !== undefined || canDelete !== undefined || canMarkPaid !== undefined
@@ -90,26 +94,36 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const allCommissions = commissionsData?.data || []
   
   // Filter commissions based on role
-  // Admin, Office, Sales Manager → See all commissions
-  // Everyone else → See only their own commissions
-  const currentUserId = currentUser?.data?.id
-  const userRole = currentUser?.data?.role as string
-  const canSeeAllCommissions = ['admin', 'office', 'sales_manager', 'super_admin'].includes(userRole)
+  // Admin, Office → See all commissions  
+  // Sales reps and marketing reps → See only their own commissions
+  const canSeeAllCommissions = isAdminOrOffice
   
   const commissions = canSeeAllCommissions 
     ? allCommissions 
     : allCommissions.filter(c => c.user_id === currentUserId)
   
-  const summary = summaryData?.data || {
-    total_owed: 0,
-    total_paid: 0,
-    total_pending: 0,
-    total_approved: 0,
-    total_cancelled: 0,
-    count_paid: 0,
-    count_pending: 0,
-    count_approved: 0,
-  }
+  // Calculate summary from filtered commissions (user-specific if not admin/office)
+  const summary = canSeeAllCommissions 
+    ? (summaryData?.data || {
+        total_owed: 0,
+        total_paid: 0,
+        total_pending: 0,
+        total_approved: 0,
+        total_cancelled: 0,
+        count_paid: 0,
+        count_pending: 0,
+        count_approved: 0,
+      })
+    : {
+        total_owed: commissions.reduce((sum, c) => sum + ((c.status === 'approved' || c.status === 'eligible') ? (c.amount || 0) : 0), 0),
+        total_paid: commissions.reduce((sum, c) => sum + (c.status === 'paid' ? (c.amount || 0) : 0), 0),
+        total_pending: commissions.reduce((sum, c) => sum + (c.status === 'pending' ? (c.amount || 0) : 0), 0),
+        total_approved: commissions.reduce((sum, c) => sum + (c.status === 'approved' ? (c.amount || 0) : 0), 0),
+        total_cancelled: commissions.reduce((sum, c) => sum + (c.status === 'cancelled' ? (c.amount || 0) : 0), 0),
+        count_paid: commissions.filter(c => c.status === 'paid').length,
+        count_pending: commissions.filter(c => c.status === 'pending').length,
+        count_approved: commissions.filter(c => c.status === 'approved').length,
+      }
 
   // Get financials data to calculate accurate base amount for commissions
   // MUST be before any conditional returns to maintain hook order
@@ -219,22 +233,44 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
           lead.production_manager_id,
         ].filter(Boolean)
 
-        // Create/update commissions for each assigned user
-        const commissionPromises = assignedUsers.map(userId => 
-          autoCreateCommission(lead.id, userId, company.id, currentUser?.data?.id || null, true)
-            .catch(err => {
-              console.error(`Failed to auto-create commission for user ${userId}:`, err)
-              return { success: false }
-            })
-        )
-
-        await Promise.all(commissionPromises)
+        // Create commissions for each assigned user with their respective roles
+        // Map users to their assignment fields to use correct commission rates
+        const userFieldMap: Array<{ userId: string, field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
+        
+        if (lead.sales_rep_id) userFieldMap.push({ userId: lead.sales_rep_id, field: 'sales_rep_id' })
+        if (lead.marketing_rep_id) userFieldMap.push({ userId: lead.marketing_rep_id, field: 'marketing_rep_id' })
+        if (lead.sales_manager_id) userFieldMap.push({ userId: lead.sales_manager_id, field: 'sales_manager_id' })
+        if (lead.production_manager_id) userFieldMap.push({ userId: lead.production_manager_id, field: 'production_manager_id' })
+        
+        // Create commissions for all assigned users
+        // Note: autoCreateCommission will create office/team lead commissions in STEP 0
+        if (userFieldMap.length > 0) {
+          const promises = userFieldMap.map(({ userId, field }) => 
+            autoCreateCommission(lead.id, userId, company.id, currentUser?.data?.id || null, field, true)
+              .catch(err => {
+                console.error(`Failed to auto-create commission for ${field}:`, err)
+                return { success: false }
+              })
+          )
+          await Promise.all(promises)
+        }
+        
+        // Recalculate all commission amounts based on current invoice
+        const { recalculateLeadCommissions } = await import('@/lib/utils/recalculate-commissions')
+        const result = await recalculateLeadCommissions(lead.id, company.id)
+        
+        if (!result.success && result.errors.length > 0) {
+          console.error('Recalculation errors:', result.errors)
+        }
+        
+        console.log(`✅ Recalculated ${result.updated} commission(s)`)
       }
 
       // Refresh the commission data
       await Promise.all([refetchCommissions(), refetchSummary()])
       toast.success('Commissions refreshed and updated')
     } catch (error) {
+      console.error('Refresh error:', error)
       toast.error('Failed to refresh commissions')
     } finally {
       setIsRefreshing(false)
@@ -360,6 +396,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
               <TableRow>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
@@ -394,6 +431,17 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
                           <p className="font-medium">{commission.user?.full_name}</p>
                           <p className="text-xs text-gray-500">{commission.user?.email}</p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
+                          {commission.assignment_field === 'sales_rep_id' && 'Sales Rep'}
+                          {commission.assignment_field === 'marketing_rep_id' && 'Marketing Rep'}
+                          {commission.assignment_field === 'sales_manager_id' && 'Sales Manager'}
+                          {commission.assignment_field === 'production_manager_id' && 'Production Manager'}
+                          {commission.assignment_field === 'office_override' && 'Office Manager'}
+                          {commission.assignment_field === 'team_lead_override' && 'Team Lead'}
+                          {!commission.assignment_field && <span className="text-gray-400">Unknown</span>}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <div>

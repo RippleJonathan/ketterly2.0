@@ -247,12 +247,39 @@ export function UserList() {
       },
     },
     {
-      accessorKey: 'commission_plan',
-      header: 'Commission Plan',
+      id: 'commissions',
+      header: 'Commission Rates',
       cell: ({ row }) => {
-        const plan = row.original.commission_plan
-        return plan ? (
-          <span className="text-sm">{plan.name}</span>
+        const user = row.original
+        const commissions: string[] = []
+        
+        // Sales commission
+        if (user.sales_commission_type === 'percentage' && user.sales_commission_rate) {
+          commissions.push(`Sales - ${user.sales_commission_rate}%`)
+        } else if (user.sales_commission_type === 'flat_amount' && user.sales_flat_amount) {
+          commissions.push(`Sales - $${user.sales_flat_amount}`)
+        }
+        
+        // Marketing commission
+        if (user.marketing_commission_type === 'percentage' && user.marketing_commission_rate) {
+          commissions.push(`Marketing - ${user.marketing_commission_rate}%`)
+        } else if (user.marketing_commission_type === 'flat_amount' && user.marketing_flat_amount) {
+          commissions.push(`Marketing - $${user.marketing_flat_amount}`)
+        }
+        
+        // Production commission
+        if (user.production_commission_type === 'percentage' && user.production_commission_rate) {
+          commissions.push(`Production - ${user.production_commission_rate}%`)
+        } else if (user.production_commission_type === 'flat_amount' && user.production_flat_amount) {
+          commissions.push(`Production - $${user.production_flat_amount}`)
+        }
+        
+        return commissions.length > 0 ? (
+          <div className="flex flex-col gap-0.5 text-sm">
+            {commissions.map((comm, i) => (
+              <div key={i} className="text-sm">{comm}</div>
+            ))}
+          </div>
         ) : (
           <span className="text-sm text-muted-foreground">None</span>
         )

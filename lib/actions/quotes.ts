@@ -149,18 +149,19 @@ export async function signContractAction(data: {
     }
 
     // Auto-create/update commissions for all assigned users when contract is signed
-    const assignedUsers = [
-      lead.sales_rep_id,
-      lead.marketing_rep_id,
-      lead.sales_manager_id,
-      lead.production_manager_id,
-    ].filter(Boolean) // Remove null/undefined values
+    // Map users to their assignment fields to use correct commission rates
+    const userFieldMap: Array<{ userId: string, field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
+    
+    if (lead.sales_rep_id) userFieldMap.push({ userId: lead.sales_rep_id, field: 'sales_rep_id' })
+    if (lead.marketing_rep_id) userFieldMap.push({ userId: lead.marketing_rep_id, field: 'marketing_rep_id' })
+    if (lead.sales_manager_id) userFieldMap.push({ userId: lead.sales_manager_id, field: 'sales_manager_id' })
+    if (lead.production_manager_id) userFieldMap.push({ userId: lead.production_manager_id, field: 'production_manager_id' })
 
     // Create commissions for each assigned user (non-blocking)
     // Pass skipCancelOthers=true to support multiple users having commissions simultaneously
-    for (const userId of assignedUsers) {
-      autoCreateCommission(data.leadId, userId, data.companyId, null, true)
-        .catch(err => console.error(`Failed to auto-create commission for user ${userId}:`, err))
+    for (const { userId, field } of userFieldMap) {
+      autoCreateCommission(data.leadId, userId, data.companyId, null, field, true)
+        .catch(err => console.error(`Failed to auto-create commission for ${field}:`, err))
     }
 
     revalidatePath('/admin/leads')

@@ -189,3 +189,151 @@ export async function isLocationAdmin(
     return false
   }
 }
+
+// =====================================================
+// OFFICE MANAGER COMMISSION SETTINGS
+// =====================================================
+
+export interface SetLocationOfficeManagerParams {
+  locationId: string
+  userId: string | null // null to remove
+  commissionEnabled?: boolean
+  commissionRate?: number | null
+  commissionType?: 'percentage' | 'flat_amount'
+  flatCommissionAmount?: number | null
+  paidWhen?: string
+}
+
+/**
+ * Set or update the office manager for a location
+ * This handles the location_users entry for an office role at a location
+ */
+export async function setLocationOfficeManager(
+  params: SetLocationOfficeManagerParams
+): Promise<ApiResponse<void>> {
+  try {
+    const supabase = createClient()
+
+    console.log('🔧 setLocationOfficeManager called with:', params)
+
+    // If userId is null, remove any existing office manager
+    if (!params.userId) {
+      console.log('⚠️  No userId provided - skipping office manager setup')
+      // Don't delete - just clear commission settings
+      return { data: undefined, error: null }
+    }
+
+    // Check if entry already exists
+    const { data: existing } = await supabase
+      .from('location_users')
+      .select('*')
+      .eq('location_id', params.locationId)
+      .eq('user_id', params.userId)
+      .single()
+
+    console.log('📋 Existing location_users entry:', existing ? 'FOUND' : 'NOT FOUND')
+
+    if (existing) {
+      // Update existing entry
+      console.log('📝 Updating existing location_users entry')
+      const { error } = await supabase
+        .from('location_users')
+        .update({
+          commission_enabled: params.commissionEnabled || false,
+          commission_rate: params.commissionType === 'percentage' ? params.commissionRate : null,
+          commission_type: params.commissionType || 'percentage',
+          flat_commission_amount: params.commissionType === 'flat_amount' ? params.flatCommissionAmount : null,
+          paid_when: params.paidWhen || 'when_final_payment',
+        })
+        .eq('location_id', params.locationId)
+        .eq('user_id', params.userId)
+
+      if (error) {
+        console.error('❌ Update failed:', error)
+        throw error
+      }
+      console.log('✅ Update successful')
+    } else {
+      // Create new entry
+      console.log('➕ Creating new location_users entry')
+      const { error } = await supabase
+        .from('location_users')
+        .insert({
+          location_id: params.locationId,
+          user_id: params.userId,
+          commission_enabled: params.commissionEnabled || false,
+          commission_rate: params.commissionType === 'percentage' ? params.commissionRate : null,
+          commission_type: params.commissionType || 'percentage',
+          flat_commission_amount: params.commissionType === 'flat_amount' ? params.flatCommissionAmount : null,
+          paid_when: params.paidWhen || 'when_final_payment',
+        })
+
+      if (error) {
+        console.error('❌ Insert failed:', error)
+        throw error
+      }
+      console.log('✅ Insert successful')
+    }
+
+    return { data: undefined, error: null }
+  } catch (error) {
+    console.error('Error setting location office manager:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to set office manager',
+    }
+  }
+}
+
+/**
+ * Get the office manager (office role user) for a location
+ */
+export async function getLocationOfficeManager(
+  locationId: string
+): Promise<ApiResponse<any>> {
+  try {
+    const supabase = createClient()
+
+    console.log('🔍 Getting office manager for location:', locationId)
+
+    // Get users with role='office' assigned to this location with commission enabled
+    const { data, error } = await supabase
+      .from('location_users')
+      .select(`
+        user_id,
+        location_id,
+        commission_enabled,
+        commission_rate,
+        commission_type,
+        flat_commission_amount,
+        paid_when,
+        users:user_id(
+          id,
+          full_name,
+          email,
+          role
+        )
+      `)
+      .eq('location_id', locationId)
+      .eq('commission_enabled', true)
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+      console.error('❌ Error fetching office manager:', error)
+      throw error
+    }
+
+    // Filter to only office role users (in case multiple users have commission enabled)
+    const officeManager = data?.find((lu: any) => lu.users?.role === 'office') || null
+
+    console.log('📋 Office manager found:', officeManager ? officeManager.users?.full_name : 'NONE')
+    console.log('   Data:', officeManager)
+
+    return { data: officeManager, error: null }
+  } catch (error) {
+    console.error('Error getting location office manager:', error)
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to get office manager',
+    }
+  }
+}

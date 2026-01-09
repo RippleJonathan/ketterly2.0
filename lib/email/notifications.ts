@@ -15,6 +15,7 @@ import {
   invoiceEmailTemplate,
   paymentConfirmationTemplate,
 } from './templates'
+import { appointmentConfirmationEmailTemplate } from './notification-templates'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatCurrency } from '@/lib/utils/formatting'
@@ -751,5 +752,79 @@ export async function sendExecutedChangeOrder(
     subject: `Change Order #${changeOrder.change_order_number} - Approved`,
     html,
   })
+}
+
+/**
+ * Send appointment confirmation email to customer
+ */
+export async function sendAppointmentConfirmationEmail(
+  eventId: string,
+  customerEmail: string,
+  customerName: string,
+  companyId: string
+) {
+  try {
+    // Get event details with relations
+    const supabase = createAdminClient()
+    const { data: event, error: eventError } = await supabase
+      .from('calendar_events')
+      .select(`
+        *,
+        lead:leads!calendar_events_lead_id_fkey(
+          id, full_name, email, phone, address, city, state
+        ),
+        created_by_user:users!calendar_events_created_by_fkey(
+          id, full_name
+        ),
+        company:companies!calendar_events_company_id_fkey(
+          id, name, logo_url, primary_color, contact_email
+        )
+      `)
+      .eq('id', eventId)
+      .single()
+
+    if (eventError || !event) {
+      console.error('Failed to fetch event details:', eventError)
+      return { success: false, error: 'Event not found' }
+    }
+
+    // Get assigned users
+    const { data: assignedUsers } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .in('id', event.assigned_users || [])
+
+    const assignedUserName = assignedUsers?.[0]?.full_name || 'Team Member'
+
+    // Send email to customer
+    const html = appointmentConfirmationEmailTemplate({
+      customerName,
+      customerEmail,
+      eventType: event.event_type,
+      eventTitle: event.title,
+      eventDate: event.event_date,
+      startTime: event.start_time,
+      endTime: event.end_time,
+      location: event.location,
+      meetingUrl: event.meeting_url,
+      assignedUserName,
+      companyName: event.company.name,
+      companyColor: event.company.primary_color,
+      eventId: event.id,
+    })
+
+    const result = await sendEmail({
+      from: 'Ketterly CRM <notifications@ketterly.com>',
+      to: customerEmail,
+      replyTo: event.company.contact_email || undefined,
+      subject: `Appointment Confirmed: ${event.title}`,
+      html,
+    })
+
+    return result
+  } catch (error) {
+    console.error('Failed to send appointment confirmation email:', error)
+    return { success: false, error }
+  }
 }
 

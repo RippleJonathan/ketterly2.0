@@ -69,7 +69,7 @@ export function InvoiceBuilder({
   const supabase = createClient()
 
   // Fetch contract with line items
-  const { data: contract } = useQuery({
+  const { data: contract, isLoading: contractLoading, error: contractError } = useQuery({
     queryKey: ['contract-for-invoice', contractId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -88,7 +88,7 @@ export function InvoiceBuilder({
   })
 
   // Fetch approved change orders with line items
-  const { data: changeOrders } = useQuery({
+  const { data: changeOrders, isLoading: changeOrdersLoading, error: changeOrdersError } = useQuery({
     queryKey: ['approved-change-orders-for-invoice', quoteId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -329,8 +329,32 @@ export function InvoiceBuilder({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Loading State */}
+          {contractLoading && (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading contract data...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {contractError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+              <p className="font-semibold">Error loading contract:</p>
+              <p className="text-sm">{contractError.message}</p>
+            </div>
+          )}
+
+          {/* No Contract Warning */}
+          {!contractLoading && !contractError && !contract && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+              <p className="font-semibold">No contract found</p>
+              <p className="text-sm">Contract ID: {contractId}</p>
+            </div>
+          )}
+
           {/* Contract Summary */}
-          {contract && (
+          {!contractLoading && contract && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
                 <FileText className="h-4 w-4" />

@@ -16,6 +16,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useUsers } from '@/lib/hooks/use-users'
 import type { Location } from '@/lib/api/locations'
 
 const locationFormSchema = z.object({
@@ -31,17 +40,40 @@ const locationFormSchema = z.object({
   is_primary: z.boolean().default(false),
   is_active: z.boolean().default(true),
   notes: z.string().optional(),
+  // Office Manager Commission Settings
+  office_manager_id: z.string().optional(),
+  commission_enabled: z.boolean().default(false),
+  commission_type: z.enum(['percentage', 'flat_amount']).default('percentage'),
+  commission_rate: z.number().min(0).max(100).optional(),
+  flat_commission_amount: z.number().min(0).optional(),
 })
 
 type LocationFormData = z.infer<typeof locationFormSchema>
 
 interface LocationFormProps {
   location?: Location
-  onSubmit: (data: LocationFormData) => Promise<void>
+  existingOfficeManager?: {
+    userId: string
+    commissionEnabled: boolean
+    commissionRate: number | null
+    commissionType: string | null
+    flatCommissionAmount: number | null
+  }
+  onSubmit: (data: LocationFormData, officeManagerData?: {
+    userId: string | null
+    commissionEnabled: boolean
+    commissionRate: number
+    commissionType: 'percentage' | 'flat_amount'
+    flatCommissionAmount: number
+  }) => Promise<void>
   onCancel: () => void
 }
 
-export function LocationForm({ location, onSubmit, onCancel }: LocationFormProps) {
+export function LocationForm({ location, existingOfficeManager, onSubmit, onCancel }: LocationFormProps) {
+  // Fetch office role users for office manager selection
+  const { data: usersResponse } = useUsers({ role: 'office' })
+  const officeUsers = usersResponse?.data || []
+
   const form = useForm<LocationFormData>({
     resolver: zodResolver(locationFormSchema),
     defaultValues: location ? {
@@ -57,6 +89,12 @@ export function LocationForm({ location, onSubmit, onCancel }: LocationFormProps
       is_primary: location.is_primary,
       is_active: location.is_active,
       notes: location.notes || '',
+      // Office manager commission from existing data
+      office_manager_id: existingOfficeManager?.userId || '',
+      commission_enabled: existingOfficeManager?.commissionEnabled || false,
+      commission_type: (existingOfficeManager?.commissionType as 'percentage' | 'flat_amount') || 'percentage',
+      commission_rate: existingOfficeManager?.commissionRate || 0,
+      flat_commission_amount: existingOfficeManager?.flatCommissionAmount || 0,
     } : {
       name: '',
       location_code: '',
@@ -70,11 +108,35 @@ export function LocationForm({ location, onSubmit, onCancel }: LocationFormProps
       is_primary: false,
       is_active: true,
       notes: '',
+      office_manager_id: '',
+      commission_enabled: false,
+      commission_type: 'percentage' as const,
+      commission_rate: 0,
+      flat_commission_amount: 0,
     },
   })
 
   const handleSubmit = async (data: LocationFormData) => {
-    await onSubmit(data)
+    // Extract office manager commission data
+    const officeManagerData = data.office_manager_id ? {
+      userId: data.office_manager_id,
+      commissionEnabled: data.commission_enabled,
+      commissionRate: data.commission_rate || 0,
+      commissionType: data.commission_type,
+      flatCommissionAmount: data.flat_commission_amount || 0,
+    } : undefined
+
+    // Remove office manager fields from location data
+    const { 
+      office_manager_id, 
+      commission_enabled, 
+      commission_rate, 
+      commission_type, 
+      flat_commission_amount, 
+      ...locationData 
+    } = data
+
+    await onSubmit(locationData, officeManagerData)
     form.reset()
   }
 
@@ -231,6 +293,152 @@ export function LocationForm({ location, onSubmit, onCancel }: LocationFormProps
             </FormItem>
           )}
         />
+
+        {/* Office Manager Commission Settings */}
+        <div className="rounded-lg border p-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-medium mb-1">Office Manager Commission</h3>
+            <p className="text-sm text-muted-foreground">
+              Assign an office role user and configure their commission for jobs at this location
+            </p>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="office_manager_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Office Manager (Office Role)</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value || '')}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an office user or leave blank..." />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {officeUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name} ({user.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Only users with &quot;office&quot; role can be assigned. Leave blank for no office manager.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {form.watch('office_manager_id') && (
+            <>
+              <FormField
+                control={form.control}
+                name="commission_enabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Enable Commission</FormLabel>
+                      <FormDescription>
+                        Automatically create commission for jobs at this location
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch('commission_enabled') && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="commission_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Commission Type</FormLabel>
+                        <Select
+                          value={field.value || 'percentage'}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="percentage">Percentage of Job Value</SelectItem>
+                            <SelectItem value="flat_amount">Flat Amount per Job</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch('commission_type') === 'percentage' ? (
+                    <FormField
+                      control={form.control}
+                      name="commission_rate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Commission Rate (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              placeholder="e.g., 3.00 for 3%"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Percentage of total job value (e.g., 3.00 = 3%)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="flat_commission_amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Flat Commission Amount ($)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="e.g., 100.00"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Fixed dollar amount per job at this location
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
 
         <div className="space-y-4">
           <FormField

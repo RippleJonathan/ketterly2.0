@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -32,10 +32,18 @@ export function CompanySignatureDialog({
   defaultSignerName,
   onSuccess,
 }: CompanySignatureDialogProps) {
-  const [signerName, setSignerName] = useState(defaultSignerName || '')
-  const [signerTitle, setSignerTitle] = useState('')
+  const [signerName, setSignerName] = useState('')
   const [signatureData, setSignatureData] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Pre-fill signer name when dialog opens or defaultSignerName changes
+  useEffect(() => {
+    if (open && defaultSignerName) {
+      setSignerName(defaultSignerName)
+    } else if (open && !defaultSignerName) {
+      setSignerName('') // Clear if no default name
+    }
+  }, [open, defaultSignerName])
 
   const handleSignatureSave = (data: string) => {
     setSignatureData(data)
@@ -60,7 +68,6 @@ export function CompanySignatureDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           signer_name: signerName,
-          signer_title: signerTitle,
           signature_data: signatureData,
         }),
       })
@@ -91,26 +98,15 @@ export function CompanySignatureDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="company-signer-name">Full Name *</Label>
-              <Input
-                id="company-signer-name"
-                value={signerName}
-                onChange={(e) => setSignerName(e.target.value)}
-                placeholder="Your full name"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="company-signer-title">Title / Position</Label>
-              <Input
-                id="company-signer-title"
-                value={signerTitle}
-                onChange={(e) => setSignerTitle(e.target.value)}
-                placeholder="e.g., Project Manager, Sales Rep"
-              />
-            </div>
+          <div>
+            <Label htmlFor="company-signer-name">Full Name *</Label>
+            <Input
+              id="company-signer-name"
+              value={signerName}
+              onChange={(e) => setSignerName(e.target.value)}
+              placeholder="Your full name"
+              required
+            />
           </div>
 
           <div>

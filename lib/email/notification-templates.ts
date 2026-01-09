@@ -491,3 +491,76 @@ export function dailySummaryEmailTemplate(data: DailySummaryData): string {
 
   return emailLayout(content, { companyName: data.companyName, primaryColor: data.companyColor })
 }
+
+// =====================================================
+// CALENDAR EVENT NOTIFICATIONS
+// =====================================================
+
+interface AppointmentConfirmationEmailData {
+  customerName: string
+  customerEmail: string
+  eventType: string
+  eventTitle: string
+  eventDate: string
+  startTime?: string | null
+  endTime?: string | null
+  location?: string | null
+  meetingUrl?: string | null
+  assignedUserName: string
+  companyName: string
+  companyColor?: string
+  eventId: string
+}
+
+export function appointmentConfirmationEmailTemplate(data: AppointmentConfirmationEmailData): string {
+  const eventDateTime = data.startTime 
+    ? `${format(new Date(data.eventDate), 'EEEE, MMMM d, yyyy')} at ${data.startTime}${data.endTime ? ` - ${data.endTime}` : ''}`
+    : format(new Date(data.eventDate), 'EEEE, MMMM d, yyyy')
+
+  const content = `
+    <h2 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 700; color: #111827;">
+      📅 Appointment Confirmed
+    </h2>
+    
+    <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #111827;">
+        ${data.eventTitle}
+      </p>
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+        📅 ${eventDateTime}
+      </p>
+      ${data.location ? `
+        <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+          📍 ${data.location}
+        </p>
+      ` : ''}
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+        👤 Assigned to: ${data.assignedUserName}
+      </p>
+      ${data.meetingUrl ? `
+        <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+          🔗 <a href="${data.meetingUrl}" style="color: #3b82f6;">Join Meeting</a>
+        </p>
+      ` : ''}
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 16px; color: #374151;">
+      Hi ${data.customerName},
+    </p>
+    
+    <p style="margin: 0 0 16px 0; font-size: 16px; color: #374151;">
+      Your ${data.eventType.toLowerCase()} appointment has been scheduled. We're looking forward to working with you!
+    </p>
+
+    <p style="margin: 0 0 24px 0; font-size: 16px; color: #374151;">
+      If you need to reschedule or have any questions, please don't hesitate to contact us.
+    </p>
+
+    <a href="${process.env.NEXT_PUBLIC_APP_URL}/appointment/${data.eventId}" 
+       style="display: inline-block; background: ${data.companyColor || '#1e40af'}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-right: 12px;">
+      View Appointment Details →
+    </a>
+  `
+
+  return emailLayout(content, { companyName: data.companyName, primaryColor: data.companyColor })
+}

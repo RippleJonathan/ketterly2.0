@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     // Generate material list HTML (without prices) - use selected material orders if provided, otherwise all for the lead
     if (includeMaterialList) {
-      let ordersForList = []
+      let ordersForList: any[] = []
       
       if (materialOrderIds && materialOrderIds.length > 0) {
         // Use the already-fetched material orders from above

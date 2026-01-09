@@ -20,6 +20,7 @@ import {
   dailySummaryEmailTemplate,
 } from './notification-templates'
 import { sendPushNotification } from '@/lib/api/onesignal'
+import { format } from 'date-fns'
 
 interface UserNotificationPreferences {
   email_notifications: boolean
@@ -522,7 +523,7 @@ export async function notifyQuoteApproved(data: {
  * Send contract signed notification
  */
 export async function notifyContractSigned(data: {
-  userIds: string[]
+  userId: string
   companyId: string
   leadId: string
   customerName: string
@@ -532,35 +533,34 @@ export async function notifyContractSigned(data: {
 }) {
   const company = await getCompanyDetails(data.companyId)
 
-  for (const userId of data.userIds) {
-    const preferences = await getUserPreferences(userId)
-    if (!shouldSendNotification(preferences, 'contracts_signed')) {
-      console.log(`Skipping contracts_signed notification for user ${userId}`)
-      continue
-    }
-
-    const user = await getUserDetails(userId)
-    if (!user) continue
-
-    const html = contractSignedNotificationTemplate({
-      customerName: data.customerName,
-      contractNumber: data.contractNumber,
-      totalAmount: data.totalAmount,
-      signedAt: data.signedAt,
-      leadId: data.leadId,
-      companyName: company.name,
-      companyColor: company.primary_color,
-    })
-
-    await sendEmail({
-      from: process.env.RESEND_FROM_EMAIL || `${company.name} <noreply@ketterly.com>`,
-      to: user.email,
-      subject: `🎉 Contract Signed: ${data.customerName} - $${data.totalAmount.toLocaleString()}!`,
-      html,
-    })
-
-    console.log(`Sent contracts_signed notification to ${user.email}`)
+  const userId = data.userId
+  const preferences = await getUserPreferences(userId)
+  if (!shouldSendNotification(preferences, 'contracts_signed')) {
+    console.log(`Skipping contracts_signed notification for user ${userId}`)
+    return
   }
+
+  const user = await getUserDetails(userId)
+  if (!user) return
+
+  const html = contractSignedNotificationTemplate({
+    customerName: data.customerName,
+    contractNumber: data.contractNumber,
+    totalAmount: data.totalAmount,
+    signedAt: data.signedAt,
+    leadId: data.leadId,
+    companyName: company.name,
+    companyColor: company.primary_color,
+  })
+
+  await sendEmail({
+    from: process.env.RESEND_FROM_EMAIL || `${company.name} <noreply@ketterly.com>`,
+    to: user.email,
+    subject: `🎉 Contract Signed: ${data.customerName} - $${data.totalAmount.toLocaleString()}!`,
+    html,
+  })
+
+  console.log(`Sent contracts_signed notification to ${user.email}`)
 }
 
 /**
@@ -686,4 +686,94 @@ export async function notifyDailySummary(data: {
   })
 
   console.log(`Sent daily_summary notification to ${user.email}`)
+}
+
+/**
+ * Send appointment assigned notification
+ */
+export async function notifyAppointmentAssigned(data: {
+  assignedUserId: string
+  eventId: string
+  eventTitle: string
+  eventDate: string
+  startTime?: string | null
+  endTime?: string | null
+  location?: string | null
+  leadName?: string | null
+  companyId: string
+}) {
+  const preferences = await getUserPreferences(data.assignedUserId)
+  if (!shouldSendNotification(preferences, 'appointment_assigned')) {
+    console.log(`Skipping appointment_assigned notification for user ${data.assignedUserId}`)
+    return
+  }
+
+  const user = await getUserDetails(data.assignedUserId)
+  if (!user) return
+
+  const company = await getCompanyDetails(data.companyId)
+
+  const eventDateTime = data.startTime 
+    ? `${format(new Date(data.eventDate), 'EEEE, MMMM d, yyyy')} at ${data.startTime}${data.endTime ? ` - ${data.endTime}` : ''}`
+    : format(new Date(data.eventDate), 'EEEE, MMMM d, yyyy')
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${company.name} - Appointment Assigned</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid ${company.primary_color || '#1e40af'}; margin-bottom: 30px;">
+    <h1 style="color: ${company.primary_color || '#1e40af'}; margin: 0;">${company.name}</h1>
+  </div>
+  
+  <h2 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 700; color: #111827;">
+    📅 Appointment Assigned
+  </h2>
+  
+  <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+    <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #111827;">
+      ${data.eventTitle}
+    </p>
+    <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+      📅 ${eventDateTime}
+    </p>
+    ${data.location ? `
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+        📍 ${data.location}
+      </p>
+    ` : ''}
+    ${data.leadName ? `
+      <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+        👤 Customer: ${data.leadName}
+      </p>
+    ` : ''}
+  </div>
+
+  <p style="margin: 0 0 16px 0; font-size: 16px; color: #374151;">
+    Hi ${user.full_name},
+  </p>
+  
+  <p style="margin: 0 0 16px 0; font-size: 16px; color: #374151;">
+    You have been assigned to an upcoming appointment. Please review the details and prepare accordingly.
+  </p>
+
+  <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/calendar" 
+     style="display: inline-block; background: ${company.primary_color || '#1e40af'}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+    View in Calendar →
+  </a>
+</body>
+</html>`
+
+  await sendEmail({
+    from: process.env.RESEND_FROM_EMAIL || `${company.name} <noreply@ketterly.com>`,
+    to: user.email,
+    subject: `📅 Appointment Assigned: ${data.eventTitle}`,
+    html,
+  })
+
+  console.log(`Sent appointment_assigned notification to ${user.email}`)
 }

@@ -31,7 +31,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useCreateUser } from '@/lib/hooks/use-users'
-import { useCommissionPlans } from '@/lib/hooks/use-commission-plans'
 import { useRoleTemplates } from '@/lib/hooks/use-role-templates'
 import { UserRole } from '@/lib/types/users'
 import { useManagedLocations } from '@/lib/hooks/use-location-admin'
@@ -46,7 +45,6 @@ const createUserSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['admin', 'office', 'sales_manager', 'sales', 'production', 'marketing']),
   phone: z.string().optional(),
-  commission_plan_id: z.string().optional(),
   location_id: z.string().optional(),
 })
 
@@ -60,14 +58,12 @@ interface CreateUserDialogProps {
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   const createUser = useCreateUser()
   const assignUserToLocation = useAssignUserToLocation()
-  const { data: plansResponse } = useCommissionPlans()
   const { data: templatesResponse } = useRoleTemplates()
   const { data: locationsResponse } = useLocations()
   const { isCompanyAdmin, isLocationAdmin, managedLocationIds } = useManagedLocations()
   const { data: currentUserData } = useCurrentUser()
   const currentUser = currentUserData?.data
 
-  const plans = plansResponse?.data || []
   const templates = templatesResponse?.data || []
   const allLocations = locationsResponse?.data || []
   
@@ -100,21 +96,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       password: '',
       phone: '',
       role: 'sales',
-      commission_plan_id: 'none',
       location_id: getDefaultLocationId(),
     },
   })
 
   const onSubmit = async (data: CreateUserFormData) => {
     try {
-      // Convert "none" values to null for optional fields
-      const submitData = {
-        ...data,
-        commission_plan_id: data.commission_plan_id === 'none' ? undefined : data.commission_plan_id,
-      }
-      
       // Create the user first
-      const result = await createUser.mutateAsync(submitData as any)
+      const result = await createUser.mutateAsync(data as any)
       
       if (!result.data) return
       
@@ -255,35 +244,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 )}
               />
 
-            </div>
-
-            {/* Commission Plan */}
-            <div className="space-y-4 border-t pt-4">
-              <FormField
-                control={form.control}
-                name="commission_plan_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Commission Plan (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a commission plan" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {plans.map((plan) => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            {plan.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Location Assignment - Only show for admins */}

@@ -116,56 +116,61 @@ export async function POST(
       )
     }
 
-    // Update quote status to 'sent' and set sent_at timestamp
-    const { error: updateError } = await supabase
-      .from('quotes')
-      .update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-      })
-      .eq('id', quoteId)
-
-    // Automatically update lead status: QUOTE/ESTIMATING -> QUOTE/QUOTE_SENT
-    await applyStatusTransition(
-      userData.company_id,
-      quote.lead_id,
-      getStatusAfterQuoteSent(),
-      userData.id
-    )
-
-    // Log activity (best-effort)
-    try {
-      await supabase
-        .from('quote_activities')
-        .insert({
-          company_id: userData.company_id,
-          quote_id: quoteId,
-          lead_id: quote.lead_id,
-          user_id: userData.id,
-          type: 'quote_sent',
+    // Update quote status to 'sent' ONLY if currently 'draft'
+    // Don't change status if already sent/signed to avoid breaking workflow
+    if (quote.status === 'draft') {
+      const { error: updateError } = await supabase
+        .from('quotes')
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
         })
-    } catch (e) {
-      // ignore if table doesn't exist yet
+        .eq('id', quoteId)
+
+      if (updateError) {
+        console.error('Failed to update quote status:', updateError)
+        // Don't fail the request since email was sent successfully
+      }
+
+      // Automatically update lead status: QUOTE/ESTIMATING -> QUOTE/QUOTE_SENT
+      await applyStatusTransition(
+        userData.company_id,
+        quote.lead_id,
+        getStatusAfterQuoteSent(),
+        userData.id
+      )
     }
 
-    // Send notification to team (if quote is assigned to someone)
-    if (quote.lead?.assigned_to && quote.lead.assigned_to !== userData.id) {
-      notifyQuoteSent({
-        userId: quote.lead.assigned_to,
-        companyId: userData.company_id,
-        leadId: quote.lead_id,
-        quoteId,
-        customerName: quote.lead.full_name,
-        quoteNumber: quote.quote_number || quoteId.slice(0, 8),
-        totalAmount: quote.grand_total || 0,
-        sentByUserId: userData.id,
-        sentAt: new Date().toISOString(),
-      }).catch(err => console.error('Failed to send quote notification:', err))
-    }
+    // Log activity (best-effort) - only for first send
+    if (quote.status === 'draft') {
+      try {
+        await supabase
+          .from('quote_activities')
+          .insert({
+            company_id: userData.company_id,
+            quote_id: quoteId,
+            lead_id: quote.lead_id,
+            user_id: userData.id,
+            type: 'quote_sent',
+          })
+      } catch (e) {
+        // ignore if table doesn't exist yet
+      }
 
-    if (updateError) {
-      console.error('Failed to update quote status:', updateError)
-      // Don't fail the request since email was sent successfully
+      // Send notification to team (if quote is assigned to someone)
+      if (quote.lead?.assigned_to && quote.lead.assigned_to !== userData.id) {
+        notifyQuoteSent({
+          userId: quote.lead.assigned_to,
+          companyId: userData.company_id,
+          leadId: quote.lead_id,
+          quoteId,
+          customerName: quote.lead.full_name,
+          quoteNumber: quote.quote_number || quoteId.slice(0, 8),
+          totalAmount: quote.grand_total || 0,
+          sentByUserId: userData.id,
+          sentAt: new Date().toISOString(),
+        }).catch(err => console.error('Failed to send quote notification:', err))
+      }
     }
 
     return NextResponse.json({

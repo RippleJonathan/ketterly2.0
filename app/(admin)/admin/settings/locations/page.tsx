@@ -44,6 +44,7 @@ import {
   useDeleteLocation,
   useSetPrimaryLocation,
 } from '@/lib/hooks/use-locations'
+import { useSetLocationOfficeManager, useLocationOfficeManager } from '@/lib/hooks/use-location-team'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { useManagedLocations } from '@/lib/hooks/use-location-admin'
@@ -116,25 +117,55 @@ export default function LocationsPage() {
   const updateLocation = useUpdateLocation()
   const deleteLocation = useDeleteLocation()
   const setPrimary = useSetPrimaryLocation()
+  const setOfficeManager = useSetLocationOfficeManager()
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [deletingLocation, setDeletingLocation] = useState<Location | null>(null)
 
-  const handleCreate = async (data: any) => {
-    await createLocation.mutateAsync({
+  // Fetch office manager when editing
+  const { data: officeManagerResponse } = useLocationOfficeManager(editingLocation?.id || '')
+
+  const handleCreate = async (data: any, officeManagerData?: any) => {
+    const result = await createLocation.mutateAsync({
       ...data,
       company_id: company!.id,
     })
+    
+    // If office manager was selected, set it up
+    if (officeManagerData && result.data?.id) {
+      await setOfficeManager.mutateAsync({
+        locationId: result.data.id,
+        userId: officeManagerData.userId,
+        commissionEnabled: officeManagerData.commissionEnabled,
+        commissionRate: officeManagerData.commissionRate,
+        commissionType: officeManagerData.commissionType,
+        flatCommissionAmount: officeManagerData.flatCommissionAmount,
+      })
+    }
+    
     setIsCreateDialogOpen(false)
   }
 
-  const handleUpdate = async (data: any) => {
+  const handleUpdate = async (data: any, officeManagerData?: any) => {
     if (!editingLocation) return
+    
+    // Update location first
     await updateLocation.mutateAsync({
       id: editingLocation.id,
       ...data,
     })
+    
+    // Always update office manager (even if removing it by passing null userId)
+    await setOfficeManager.mutateAsync({
+      locationId: editingLocation.id,
+      userId: officeManagerData?.userId || null,
+      commissionEnabled: officeManagerData?.commissionEnabled || false,
+      commissionRate: officeManagerData?.commissionRate || 0,
+      commissionType: officeManagerData?.commissionType || 'percentage',
+      flatCommissionAmount: officeManagerData?.flatCommissionAmount || 0,
+    })
+    
     setEditingLocation(null)
   }
 
@@ -215,10 +246,16 @@ export default function LocationsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingLocation(location)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
+                      <DropdownMenuItem onClick={() => router.push(`/admin/settings/locations/${location.id}`)}>
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                        View Details
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem onClick={() => setEditingLocation(location)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit Settings
+                        </DropdownMenuItem>
+                      )}
                       {isAdmin && !location.is_primary && (
                         <DropdownMenuItem onClick={() => handleSetPrimary(location.id)}>
                           <Star className="h-4 w-4 mr-2" />
@@ -324,6 +361,13 @@ export default function LocationsPage() {
           {editingLocation && (
             <LocationForm
               location={editingLocation}
+              existingOfficeManager={officeManagerResponse?.data ? {
+                userId: officeManagerResponse.data.user_id,
+                commissionEnabled: officeManagerResponse.data.commission_enabled,
+                commissionRate: officeManagerResponse.data.commission_rate,
+                commissionType: officeManagerResponse.data.commission_type,
+                flatCommissionAmount: officeManagerResponse.data.flat_commission_amount,
+              } : undefined}
               onSubmit={handleUpdate}
               onCancel={() => setEditingLocation(null)}
             />

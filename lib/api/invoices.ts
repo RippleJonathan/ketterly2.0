@@ -21,6 +21,7 @@ import {
 } from '@/lib/types/invoices'
 import { applyStatusTransition } from './leads'
 import { LeadStatus, LeadSubStatus } from '@/lib/types/enums'
+import { checkClosureRequirements } from '@/lib/utils/lead-closure-checks'
 
 const supabase = createClient()
 
@@ -40,7 +41,7 @@ export async function getInvoices(
       .from('customer_invoices')
       .select(`
         *,
-        lead:leads!customer_invoices_lead_id_fkey(full_name, email, phone, address, city, state, zip),
+        lead:leads!inner(full_name, email, phone, address, city, state, zip, deleted_at),
         quote:quotes!customer_invoices_quote_id_fkey(quote_number, title),
         line_items:invoice_line_items(*),
         payments:payments(*),
@@ -48,6 +49,7 @@ export async function getInvoices(
       `)
       .eq('company_id', companyId)
       .is('deleted_at', null)
+      .is('lead.deleted_at', null)
       .order('invoice_date', { ascending: false })
 
     if (filters?.status) {
@@ -86,7 +88,7 @@ export async function getInvoiceById(
       .from('customer_invoices')
       .select(`
         *,
-        lead:leads!customer_invoices_lead_id_fkey(full_name, email, phone, address, city, state, zip),
+        lead:leads!inner(full_name, email, phone, address, city, state, zip, deleted_at),
         quote:quotes!customer_invoices_quote_id_fkey(quote_number, title),
         line_items:invoice_line_items(*),
         payments:payments(*),
@@ -94,6 +96,7 @@ export async function getInvoiceById(
       `)
       .eq('id', invoiceId)
       .is('deleted_at', null)
+      .is('lead.deleted_at', null)
       .single()
 
     if (error) throw error
@@ -132,14 +135,54 @@ export async function createInvoice(
     // AUTO-TRANSITION: Invoice created → INVOICED/INVOICE_SENT
     if (invoice.lead_id && invoice.company_id) {
       try {
+        console.log('🎯 Invoice created, processing auto-transitions and commissions...')
+        
         // Get current lead status
         const { data: leadData } = await supabase
           .from('leads')
-          .select('status, sub_status')
+          .select('status, sub_status, sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id')
           .eq('id', invoice.lead_id)
           .single()
 
+        console.log('📋 Lead data:', leadData)
+
         if (leadData) {
+          // Auto-create commissions for all assigned users
+          const { autoCreateCommission } = await import('@/lib/utils/auto-commission')
+          const userFieldMap: Array<{ userId: string; field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
+          
+          if (leadData.sales_rep_id) userFieldMap.push({ userId: leadData.sales_rep_id, field: 'sales_rep_id' })
+          if (leadData.marketing_rep_id) userFieldMap.push({ userId: leadData.marketing_rep_id, field: 'marketing_rep_id' })
+          if (leadData.sales_manager_id) userFieldMap.push({ userId: leadData.sales_manager_id, field: 'sales_manager_id' })
+          if (leadData.production_manager_id) userFieldMap.push({ userId: leadData.production_manager_id, field: 'production_manager_id' })
+          
+          console.log(`💼 Creating commissions for ${userFieldMap.length} assigned users:`, userFieldMap.map(u => u.field))
+          
+          // Create commissions for all assigned users
+          if (userFieldMap.length > 0) {
+            const promises = userFieldMap.map(({ userId, field }) => 
+              autoCreateCommission(invoice.lead_id!, userId, invoice.company_id, null, field, true)
+                .then(result => {
+                  console.log(`✅ Commission for ${field}:`, result)
+                  return result
+                })
+                .catch(err => {
+                  console.error(`❌ Failed to auto-create commission for ${field}:`, err)
+                  return { success: false }
+                })
+            )
+            await Promise.all(promises)
+          }
+
+          console.log('🔄 Recalculating all commission amounts...')
+          
+          // Recalculate all commission amounts based on the invoice
+          const { recalculateLeadCommissions } = await import('@/lib/utils/recalculate-commissions')
+          await recalculateLeadCommissions(invoice.lead_id, invoice.company_id)
+
+          console.log('📊 Updating lead status to INVOICED...')
+
+          // Update lead status
           await applyStatusTransition(
             invoice.lead_id,
             invoice.company_id,
@@ -156,10 +199,12 @@ export async function createInvoice(
               },
             }
           )
+          
+          console.log('✅ All auto-transitions and commissions complete')
         }
       } catch (statusError) {
         // Don't fail invoice creation if status update fails
-        console.error('Failed to update lead status after invoice creation:', statusError)
+        console.error('❌ Failed to update lead status after invoice creation:', statusError)
       }
     }
 
@@ -217,41 +262,19 @@ export async function getNextInvoiceNumber(
   companyId: string
 ): Promise<ApiResponse<string>> {
   try {
+    console.log('🔢 Calling generate_invoice_number RPC with company_id:', companyId)
+    
+    // Use the database RPC function which properly handles deleted_at filtering
     const { data, error } = await supabase
-      .from('customer_invoices')
-      .select('invoice_number')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .rpc('generate_invoice_number', { p_company_id: companyId })
+
+    console.log('🔢 RPC response:', { data, error })
 
     if (error) throw error
-
-    const year = new Date().getFullYear()
-    if (!data || data.length === 0) {
-      return { data: `INV-${year}-001`, error: null }
-    }
-
-    // Extract number from last invoice (format: INV-YYYY-NNN)
-    const lastNumber = data[0].invoice_number
-    const match = lastNumber.match(/INV-(\d{4})-(\d{3})/)
     
-    if (match) {
-      const lastYear = parseInt(match[1])
-      const lastNum = parseInt(match[2])
-      
-      // Reset counter if new year
-      if (lastYear < year) {
-        return { data: `INV-${year}-001`, error: null }
-      }
-      
-      // Increment number
-      const nextNum = (lastNum + 1).toString().padStart(3, '0')
-      return { data: `INV-${year}-${nextNum}`, error: null }
-    }
-
-    // Fallback
-    return { data: `INV-${year}-001`, error: null }
+    return { data: data as string, error: null }
   } catch (error) {
+    console.error('🔢 RPC error:', error)
     return createErrorResponse(error)
   }
 }
@@ -380,6 +403,70 @@ export async function createPayment(
       .single()
 
     if (error) throw error
+    
+    // AUTO-CLOSURE CHECK: After payment is created, check if lead can be closed
+    if (data && payment.lead_id && payment.company_id) {
+      try {
+        // Get the invoice to check if it's fully paid
+        const { data: invoice } = await supabase
+          .from('customer_invoices')
+          .select('id, total, amount_paid, status')
+          .eq('id', payment.invoice_id)
+          .single()
+        
+        if (invoice) {
+          const totalPaid = Number(invoice.amount_paid || 0) + Number(payment.amount)
+          const invoiceTotal = Number(invoice.total || 0)
+          const isFullyPaid = totalPaid >= invoiceTotal
+          
+          if (isFullyPaid) {
+            // Check all closure requirements
+            const requirements = await checkClosureRequirements(payment.lead_id, payment.company_id)
+            
+            if (requirements.canClose) {
+              // All requirements met - auto-close the lead
+              await applyStatusTransition(
+                payment.lead_id,
+                payment.company_id,
+                {
+                  from_status: LeadStatus.INVOICED,
+                  from_sub_status: LeadSubStatus.PAID,
+                  to_status: LeadStatus.CLOSED,
+                  to_sub_status: LeadSubStatus.COMPLETED,
+                  automated: true,
+                  metadata: { 
+                    action: 'auto_closed_after_payment',
+                    payment_id: data.id,
+                    requirements: requirements.checks 
+                  }
+                }
+              )
+            } else {
+              // Payment complete but other requirements pending - move to PAID status
+              await applyStatusTransition(
+                payment.lead_id,
+                payment.company_id,
+                {
+                  from_status: LeadStatus.INVOICED,
+                  from_sub_status: null,
+                  to_status: LeadStatus.INVOICED,
+                  to_sub_status: LeadSubStatus.PAID,
+                  automated: true,
+                  metadata: { 
+                    action: 'payment_complete_pending_closure',
+                    pending: requirements.pendingItems 
+                  }
+                }
+              )
+            }
+          }
+        }
+      } catch (closureError) {
+        // Don't fail payment creation if closure check fails
+        console.error('Error checking lead closure:', closureError)
+      }
+    }
+    
     return { data: data as Payment, error: null }
   } catch (error) {
     return createErrorResponse(error)

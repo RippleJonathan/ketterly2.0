@@ -107,11 +107,12 @@ export async function getLeads(
     }
 
     // Multi-location filtering: If location_id is an array, show leads from all those locations
+    // Exclude null/no location leads from location-specific filtering
     if (filters?.location_id) {
       if (Array.isArray(filters.location_id)) {
-        query = query.in('location_id', filters.location_id)
+        query = query.in('location_id', filters.location_id).not('location_id', 'is', null)
       } else {
-        query = query.eq('location_id', filters.location_id)
+        query = query.eq('location_id', filters.location_id).not('location_id', 'is', null)
       }
     }
 
@@ -213,6 +214,21 @@ export async function createLead(
 ): Promise<ApiResponse<Lead>> {
   try {
     const supabase = createClient()
+    
+    // Auto-assign primary location if not specified
+    if (!lead.location_id) {
+      const { data: primaryLocation } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('is_primary', true)
+        .is('deleted_at', null)
+        .single()
+      
+      if (primaryLocation) {
+        lead.location_id = primaryLocation.id
+      }
+    }
     
     const { data, error } = await supabase
       .from('leads')

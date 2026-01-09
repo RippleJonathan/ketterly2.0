@@ -88,7 +88,8 @@ export function AssignUserDropdown({ leadId, currentAssignedTo, compact = false 
     }
 
     // Automatically create/update commission for assigned user (non-blocking)
-    await autoCreateCommission(leadId, assignedTo, company.id, currentUser.id)
+    // Note: This component uses assigned_to which maps to sales_rep_id
+    await autoCreateCommission(leadId, assignedTo, company.id, currentUser.id, 'sales_rep_id')
 
     queryClient.invalidateQueries({ queryKey: ['leads', company.id] })
     queryClient.invalidateQueries({ queryKey: ['leads', company.id, leadId] })

@@ -112,6 +112,23 @@ export function EstimatesTab({
   const startPresentation = useStartPresentation()
   const completeSession = useCompletePresentationSession()
 
+  // Get current user's profile data (full_name, etc.)
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, full_name, phone')
+        .eq('id', user.id)
+        .single()
+      if (error) throw error
+      return data
+    },
+    enabled: !!user?.id,
+  })
+
   // Real-time subscription for quote and change order updates
   useEffect(() => {
     const supabase = createClient()
@@ -186,6 +203,12 @@ export function EstimatesTab({
             city, 
             state, 
             zip,
+            assigned_user:users!leads_assigned_to_fkey(
+              id,
+              full_name,
+              email,
+              phone
+            ),
             location:locations(
               id,
               name,
@@ -201,7 +224,13 @@ export function EstimatesTab({
               license_number
             )
           ),
-          company:companies(*)
+          company:companies(*),
+          creator:users!quotes_created_by_fkey(
+            id,
+            full_name,
+            email,
+            phone
+          )
         `)
         .eq('id', quoteId)
         .single()
@@ -419,6 +448,7 @@ export function EstimatesTab({
                 setChangeOrderData({ quoteId, totalChange, changeDescription: description })
                 setChangeOrderDialogOpen(true)
               }}
+              userProfile={userProfile}
             />
           ))}
         </div>
@@ -495,9 +525,10 @@ interface QuoteCardProps {
   isGenerating: boolean
   onDownloadPDF: () => void
   onGenerateChangeOrder: (quoteId: string, totalChange: number, description: string) => void
+  userProfile: any
 }
 
-function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownloadPDF, onGenerateChangeOrder }: QuoteCardProps) {
+function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownloadPDF, onGenerateChangeOrder, userProfile }: QuoteCardProps) {
   const { user } = useAuth()
   const sendQuoteEmail = useSendQuoteEmail()
   const duplicateQuote = useDuplicateQuote()
@@ -511,6 +542,8 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   const [changeOrderSignatureOpen, setChangeOrderSignatureOpen] = useState(false)
   const [changeOrderBuilderOpen, setChangeOrderBuilderOpen] = useState(false)
   const [editingChangeOrderId, setEditingChangeOrderId] = useState<string | null>(null)
+  const [isGeneratingContract, setIsGeneratingContract] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
 
   // Get contract for this quote if it's accepted
   const { data: contract } = useQuery({
@@ -601,12 +634,128 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   }
 
   const handleSendToCustomer = async () => {
-    // Send email with PDF attachment and get the share token
-    const result = await sendQuoteEmail.mutateAsync({ quoteId: quote.id, includePdf: true })
-    if (result?.shareToken) {
-      const url = `${window.location.origin}/quote/${result.shareToken}`
-      setShareUrl(url)
-      setShareDialogOpen(true)
+    if (isSendingEmail) return // Prevent multiple clicks
+    
+    try {
+      setIsSendingEmail(true)
+      
+      // If quote is already accepted (customer signed), send executed contract email
+      if (quote.status === 'accepted') {
+        console.log('Quote is accepted - sending executed contract email')
+        const response = await fetch(`/api/quotes/${quote.id}/send-executed-contract`, {
+          method: 'POST',
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Failed to send executed contract: ${response.status} ${errorText}`)
+        }
+        
+        toast.success('Executed contract sent successfully!')
+        return
+      }
+
+      // Generate share token first if it doesn't exist
+      if (!quote.share_token) {
+        console.log('Generating share token before sending email')
+        const response = await fetch(`/api/quotes/${quote.id}/generate-share-link`, {
+          method: 'POST',
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to generate share link')
+        }
+        
+        // Refresh quote data to get the new share_token
+        await queryClient.invalidateQueries({ queryKey: ['quotes'] })
+        await queryClient.invalidateQueries({ queryKey: ['quote', quote.id] })
+      }
+      
+      // Send the regular quote email
+      await sendQuoteEmail.mutateAsync({ quoteId: quote.id, includePdf: true })
+      toast.success('Quote sent successfully!')
+    } catch (error: any) {
+      console.error('Failed to send quote:', error)
+      toast.error(error.message || 'Failed to send quote')
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const handleGenerateShareToken = async () => {
+    try {
+      console.log('Generating share token for quote:', quote.id)
+      // Generate share token by calling the send-email API without actually sending
+      // This is needed for iPad signing in draft mode
+      const response = await fetch(`/api/quotes/${quote.id}/generate-share-link`, {
+        method: 'POST',
+      })
+      
+      console.log('API response status:', response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('API error response:', errorText)
+        throw new Error(`Failed to generate share link: ${response.status} ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('API response data:', data)
+      
+      // Refresh the quote data
+      queryClient.invalidateQueries({ queryKey: ['quotes'] })
+      queryClient.invalidateQueries({ queryKey: ['quote', quote.id] })
+      
+      // Open the signing page
+      if (data.shareToken) {
+        console.log('Opening signing page with token:', data.shareToken)
+        window.open(`${window.location.origin}/quote/${data.shareToken}`, '_blank')
+      } else {
+        console.error('No shareToken in response:', data)
+        toast.error('Failed to generate share link - no token received')
+      }
+    } catch (error: any) {
+      console.error('handleGenerateShareToken error:', error)
+      toast.error(error.message || 'Failed to generate share link')
+    }
+  }
+
+  const handleGenerateContract = async () => {
+    setIsGeneratingContract(true)
+    try {
+      if (!quote.share_token) {
+        console.log('Generating share token for contract')
+        const response = await fetch(`/api/quotes/${quote.id}/generate-share-link`, {
+          method: 'POST',
+        })
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Failed to generate share link: ${response.status} ${errorText}`)
+        }
+        
+        const data = await response.json()
+        
+        // Refresh the quote data
+        await queryClient.invalidateQueries({ queryKey: ['quotes'] })
+        await queryClient.invalidateQueries({ queryKey: ['quote', quote.id] })
+        
+        // Open the signing page with the new token
+        if (data.shareToken) {
+          window.open(`${window.location.origin}/quote/${data.shareToken}`, '_blank')
+          toast.success('Contract ready for signing')
+        } else {
+          throw new Error('No share token received')
+        }
+      } else {
+        // Token already exists, just open the signing page
+        window.open(`${window.location.origin}/quote/${quote.share_token}`, '_blank')
+      }
+    } catch (error: any) {
+      console.error('handleGenerateContract error:', error)
+      toast.error(error.message || 'Failed to generate contract')
+    } finally {
+      setIsGeneratingContract(false)
     }
   }
 
@@ -629,6 +778,14 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   const comparison = comparisonData?.data
   const hasContractChanges = comparison?.has_changes || false
   const totalChange = comparison?.total_change || 0
+
+  // Track signature status from contract
+  const hasCustomerSignature = contract?.customer_signature_data != null
+  const hasCompanySignature = contract?.company_signature_data != null
+  const bothSigned = hasCustomerSignature && hasCompanySignature
+
+  // Determine if quote has been sent (not just draft)
+  const hasBeenSent = quote.status !== 'draft'
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1166,107 +1323,47 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-wrap">
-            {quote.status === 'draft' && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={handleSendToCustomer}
-                  disabled={sendQuoteEmail.isPending}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  {sendQuoteEmail.isPending ? 'Sending...' : 'Send to Customer'}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={onEdit}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              </>
+            {/* Email to Customer - Always visible, sends appropriate version based on status */}
+            <Button
+              size="sm"
+              onClick={handleSendToCustomer}
+              disabled={sendQuoteEmail.isPending || isSendingEmail}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              {sendQuoteEmail.isPending || isSendingEmail ? 'Sending...' : 'Email to Customer'}
+            </Button>
+
+            {/* Generate Contract / Sign Contract - Hidden if both signatures are complete */}
+            {!bothSigned && (
+              <Button
+                size="sm"
+                onClick={handleGenerateContract}
+                disabled={isGeneratingContract}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <PenTool className="h-4 w-4 mr-2" />
+                {isGeneratingContract
+                  ? 'Generating...'
+                  : quote.share_token
+                  ? 'Sign Contract'
+                  : 'Generate Contract'}
+              </Button>
             )}
 
-            {(quote.status === 'sent' || quote.status === 'viewed') && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (quote.share_token) {
-                      const url = `${window.location.origin}/quote/${quote.share_token}`
-                      setShareUrl(url)
-                      setShareDialogOpen(true)
-                    }
-                  }}
-                  disabled={!quote.share_token}
-                >
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                  View Link
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => sendQuoteEmail.mutate({ quoteId: quote.id, includePdf: true })}
-                  disabled={sendQuoteEmail.isPending}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  {sendQuoteEmail.isPending ? 'Resending...' : 'Resend Email'}
-                </Button>
-              </>
+            {/* Edit - Hidden if customer has signed */}
+            {!hasCustomerSignature && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={onEdit}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
             )}
 
-            {(quote.status === 'sent' || quote.status === 'viewed' || quote.status === 'pending_company_signature' || quote.status === 'pending_customer_signature') && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => setSignatureDialogOpen(true)}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <PenTool className="h-4 w-4 mr-2" />
-                  Sign as Company Rep
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (quote.share_token) {
-                      window.open(`${window.location.origin}/quote/${quote.share_token}`, '_blank')
-                    }
-                  }}
-                  disabled={!quote.share_token}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View Quote
-                </Button>
-              </>
-            )}
-
-            {quote.status === 'accepted' && contract && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setChangeOrderBuilderOpen(true)}
-                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Change Order
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => {
-                    toast.info('Invoice generation coming soon!')
-                  }}
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Generate Invoice
-                </Button>
-              </>
-            )}
-
+            {/* Download PDF - Always visible */}
             <Button
               size="sm"
               variant="outline"
@@ -1274,9 +1371,10 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               disabled={isGenerating}
             >
               <Download className="h-4 w-4 mr-2" />
-              {isGenerating ? 'Generating...' : 'Download PDF'}
+              {isGenerating ? 'Generating...' : 'Download'}
             </Button>
 
+            {/* Duplicate - Always visible */}
             <Button
               size="sm"
               variant="outline"
@@ -1289,33 +1387,32 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
               Duplicate
             </Button>
 
-            {quote.status === 'draft' && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
-                    <Trash2 className="h-4 w-4 mr-2" />
+            {/* Delete - Always visible */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Estimate</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete {quote.quote_number}? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteQuote.mutate(quote.id)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
                     Delete
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Estimate</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete {quote.quote_number}? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => deleteQuote.mutate(quote.id)}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       )}
@@ -1386,6 +1483,7 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
         onOpenChange={setSignatureDialogOpen}
         quoteId={quote.id}
         quoteNumber={quote.quote_number}
+        defaultSignerName={userProfile?.full_name}
         onSuccess={() => window.location.reload()}
       />
 

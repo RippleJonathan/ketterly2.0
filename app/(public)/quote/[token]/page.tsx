@@ -82,6 +82,12 @@ interface QuoteData {
   lead?: Lead
   company?: Company
   signature?: Signature[]
+  creator?: {
+    id: string
+    full_name: string
+    email: string
+    phone: string | null
+  }
   // Legacy property names (for backwards compatibility)
   quote_line_items?: LineItem[]
   leads?: Lead
@@ -105,6 +111,15 @@ export default function PublicQuotePage() {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
+
+  // Company signature modal state
+  const [showCompanySignModal, setShowCompanySignModal] = useState(false)
+  const [companySignerName, setCompanySignerName] = useState('')
+  const [companySignerEmail, setCompanySignerEmail] = useState('')
+  const [companyAcceptedTerms, setCompanyAcceptedTerms] = useState(false)
+  const [companySignatureDataUrl, setCompanySignatureDataUrl] = useState<string | null>(null)
+  const [companySignError, setCompanySignError] = useState<string | null>(null)
+  const [companySigning, setCompanySigning] = useState(false)
 
   useEffect(() => {
     const fetchQuote = async () => {
@@ -131,10 +146,20 @@ export default function PublicQuotePage() {
         const companyData = data.company || data.companies
         if (companyData?.logo_url) {
           try {
-            const logoResponse = await fetch(`/api/quotes/${data.id}/logo?token=${token}`)
-            if (logoResponse.ok) {
-              const { logo } = await logoResponse.json()
-              if (logo) setLogoBase64(logo)
+            // If logo_url is a Supabase storage URL, fetch it directly
+            if (companyData.logo_url.startsWith('http')) {
+              const logoResponse = await fetch(companyData.logo_url)
+              if (logoResponse.ok) {
+                const blob = await logoResponse.blob()
+                const reader = new FileReader()
+                reader.onload = () => {
+                  setLogoBase64(reader.result as string)
+                }
+                reader.readAsDataURL(blob)
+              }
+            } else {
+              // If it's already base64, use it directly
+              setLogoBase64(companyData.logo_url)
             }
           } catch (err) {
             console.warn('Failed to fetch logo:', err)
@@ -190,6 +215,7 @@ export default function PublicQuotePage() {
   const signatures = quote.signature || quote.quote_signatures || []
   const customerSignature = signatures.find(s => s.signer_type === 'customer')
   const companySignature = signatures.find(s => s.signer_type === 'company_rep')
+  const creator = quote.creator // Creator information from the API
 
   // Use location data if available, otherwise fallback to company data
   const displayName = location?.name || company?.name || 'Company Name'
@@ -217,6 +243,44 @@ export default function PublicQuotePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* Floating Sign Button - Similar to DocuSign */}
+        {quote.status !== 'expired' && quote.status !== 'declined' && (!customerSignature || !companySignature) && (
+          <div className="fixed top-4 right-4 z-40 print:hidden">
+            <button
+              onClick={() => {
+                const signatureSection = document.getElementById('signature-section')
+                if (signatureSection) {
+                  signatureSection.scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                  })
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 font-semibold"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Sign Document
+            </button>
+          </div>
+        )}
+
+        {/* Close/Return Button - For PWA/Mobile users */}
+        <div className="fixed top-4 left-4 z-40 print:hidden">
+          <button
+            onClick={() => window.close()}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 font-semibold"
+            title="Close this window and return"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Close & Return
+          </button>
+        </div>
+
         {/* Quote Document */}
         <div className="bg-white shadow-lg rounded-lg p-8 md:p-12 print:shadow-none">
           {/* Header */}
@@ -250,7 +314,7 @@ export default function PublicQuotePage() {
             </div>
           </div>
 
-          {/* Customer Information */}
+          {/* Customer and Rep Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-gray-50 p-4 rounded-lg border-l-4" style={{ borderColor: primaryColor }}>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
@@ -262,6 +326,18 @@ export default function PublicQuotePage() {
                 {lead?.phone && <div className="text-sm text-gray-600">{lead.phone}</div>}
                 {lead?.address && <div className="text-sm text-gray-600">{lead.address}</div>}
                 {lead?.city && <div className="text-sm text-gray-600">{lead.city}, {lead.state} {lead.zip}</div>}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg border-l-4" style={{ borderColor: primaryColor }}>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                Sales Representative
+              </h3>
+              <div className="space-y-1">
+                <div className="font-semibold text-gray-900">{creator?.full_name || 'Sales Rep'}</div>
+                {creator?.email && <div className="text-sm text-gray-600">{creator.email}</div>}
+                {creator?.phone && <div className="text-sm text-gray-600">{creator.phone}</div>}
+                <div className="text-sm text-gray-600">{company?.name || 'Company'}</div>
               </div>
             </div>
           </div>
@@ -493,33 +569,63 @@ export default function PublicQuotePage() {
             </div>
           )}
 
-          {/* E-Sign Button */}
-          {!customerSignature && quote.status !== 'expired' && quote.status !== 'declined' && (
-            <div className="mt-8 print:hidden">
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
-                <h3 className="text-lg font-bold text-blue-900 mb-2">
-                  Ready to Accept This Quote?
-                </h3>
-                <p className="text-sm text-blue-700 mb-4">
-                  Click below to electronically sign and accept this quote
-                </p>
-                <button
-                  onClick={() => {
-                    // Pre-fill email from lead data if available
-                    if (lead?.email && !signerEmail) {
-                      setSignerEmail(lead.email)
-                    }
-                    if (lead?.full_name && !signerName) {
-                      setSignerName(lead.full_name)
-                    }
-                    setShowSignModal(true)
-                  }}
-                  className="px-8 py-3 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  Sign & Accept Quote
-                </button>
-              </div>
+          {/* E-Sign Buttons */}
+          {quote.status !== 'expired' && quote.status !== 'declined' && (
+            <div id="signature-section" className="mt-8 print:hidden space-y-4">
+              {/* Customer Sign Button */}
+              {!customerSignature && (
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
+                  <h3 className="text-lg font-bold text-blue-900 mb-2">
+                    Ready to Accept This Quote?
+                  </h3>
+                  <p className="text-sm text-blue-700 mb-4">
+                    Click below to electronically sign and accept this quote
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Pre-fill email from lead data if available
+                      if (lead?.email && !signerEmail) {
+                        setSignerEmail(lead.email)
+                      }
+                      if (lead?.full_name && !signerName) {
+                        setSignerName(lead.full_name)
+                      }
+                      setShowSignModal(true)
+                    }}
+                    className="px-8 py-3 text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    Sign & Accept Quote (Customer)
+                  </button>
+                </div>
+              )}
+
+              {/* Company Sign Button */}
+              {!companySignature && (
+                <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 text-center">
+                  <h3 className="text-lg font-bold text-green-900 mb-2">
+                    Company Representative Signature
+                  </h3>
+                  <p className="text-sm text-green-700 mb-4">
+                    Sign as company representative to authorize this quote
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Pre-fill name and email from creator if available
+                      if (creator?.full_name && !companySignerName) {
+                        setCompanySignerName(creator.full_name)
+                      }
+                      if (creator?.email && !companySignerEmail) {
+                        setCompanySignerEmail(creator.email)
+                      }
+                      setShowCompanySignModal(true)
+                    }}
+                    className="px-8 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                  >
+                    Sign as Company Rep
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -719,6 +825,215 @@ export default function PublicQuotePage() {
                     style={{ backgroundColor: primaryColor }}
                   >
                     {signing ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Submitting...
+                      </span>
+                    ) : (
+                      'Submit Signature'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Company Signature Modal */}
+          {showCompanySignModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
+              <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-xl">
+                {/* Modal Header */}
+                <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-gray-900">Company Representative Signature</h3>
+                  <button
+                    onClick={() => {
+                      setShowCompanySignModal(false)
+                      setCompanySignatureDataUrl(null)
+                      setCompanySignError(null)
+                    }}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-6">
+                  {/* Quote Summary */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="text-sm text-gray-600 mb-1">Quote #{quote.quote_number}</div>
+                    <div className="text-2xl font-bold" style={{ color: primaryColor }}>
+                      ${quote.total_amount.toFixed(2)}
+                    </div>
+                    {quote.option_label && (
+                      <div className="text-sm text-gray-500 mt-1">{quote.option_label}</div>
+                    )}
+                  </div>
+
+                  {/* Signer Information */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Your Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Full Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={companySignerName}
+                          onChange={(e) => setCompanySignerName(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          placeholder="Enter your full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email Address <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={companySignerEmail}
+                          onChange={(e) => setCompanySignerEmail(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          placeholder="you@company.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Signature Pad */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Your Signature</h4>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-white">
+                      <SignaturePad
+                        width={500}
+                        height={150}
+                        onSave={(dataUrl) => setCompanySignatureDataUrl(dataUrl)}
+                        onCancel={() => setCompanySignatureDataUrl(null)}
+                      />
+                    </div>
+                    {companySignatureDataUrl && (
+                      <div className="mt-2 flex items-center text-sm text-green-600">
+                        <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Signature captured
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Terms Acceptance */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={companyAcceptedTerms}
+                        onChange={(e) => setCompanyAcceptedTerms(e.target.checked)}
+                        className="mt-1 h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        I have read and agree to the terms and conditions outlined in this quote. 
+                        By signing, I authorize {company?.name || 'the company'} to proceed with the work as described 
+                        and confirm that I have the authority to bind the company to this agreement.
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Error Message */}
+                  {companySignError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                      {companySignError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowCompanySignModal(false)
+                      setCompanySignatureDataUrl(null)
+                      setCompanySignError(null)
+                      setCompanyAcceptedTerms(false)
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setCompanySignError(null)
+                      
+                      // Validate inputs
+                      if (!companySignerName.trim()) {
+                        setCompanySignError('Please enter your full name')
+                        return
+                      }
+                      if (!companySignerEmail.trim()) {
+                        setCompanySignError('Please enter your email address')
+                        return
+                      }
+                      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companySignerEmail)) {
+                        setCompanySignError('Please enter a valid email address')
+                        return
+                      }
+                      if (!companySignatureDataUrl) {
+                        setCompanySignError('Please draw your signature above')
+                        return
+                      }
+                      if (!companyAcceptedTerms) {
+                        setCompanySignError('You must accept the terms and conditions to proceed')
+                        return
+                      }
+
+                      try {
+                        setCompanySigning(true)
+                        
+                        const response = await fetch('/api/quotes/sign-pdf', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            quote_id: quote.id,
+                            share_token: token,
+                            signer_name: companySignerName.trim(),
+                            signer_email: companySignerEmail.trim(),
+                            signature_data: companySignatureDataUrl,
+                            accepted_terms: true,
+                            signer_type: 'company_rep',
+                            signer_user_agent: navigator.userAgent,
+                          }),
+                        })
+
+                        const result = await response.json()
+                        
+                        if (!response.ok) {
+                          setCompanySignError(result.error || 'Failed to submit signature')
+                          setCompanySigning(false)
+                          return
+                        }
+
+                        // Refresh quote data to show signature
+                        const refreshResponse = await fetch(`/api/public/quote/${token}`)
+                        if (refreshResponse.ok) {
+                          const { data } = await refreshResponse.json()
+                          if (data) setQuote(data)
+                        }
+
+                        setCompanySigning(false)
+                        setShowCompanySignModal(false)
+                        setCompanySignatureDataUrl(null)
+                        setCompanyAcceptedTerms(false)
+                        
+                      } catch (err: any) {
+                        console.error('Company signature submission error:', err)
+                        setCompanySignError(err?.message || 'An error occurred while submitting your signature')
+                        setCompanySigning(false)
+                      }
+                    }}
+                    disabled={companySigning}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {companySigning ? (
                       <span className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Submitting...

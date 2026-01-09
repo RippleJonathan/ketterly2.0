@@ -2,11 +2,8 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Pencil, Phone, Mail, MapPin, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
+import { Pencil, Phone, Mail, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
 import { PipelineProgress } from '@/components/admin/leads/pipeline-progress'
-import { EventQuickAddModal } from '@/components/admin/calendar/event-quick-add-modal'
-import { useCheckPermission } from '@/lib/hooks/use-permissions'
-import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { LEAD_STATUS_LABELS } from '@/lib/constants/leads'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -17,14 +14,7 @@ interface LeadSummaryCardProps {
 }
 
 export function LeadSummaryCard({ lead, leadId }: LeadSummaryCardProps) {
-  const { data: currentUserResponse } = useCurrentUser()
-  const currentUser = currentUserResponse?.data
   const [isExpanded, setIsExpanded] = useState(false)
-  const [showAppointmentModal, setShowAppointmentModal] = useState(false)
-
-  // Check permissions for calendar events using user ID
-  const { data: canCreateConsultations } = useCheckPermission(currentUser?.id || '', 'can_create_consultations')
-  const { data: canCreateProductionEvents } = useCheckPermission(currentUser?.id || '', 'can_create_production_events')
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -153,39 +143,7 @@ export function LeadSummaryCard({ lead, leadId }: LeadSummaryCardProps) {
             <div className="text-sm text-gray-600 mb-2">Pipeline Status:</div>
             <PipelineProgress leadId={leadId} currentStatus={lead.status} compact />
           </div>
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <Link href={`/admin/leads/${leadId}/edit`}>
-              <Button variant="outline" size="sm" className="w-full">
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Lead
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => setShowAppointmentModal(true)}
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Schedule
-            </Button>
-          </div>
         </div>
-      )}
-
-      {/* Appointment Modal */}
-      {currentUser && (
-        <EventQuickAddModal
-          open={showAppointmentModal}
-          onClose={() => setShowAppointmentModal(false)}
-          userId={currentUser.id}
-          canCreateConsultations={canCreateConsultations || false}
-          canCreateProductionEvents={canCreateProductionEvents || false}
-          defaultLeadId={leadId}
-          defaultDate={new Date().toISOString().split('T')[0]}
-        />
       )}
     </div>
   )

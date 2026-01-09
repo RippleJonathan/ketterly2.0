@@ -14,6 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import {
@@ -27,6 +33,7 @@ import {
 import { updateLeadAction } from '@/lib/actions/leads'
 import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
+import { useCheckPermission } from '@/lib/hooks/use-permissions'
 import { useLocations } from '@/lib/hooks/use-locations'
 import { useUserLocations } from '@/lib/hooks/use-location-users'
 import { createClient } from '@/lib/supabase/client'
@@ -35,6 +42,7 @@ import { toast } from 'sonner'
 import { Mail, Phone, MapPin, Pencil, X, Save } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Lead } from '@/lib/types'
+import { TeamHierarchy } from '@/components/admin/leads/team-hierarchy'
 
 const leadFormSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -74,6 +82,12 @@ export function EditableDetailsTab({ lead, onEditToggle }: EditableDetailsTabPro
   const queryClient = useQueryClient()
   const { data: locations } = useLocations(true)
   const { data: userLocations } = useUserLocations(user?.id)
+  
+  // Check team assignment permissions
+  const { data: canAssignSalesRep } = useCheckPermission(user?.id, 'can_assign_sales_rep')
+  const { data: canAssignSalesManager } = useCheckPermission(user?.id, 'can_assign_sales_manager')
+  const { data: canAssignMarketingRep } = useCheckPermission(user?.id, 'can_assign_marketing_rep')
+  const { data: canAssignProductionManager } = useCheckPermission(user?.id, 'can_assign_production_manager')
   
   const isAdmin = user?.role && ['admin', 'office', 'super_admin'].includes(user.role as string)
   const availableLocations = isAdmin
@@ -139,6 +153,51 @@ export function EditableDetailsTab({ lead, onEditToggle }: EditableDetailsTabPro
 
     fetchUsers()
   }, [company?.id, user?.id, watch('location_id')])
+
+  // Auto-assign Team Lead when sales rep changes
+  useEffect(() => {
+    async function autoAssignTeamLead() {
+      const salesRepId = watch('sales_rep_id')
+      const locationId = watch('location_id')
+      
+      if (!salesRepId || !locationId) {
+        return
+      }
+
+      const supabase = createClient()
+      
+      // Query sales rep's team to get team lead
+      const { data: salesRepTeam } = await supabase
+        .from('location_users')
+        .select(`
+          team_id,
+          teams!inner(
+            team_lead_id
+          )
+        `)
+        .eq('user_id', salesRepId)
+        .not('team_id', 'is', null)
+        .maybeSingle()
+
+      if (salesRepTeam?.teams) {
+        const team = salesRepTeam.teams as any
+        const teamLeadId = team.team_lead_id
+        
+        // Only auto-assign if not already set or different
+        if (teamLeadId && teamLeadId !== watch('sales_manager_id')) {
+          console.log('Auto-assigning Team Lead:', teamLeadId)
+          setValue('sales_manager_id', teamLeadId)
+          toast.info('Team Lead auto-assigned from sales rep\'s team')
+        }
+      } else {
+        // Sales rep has no team, clear team lead if it was auto-assigned
+        // (Only clear if you want to enforce team-based assignment)
+        console.log('Sales rep has no team')
+      }
+    }
+
+    autoAssignTeamLead()
+  }, [watch('sales_rep_id'), watch('location_id')])
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -266,49 +325,6 @@ export function EditableDetailsTab({ lead, onEditToggle }: EditableDetailsTabPro
           </div>
         </div>
 
-        {/* Team */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Team</h2>
-          <div className="space-y-3">
-            {lead.sales_rep_user && (
-              <div>
-                <p className="text-sm text-gray-500">Sales Rep</p>
-                <p className="text-gray-900 font-medium">
-                  {lead.sales_rep_user.full_name}
-                </p>
-              </div>
-            )}
-            {lead.marketing_rep_user && (
-              <div>
-                <p className="text-sm text-gray-500">Marketing Rep</p>
-                <p className="text-gray-900 font-medium">
-                  {lead.marketing_rep_user.full_name}
-                </p>
-              </div>
-            )}
-            {lead.sales_manager_user && (
-              <div>
-                <p className="text-sm text-gray-500">Sales Manager</p>
-                <p className="text-gray-900 font-medium">
-                  {lead.sales_manager_user.full_name}
-                </p>
-              </div>
-            )}
-            {lead.production_manager_user && (
-              <div>
-                <p className="text-sm text-gray-500">Production Manager</p>
-                <p className="text-gray-900 font-medium">
-                  {lead.production_manager_user.full_name}
-                </p>
-              </div>
-            )}
-            {!lead.sales_rep_user && !lead.marketing_rep_user && 
-             !lead.sales_manager_user && !lead.production_manager_user && (
-              <p className="text-gray-500 text-sm">No team members assigned</p>
-            )}
-          </div>
-        </div>
-
         {/* Lead Details */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Lead Details</h2>
@@ -345,6 +361,16 @@ export function EditableDetailsTab({ lead, onEditToggle }: EditableDetailsTabPro
             </div>
           </div>
         </div>
+
+        {/* Team Hierarchy - Full organizational view */}
+        <TeamHierarchy
+          leadId={lead.id}
+          locationId={lead.location_id}
+          salesRepId={lead.sales_rep_id}
+          marketingRepId={lead.marketing_rep_id}
+          salesManagerId={lead.sales_manager_id}
+          productionManagerId={lead.production_manager_id}
+        />
 
         {/* Notes */}
         {lead.notes && (
@@ -524,66 +550,134 @@ export function EditableDetailsTab({ lead, onEditToggle }: EditableDetailsTabPro
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="sales_rep_id">Sales Rep</Label>
-              <Select value={watch('sales_rep_id')} onValueChange={(value) => setValue('sales_rep_id', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sales rep" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.filter((u) => ['sales', 'sales_manager', 'admin'].includes(u.role)).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Select 
+                        value={watch('sales_rep_id')} 
+                        onValueChange={(value) => setValue('sales_rep_id', value)}
+                        disabled={!canAssignSalesRep}
+                      >
+                        <SelectTrigger disabled={!canAssignSalesRep}>
+                          <SelectValue placeholder="Select sales rep" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.filter((u) => ['sales', 'sales_manager', 'admin'].includes(u.role)).map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  {!canAssignSalesRep && (
+                    <TooltipContent>
+                      <p>You don't have permission to assign sales representatives</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <div>
               <Label htmlFor="marketing_rep_id">Marketing Rep</Label>
-              <Select value={watch('marketing_rep_id')} onValueChange={(value) => setValue('marketing_rep_id', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select marketing rep" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.filter((u) => ['marketing', 'admin'].includes(u.role)).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Select 
+                        value={watch('marketing_rep_id')} 
+                        onValueChange={(value) => setValue('marketing_rep_id', value)}
+                        disabled={!canAssignMarketingRep}
+                      >
+                        <SelectTrigger disabled={!canAssignMarketingRep}>
+                          <SelectValue placeholder="Select marketing rep" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.filter((u) => ['marketing', 'admin'].includes(u.role)).map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  {!canAssignMarketingRep && (
+                    <TooltipContent>
+                      <p>You don't have permission to assign marketing representatives</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <div>
               <Label htmlFor="sales_manager_id">Sales Manager</Label>
-              <Select value={watch('sales_manager_id')} onValueChange={(value) => setValue('sales_manager_id', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select sales manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.filter((u) => ['sales_manager', 'admin'].includes(u.role)).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Select 
+                        value={watch('sales_manager_id')} 
+                        onValueChange={(value) => setValue('sales_manager_id', value)}
+                        disabled={!canAssignSalesManager}
+                      >
+                        <SelectTrigger disabled={!canAssignSalesManager}>
+                          <SelectValue placeholder="Select sales manager" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.filter((u) => ['sales_manager', 'admin'].includes(u.role)).map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  {!canAssignSalesManager && (
+                    <TooltipContent>
+                      <p>You don't have permission to assign sales managers</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             <div>
               <Label htmlFor="production_manager_id">Production Manager</Label>
-              <Select value={watch('production_manager_id')} onValueChange={(value) => setValue('production_manager_id', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select production manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.filter((u) => ['production', 'admin'].includes(u.role)).map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Select 
+                        value={watch('production_manager_id')} 
+                        onValueChange={(value) => setValue('production_manager_id', value)}
+                        disabled={!canAssignProductionManager}
+                      >
+                        <SelectTrigger disabled={!canAssignProductionManager}>
+                          <SelectValue placeholder="Select production manager" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.filter((u) => ['production', 'admin'].includes(u.role)).map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  {!canAssignProductionManager && (
+                    <TooltipContent>
+                      <p>You don't have permission to assign production managers</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>

@@ -32,7 +32,6 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useUpdateUser } from '@/lib/hooks/use-users'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
-import { useCommissionPlans } from '@/lib/hooks/use-commission-plans'
 import { UserWithRelations } from '@/lib/types/users'
 
 const editUserSchema = z.object({
@@ -40,7 +39,16 @@ const editUserSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
   phone: z.string().optional(),
   role: z.enum(['admin', 'office', 'sales_manager', 'sales', 'production', 'marketing']),
-  commission_plan_id: z.string().optional(),
+  // Role-based commission rates
+  sales_commission_type: z.enum(['percentage', 'flat_amount']).optional().nullable(),
+  sales_commission_rate: z.number().min(0).max(100).optional().nullable(),
+  sales_flat_amount: z.number().min(0).optional().nullable(),
+  marketing_commission_type: z.enum(['percentage', 'flat_amount']).optional().nullable(),
+  marketing_commission_rate: z.number().min(0).max(100).optional().nullable(),
+  marketing_flat_amount: z.number().min(0).optional().nullable(),
+  production_commission_type: z.enum(['percentage', 'flat_amount']).optional().nullable(),
+  production_commission_rate: z.number().min(0).max(100).optional().nullable(),
+  production_flat_amount: z.number().min(0).optional().nullable(),
 })
 
 type EditUserFormData = z.infer<typeof editUserSchema>
@@ -53,11 +61,8 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const updateUser = useUpdateUser()
-  const { data: plansResponse } = useCommissionPlans()
   const { data: currentUserData } = useCurrentUser()
   const currentUser = currentUserData?.data
-
-  const plans = plansResponse?.data || []
 
   const form = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
@@ -66,7 +71,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       full_name: user.full_name,
       role: user.role,
       phone: user.phone || '',
-      commission_plan_id: user.commission_plan_id || '',
+      sales_commission_type: user.sales_commission_type || null,
+      sales_commission_rate: user.sales_commission_rate || null,
+      sales_flat_amount: user.sales_flat_amount || null,
+      marketing_commission_type: user.marketing_commission_type || null,
+      marketing_commission_rate: user.marketing_commission_rate || null,
+      marketing_flat_amount: user.marketing_flat_amount || null,
+      production_commission_type: user.production_commission_type || null,
+      production_commission_rate: user.production_commission_rate || null,
+      production_flat_amount: user.production_flat_amount || null,
     },
   })
 
@@ -77,7 +90,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       full_name: user.full_name,
       role: user.role,
       phone: user.phone || '',
-      commission_plan_id: user.commission_plan_id || 'none',
+      sales_commission_type: user.sales_commission_type || null,
+      sales_commission_rate: user.sales_commission_rate || null,
+      sales_flat_amount: user.sales_flat_amount || null,
+      marketing_commission_type: user.marketing_commission_type || null,
+      marketing_commission_rate: user.marketing_commission_rate || null,
+      marketing_flat_amount: user.marketing_flat_amount || null,
+      production_commission_type: user.production_commission_type || null,
+      production_commission_rate: user.production_commission_rate || null,
+      production_flat_amount: user.production_flat_amount || null,
     })
   }, [user, form])
 
@@ -87,7 +108,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       full_name: data.full_name,
       role: data.role,
       phone: data.phone || null,
-      commission_plan_id: data.commission_plan_id === 'none' ? null : data.commission_plan_id,
+      sales_commission_type: data.sales_commission_type || null,
+      sales_commission_rate: data.sales_commission_rate || null,
+      sales_flat_amount: data.sales_flat_amount || null,
+      marketing_commission_type: data.marketing_commission_type || null,
+      marketing_commission_rate: data.marketing_commission_rate || null,
+      marketing_flat_amount: data.marketing_flat_amount || null,
+      production_commission_type: data.production_commission_type || null,
+      production_commission_rate: data.production_commission_rate || null,
+      production_flat_amount: data.production_flat_amount || null,
     }
 
     await updateUser.mutateAsync({ userId: user.id, updates })
@@ -100,7 +129,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>
-            Update user information, role, and commission plan
+            Update user information, role, and commission settings
           </DialogDescription>
         </DialogHeader>
 
@@ -196,34 +225,244 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                     )}
                     <FormMessage />
                   </FormItem>
-                )}
+                )}  
               />
+            </div>
 
-              <FormField
-                control={form.control}
-                name="commission_plan_id"
-                render={({ field}) => (
-                  <FormItem>
-                    <FormLabel>Commission Plan</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a commission plan" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {plans.map((plan) => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            {plan.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Commission Settings */}
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="text-lg font-medium">Commission Settings</h3>
+              <p className="text-sm text-muted-foreground">
+                Set commission rates for when this user is assigned to different roles on jobs.
+              </p>
+
+              {/* Sales Commission */}
+              <div className="space-y-3">
+                <h4 className="font-medium">Sales Commission</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="sales_commission_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="percentage">Percentage</SelectItem>
+                            <SelectItem value="flat_amount">Flat Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sales_commission_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="5.00"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sales_flat_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Flat Amount ($)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="100.00"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Marketing Commission */}
+              <div className="space-y-3">
+                <h4 className="font-medium">Marketing Commission</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="marketing_commission_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="percentage">Percentage</SelectItem>
+                            <SelectItem value="flat_amount">Flat Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="marketing_commission_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="3.00"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="marketing_flat_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Flat Amount ($)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="50.00"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Production Commission */}
+              <div className="space-y-3">
+                <h4 className="font-medium">Production Commission</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="production_commission_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="percentage">Percentage</SelectItem>
+                            <SelectItem value="flat_amount">Flat Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="production_commission_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="2.00"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="production_flat_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Flat Amount ($)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="25.00"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
             </div>
 
             <DialogFooter>

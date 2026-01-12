@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +12,7 @@ import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency } from '@/lib/utils/formatting'
 import { CustomerInvoiceInsert, InvoiceLineItemInsert } from '@/lib/types/invoices'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CreateInvoiceDialogProps {
@@ -29,15 +29,20 @@ export function CreateInvoiceDialog({
   quoteId: initialQuoteId,
 }: CreateInvoiceDialogProps) {
   const { data: company } = useCurrentCompany()
-  const { data: nextInvoiceNumber, isLoading: invoiceNumberLoading, error: invoiceNumberError } = useNextInvoiceNumber()
+  const { 
+    data: nextInvoiceNumber, 
+    isLoading: invoiceNumberLoading, 
+    error: invoiceNumberError,
+    refetch: refetchInvoiceNumber
+  } = useNextInvoiceNumber()
   const createInvoice = useCreateInvoice()
   const supabase = createClient()
 
   // Debug logging
-  console.log('🔢 Next invoice number state:', { 
-    data: nextInvoiceNumber,  // This is the string directly, not an object
+  console.log('DEBUG_INVOICE_COMPONENT:', { 
+    nextInvoiceNumber,
     isLoading: invoiceNumberLoading,
-    error: invoiceNumberError?.message,
+    hasError: !!invoiceNumberError,
     companyId: company?.id
   })
 
@@ -116,6 +121,13 @@ export function CreateInvoiceDialog({
 
     loadData()
   }, [open, selectedQuoteId, leadId, supabase])
+
+  // Refetch invoice number when dialog opens to ensure fresh data
+  useEffect(() => {
+    if (open && refetchInvoiceNumber) {
+      refetchInvoiceNumber()
+    }
+  }, [open, refetchInvoiceNumber])
 
   const calculateTotal = () => {
     // Quote total_amount already includes tax, so we don't add tax again
@@ -219,6 +231,9 @@ export function CreateInvoiceDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Invoice</DialogTitle>
+          <DialogDescription>
+            Generate an invoice for this lead's accepted quote.
+          </DialogDescription>
         </DialogHeader>
 
         {loading ? (
@@ -272,15 +287,28 @@ export function CreateInvoiceDialog({
                         <Loader2 className="h-4 w-4 animate-spin text-gray-400 mr-2" />
                         <span className="text-sm text-gray-500">Generating...</span>
                       </div>
-                    ) : invoiceNumberError ? (
-                      <div className="h-10 px-3 bg-red-50 border border-red-200 rounded-md flex items-center">
-                        <span className="text-sm text-red-600">Error: {invoiceNumberError.message}</span>
+                    ) : invoiceNumberError || !nextInvoiceNumber ? (
+                      <div className="flex gap-2">
+                        <div className="h-10 px-3 bg-red-50 border border-red-200 rounded-md flex-1 flex items-center">
+                          <span className="text-sm text-red-600 truncate">
+                            {invoiceNumberError ? invoiceNumberError.message : 'Not generated - click retry'}
+                          </span>
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => refetchInvoiceNumber()}
+                          title="Retry generating invoice number"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
                       </div>
                     ) : (
                       <Input
                         value={nextInvoiceNumber || ''}
                         disabled
-                        className="bg-gray-50"
+                        className="bg-gray-50 font-mono"
                       />
                     )}
                   </div>

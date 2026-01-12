@@ -60,7 +60,9 @@ export function useNextInvoiceNumber() {
   return useQuery({
     queryKey: ['next-invoice-number', company?.id],
     queryFn: async () => {
+      console.log('DEBUG_INVOICE: fetching for', company?.id)
       const result = await getNextInvoiceNumber(company!.id)
+      console.log('DEBUG_INVOICE: result', result)
       if (result.error) throw new Error(result.error.message)
       return result.data
     },

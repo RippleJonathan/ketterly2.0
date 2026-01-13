@@ -122,12 +122,6 @@ const settingsNavigation: NavItem[] = [
     icon: Settings,
     roles: ['admin', 'super_admin'] // Company-wide settings only for top admins
   },
-  { 
-    name: 'Commission Plans', 
-    href: '/admin/settings/commission-plans', 
-    icon: CreditCard,
-    roles: ['admin', 'super_admin'] // Company-wide only
-  },
   {
     name: 'Locations',
     href: '/admin/settings/locations',

@@ -2,6 +2,8 @@ import { Suspense } from 'react'
 import { CommissionsTable } from '@/components/admin/commissions/commissions-table'
 import { Skeleton } from '@/components/ui/skeleton'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Commissions | Ketterly CRM',
   description: 'Manage and approve all company commissions',

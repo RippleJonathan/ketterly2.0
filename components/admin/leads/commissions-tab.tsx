@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -90,6 +90,9 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const [editingCommission, setEditingCommission] = useState<LeadCommission | null>(null)
   const [markPaidCommission, setMarkPaidCommission] = useState<LeadCommission | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  
+  // Track if we've already auto-refreshed on mount
+  const hasAutoRefreshed = useRef(false)
 
   const allCommissions = commissionsData?.data || []
   
@@ -242,8 +245,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
         if (lead.sales_manager_id) userFieldMap.push({ userId: lead.sales_manager_id, field: 'sales_manager_id' })
         if (lead.production_manager_id) userFieldMap.push({ userId: lead.production_manager_id, field: 'production_manager_id' })
         
-        // Create commissions for all assigned users
-        // Note: autoCreateCommission will create office/team lead commissions in STEP 0
+        // Create commissions for all assigned users (with skipCancelOthers=true)
         if (userFieldMap.length > 0) {
           const promises = userFieldMap.map(({ userId, field }) => 
             autoCreateCommission(lead.id, userId, company.id, currentUser?.data?.id || null, field, true)
@@ -253,6 +255,12 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
               })
           )
           await Promise.all(promises)
+        }
+        
+        // Create office/team lead commissions (separate call to avoid race conditions)
+        if (lead.sales_rep_id) {
+          const { createOfficeAndTeamCommissions } = await import('@/lib/utils/auto-commission')
+          await createOfficeAndTeamCommissions(lead.id, lead.sales_rep_id, company.id)
         }
         
         // Recalculate all commission amounts based on current invoice
@@ -276,6 +284,15 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
       setIsRefreshing(false)
     }
   }
+
+  // Auto-refresh commissions when tab is first opened
+  useEffect(() => {
+    if (!hasAutoRefreshed.current && company?.id && lead.id) {
+      console.log('🔄 Auto-refreshing commissions on tab load')
+      hasAutoRefreshed.current = true
+      handleRefresh()
+    }
+  }, [company?.id, lead.id])
 
   return (
     <div className="space-y-6">

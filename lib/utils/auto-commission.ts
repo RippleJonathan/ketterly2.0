@@ -79,7 +79,7 @@ async function getUserCommissionConfig(
       .eq('user_id', userId)
       .eq('location_id', locationId)
       .eq('commission_enabled', true)
-      .single()
+      .maybeSingle()
     
     if (locationUser) {
       return {
@@ -152,6 +152,219 @@ function mapPlanPaidWhenToLeadCommissionPaidWhen(
 }
 
 /**
+ * Create office and team lead override commissions for a lead
+ * This should be called ONCE after all user role commissions are created
+ * to avoid race condition duplicates when multiple users are assigned
+ * 
+ * @param leadId - The lead ID
+ * @param salesRepId - The sales rep ID (used to find team)
+ * @param companyId - The company ID
+ */
+export async function createOfficeAndTeamCommissions(
+  leadId: string,
+  salesRepId: string,
+  companyId: string
+): Promise<{ success: boolean; message?: string }> {
+  const supabase = createClient()
+
+  try {
+    // Get the lead's location
+    const { data: leadData } = await supabase
+      .from('leads')
+      .select('location_id, sales_rep_id')
+      .eq('id', leadId)
+      .single()
+    
+    if (!leadData?.location_id) {
+      return { success: true, message: 'No location set, skipping office/team commissions' }
+    }
+
+    // OFFICE MANAGER COMMISSIONS
+    const { data: locationUsers } = await supabase
+      .from('location_users')
+      .select(`
+        user_id,
+        commission_enabled,
+        commission_type,
+        commission_rate,
+        flat_commission_amount,
+        paid_when,
+        include_own_sales,
+        users!location_users_user_id_fkey(id, full_name, role)
+      `)
+      .eq('location_id', leadData.location_id)
+      .eq('commission_enabled', true)
+    
+    console.log('🏢 Office users with commission enabled:', locationUsers?.length || 0)
+    
+    if (locationUsers && locationUsers.length > 0) {
+      for (const locationUser of locationUsers) {
+        const userRole = locationUser.users?.role || 'unknown'
+        
+        // Only process Office role here
+        if (userRole !== 'office') continue
+        
+        console.log(`   🔍 Processing Office Manager: ${locationUser.users?.full_name}`)
+        
+        // Check if office commission already exists
+        const { data: existingOfficeComm } = await supabase
+          .from('lead_commissions')
+          .select('id')
+          .eq('lead_id', leadId)
+          .eq('user_id', locationUser.user_id)
+          .eq('assignment_field', 'office_override')
+          .is('deleted_at', null)
+          .maybeSingle()
+        
+        if (existingOfficeComm) {
+          console.log('      ⏭️  Skipping - Office commission already exists')
+          continue
+        }
+        
+        // Check include_own_sales flag
+        if (!locationUser.include_own_sales && leadData.sales_rep_id === locationUser.user_id) {
+          console.log('      ⏭️  Skipping - user is sales rep and include_own_sales is false')
+          continue
+        }
+        
+        // Calculate office commission
+        const officeCommType = locationUser.commission_type === 'flat_amount' ? 'flat_amount' : 'percentage'
+        let officeCommAmount = 0
+        let officeBaseAmount = 0
+        
+        if (locationUser.commission_type === 'flat_amount') {
+          officeCommAmount = Number(locationUser.flat_commission_amount) || 0
+          officeBaseAmount = officeCommAmount
+          console.log(`      💰 Flat commission: $${officeCommAmount}`)
+        } else {
+          const { data: invoice } = await supabase
+            .from('customer_invoices')
+            .select('total')
+            .eq('lead_id', leadId)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          
+          officeBaseAmount = invoice ? Number(invoice.total) || 0 : 0
+          const rate = Number(locationUser.commission_rate) || 0
+          officeCommAmount = officeBaseAmount * (rate / 100)
+          console.log(`      💰 Percentage commission: ${rate}% of $${officeBaseAmount} = $${officeCommAmount}`)
+        }
+        
+        if (officeCommAmount > 0 || (locationUser.commission_type === 'percentage' && Number(locationUser.commission_rate) > 0)) {
+          const paidWhen = locationUser.paid_when || 'when_final_payment'
+          const commissionNote = `Auto-created: Office Manager override commission${officeCommAmount > 0 ? `: $${officeCommAmount.toFixed(2)}` : ''}`
+          
+          console.log(`      ✅ Creating Office Manager commission for ${locationUser.users?.full_name}`)
+          console.log(`      📅 Paid when: ${paidWhen}`)
+          
+          await createLeadCommission(leadId, companyId, {
+            lead_id: leadId,
+            user_id: locationUser.user_id,
+            assignment_field: 'office_override',
+            commission_plan_id: null,
+            commission_type: officeCommType,
+            commission_rate: locationUser.commission_type === 'percentage' ? Number(locationUser.commission_rate) : null,
+            flat_amount: locationUser.commission_type === 'flat_amount' ? Number(locationUser.flat_commission_amount) : null,
+            calculated_amount: officeCommAmount,
+            base_amount: officeBaseAmount,
+            paid_when: paidWhen,
+            notes: commissionNote,
+          } as any)
+        }
+      }
+    }
+
+    // TEAM LEAD COMMISSIONS
+    if (salesRepId) {
+      console.log('👔 Checking for Team Lead commission...')
+      
+      const { data: salesRepTeam } = await supabase
+        .from('location_users')
+        .select(`
+          team_id,
+          teams!inner(
+            id,
+            team_lead_id,
+            commission_rate,
+            paid_when,
+            include_own_sales,
+            is_active
+          )
+        `)
+        .eq('user_id', salesRepId)
+        .eq('location_id', leadData.location_id)
+        .not('team_id', 'is', null)
+        .maybeSingle()
+      
+      if (salesRepTeam?.teams && salesRepTeam.teams.team_lead_id) {
+        const team = salesRepTeam.teams
+        console.log(`   📋 Sales rep is on team with Team Lead:`, team.team_lead_id)
+        
+        if (!team.is_active) {
+          console.log('   ⏭️  Skipping - Team is inactive')
+        } else {
+          // Check if team lead commission already exists
+          const { data: existingTeamComm } = await supabase
+            .from('lead_commissions')
+            .select('id')
+            .eq('lead_id', leadId)
+            .eq('user_id', team.team_lead_id)
+            .eq('assignment_field', 'team_lead_override')
+            .is('deleted_at', null)
+            .maybeSingle()
+          
+          if (existingTeamComm) {
+            console.log('   ⏭️  Skipping - Team Lead commission already exists')
+          } else {
+            // Calculate team lead commission
+            const { data: invoice } = await supabase
+              .from('customer_invoices')
+              .select('total')
+              .eq('lead_id', leadId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            
+            const baseAmount = invoice ? Number(invoice.total) || 0 : 0
+            const rate = Number(team.commission_rate) || 0
+            const teamCommAmount = baseAmount * (rate / 100)
+            
+            console.log(`   💰 Team Lead commission: ${rate}% of $${baseAmount} = $${teamCommAmount}`)
+            
+            if (teamCommAmount > 0 || rate > 0) {
+              await createLeadCommission(leadId, companyId, {
+                lead_id: leadId,
+                user_id: team.team_lead_id,
+                assignment_field: 'team_lead_override',
+                commission_plan_id: null,
+                commission_type: 'percentage',
+                commission_rate: rate,
+                flat_amount: null,
+                calculated_amount: teamCommAmount,
+                base_amount: baseAmount,
+                paid_when: team.paid_when || 'when_final_payment',
+                notes: `Auto-created: Team Lead override commission: $${teamCommAmount.toFixed(2)}`,
+              } as any)
+              console.log('   ✅ Team Lead commission created')
+            }
+          }
+        }
+      } else {
+        console.log('   ℹ️  Sales rep is not on a team (no Team Lead override)')
+      }
+    }
+
+    return { success: true, message: 'Office and team commissions processed' }
+  } catch (error) {
+    console.error('❌ Error creating office/team commissions:', error)
+    return { success: false, message: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
  * Automatically create or update commission for a lead when user is assigned
  * 
  * This function:
@@ -182,8 +395,7 @@ export async function autoCreateCommission(
   try {
     console.log('🎯 autoCreateCommission called:', { leadId, userId, companyId, skipCancelOthers })
     
-    // STEP 0: Check for location-based office role commissions + Team Lead override
-    // Get the lead's location and sales rep
+    // Get the lead's location and sales rep (needed for all commission types)
     const { data: leadData } = await supabase
       .from('leads')
       .select('location_id, sales_rep_id')
@@ -193,7 +405,10 @@ export async function autoCreateCommission(
     console.log('📍 Lead location:', leadData?.location_id || 'NO LOCATION')
     console.log('👤 Sales rep:', leadData?.sales_rep_id || 'NO SALES REP')
     
-    if (leadData?.location_id) {
+    // STEP 0: Check for location-based office role commissions + Team Lead override
+    // Skip this if called from invoice creation (skipCancelOthers=true) since it will be handled separately
+    // to avoid race condition duplicates
+    if (!skipCancelOthers && leadData?.location_id) {
       // Find Office Manager at this location
       const { data: locationUsers } = await supabase
         .from('location_users')
@@ -321,7 +536,7 @@ export async function autoCreateCommission(
           .eq('user_id', leadData.sales_rep_id)
           .eq('location_id', leadData.location_id)
           .not('team_id', 'is', null)
-          .single()
+          .maybeSingle()
         
         if (salesRepTeam?.teams && salesRepTeam.teams.team_lead_id) {
           const team = salesRepTeam.teams
@@ -403,7 +618,7 @@ export async function autoCreateCommission(
           console.log('   ℹ️  Sales rep is not on a team (no Team Lead override)')
         }
       }
-    }
+    } // End skipCancelOthers check
 
     // If unassigning (userId is null), cancel existing pending commissions
     if (!userId) {

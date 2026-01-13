@@ -62,9 +62,9 @@ export function EditInvoiceDialog({
     enabled: open && !!invoiceId
   })
 
-  // Fetch materials for adding items
+  // Fetch materials for adding items with location-specific pricing
   const { data: materials } = useQuery({
-    queryKey: ['materials'],
+    queryKey: ['materials-with-pricing', invoice?.lead_id],
     queryFn: async () => {
       const { data: userData } = await supabase.auth.getUser()
       if (!userData.user) return []
@@ -77,7 +77,20 @@ export function EditInvoiceDialog({
 
       if (!user) return []
 
-      const { data, error } = await supabase
+      // Get lead location for pricing
+      let leadLocationId: string | null = null
+      if (invoice?.lead_id) {
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('location_id')
+          .eq('id', invoice.lead_id)
+          .single()
+        
+        leadLocationId = lead?.location_id || null
+      }
+
+      // Fetch materials
+      const { data: materialsData, error } = await supabase
         .from('materials')
         .select('*')
         .eq('company_id', user.company_id)
@@ -85,9 +98,28 @@ export function EditInvoiceDialog({
         .order('name', { ascending: true })
       
       if (error) throw error
-      return data || []
+      if (!materialsData) return []
+
+      // Get location-specific pricing if we have a location
+      if (leadLocationId) {
+        const { data: locationPricing } = await supabase
+          .from('location_material_pricing')
+          .select('material_id, cost')
+          .eq('location_id', leadLocationId)
+
+        // Merge location pricing with materials
+        const pricingMap = new Map(locationPricing?.map(p => [p.material_id, p.cost]) || [])
+        
+        return materialsData.map(material => ({
+          ...material,
+          // Use location price if available, otherwise use material's unit_price or current_cost
+          unit_price: pricingMap.get(material.id) ?? material.unit_price ?? material.current_cost ?? 0
+        }))
+      }
+
+      return materialsData
     },
-    enabled: open
+    enabled: open && !!invoice
   })
 
   const [lineItems, setLineItems] = useState<LineItem[]>([])
@@ -341,12 +373,22 @@ export function EditInvoiceDialog({
                           <SelectTrigger>
                             <SelectValue placeholder="Select a material..." />
                           </SelectTrigger>
-                          <SelectContent>
-                            {materials.map((material) => (
-                              <SelectItem key={material.id} value={material.id}>
-                                {material.name} - {formatCurrency(material.unit_price || 0)} {material.unit ? `per ${material.unit}` : ''}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-[300px]">
+                            {materials.map((material) => {
+                              const price = material.unit_price ?? 0
+                              const unitLabel = material.unit ? ` per ${material.unit}` : ''
+                              const priceDisplay = price > 0 ? formatCurrency(price) : '⚠️ No price'
+                              return (
+                                <SelectItem key={material.id} value={material.id}>
+                                  <div className="flex items-center justify-between w-full gap-4">
+                                    <span className="flex-1 truncate">{material.name}</span>
+                                    <span className={price > 0 ? "text-gray-600 text-sm" : "text-orange-600 text-sm font-medium"}>
+                                      {priceDisplay}{unitLabel}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              )
+                            })}
                           </SelectContent>
                         </Select>
                       </div>

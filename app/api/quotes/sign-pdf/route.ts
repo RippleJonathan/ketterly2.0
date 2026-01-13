@@ -203,11 +203,17 @@ export async function POST(request: NextRequest) {
       console.log('[DUAL SIGNATURE] Both signatures complete - sending executed contract email')
       
       // Automatically update lead status: QUOTE/APPROVED -> PRODUCTION/CONTRACT_SIGNED
-      await applyStatusTransition(
-        quote.company_id,
-        quote.lead_id,
-        getStatusAfterContractSigned()
-      )
+      try {
+        await applyStatusTransition(
+          quote.company_id,
+          quote.lead_id,
+          getStatusAfterContractSigned()
+        )
+        console.log('[DUAL SIGNATURE] ✅ Lead status updated successfully')
+      } catch (statusError) {
+        // Log error but don't fail the signature process
+        console.error('[DUAL SIGNATURE] Failed to update lead status (non-critical):', statusError)
+      }
       
       // Fetch company and lead data for email
       const { data: company, error: companyError } = await supabase
@@ -320,7 +326,7 @@ export async function POST(request: NextRequest) {
 
             // Create invoice with quote PDF attached
             const { data: invoice, error: invoiceError } = await supabase
-              .from('invoices')
+              .from('customer_invoices')
               .insert({
                 company_id: quote.company_id,
                 lead_id: quote.lead_id,

@@ -172,9 +172,85 @@ export function EstimatesTab({
       )
       .subscribe()
 
+    // Subscribe to invoice creation to auto-create commissions
+    const invoicesChannel = supabase
+      .channel(`invoices-${leadId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'customer_invoices',
+          filter: `lead_id=eq.${leadId}`,
+        },
+        async (payload) => {
+          console.log('🔔 New invoice created, auto-creating commissions:', payload.new)
+          
+          try {
+            // Get lead data to get all assignment IDs
+            const { data: leadData } = await supabase
+              .from('leads')
+              .select('sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id, company_id')
+              .eq('id', leadId)
+              .single()
+            
+            if (!leadData) {
+              throw new Error('Lead not found')
+            }
+            
+            // Get current user ID
+            const { data: { user: currentUser } } = await supabase.auth.getUser()
+            
+            // Import functions
+            const { autoCreateCommission, createOfficeAndTeamCommissions } = await import('@/lib/utils/auto-commission')
+            const { recalculateLeadCommissions } = await import('@/lib/utils/recalculate-commissions')
+            
+            // Build user-field mapping just like refresh button
+            const userFieldMap: Array<{ userId: string, field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
+            
+            if (leadData.sales_rep_id) userFieldMap.push({ userId: leadData.sales_rep_id, field: 'sales_rep_id' })
+            if (leadData.marketing_rep_id) userFieldMap.push({ userId: leadData.marketing_rep_id, field: 'marketing_rep_id' })
+            if (leadData.sales_manager_id) userFieldMap.push({ userId: leadData.sales_manager_id, field: 'sales_manager_id' })
+            if (leadData.production_manager_id) userFieldMap.push({ userId: leadData.production_manager_id, field: 'production_manager_id' })
+            
+            // Create commissions for all assigned users (with skipCancelOthers=true)
+            if (userFieldMap.length > 0) {
+              const promises = userFieldMap.map(({ userId, field }) => 
+                autoCreateCommission(leadId, userId, leadData.company_id, currentUser?.id || null, field, true)
+                  .catch(err => {
+                    console.error(`Failed to auto-create commission for ${field}:`, err)
+                    return { success: false }
+                  })
+              )
+              await Promise.all(promises)
+            }
+            
+            // Create office/team lead commissions
+            if (leadData.sales_rep_id) {
+              await createOfficeAndTeamCommissions(leadId, leadData.sales_rep_id, leadData.company_id)
+            }
+            
+            // Recalculate all commission amounts
+            await recalculateLeadCommissions(leadId, leadData.company_id)
+            
+            console.log('✅ All commissions auto-created successfully')
+            toast.success('Commissions created automatically')
+            
+            // Invalidate commission queries
+            queryClient.invalidateQueries({ queryKey: ['lead-commissions', leadId] })
+            queryClient.invalidateQueries({ queryKey: ['commission-summary', leadId] })
+          } catch (error: any) {
+            console.error('❌ Failed to auto-create commissions:', error)
+            toast.error(`Failed to create commissions: ${error.message}`)
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(quotesChannel)
       supabase.removeChannel(changeOrdersChannel)
+      supabase.removeChannel(invoicesChannel)
     }
   }, [leadId, queryClient])
   
@@ -545,7 +621,23 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   const [isGeneratingContract, setIsGeneratingContract] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
-  // Get contract for this quote if it's accepted
+  // Get signatures for this quote to check if both parties have signed
+  const { data: signatures } = useQuery({
+    queryKey: ['quote-signatures', quote.id],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('quote_signatures')
+        .select('*')
+        .eq('quote_id', quote.id)
+        .is('deleted_at', null)
+      
+      if (error) throw error
+      return data || []
+    },
+  })
+
+  // Get contract for this quote if it's accepted (for contract value comparison)
   const { data: contract } = useQuery({
     queryKey: ['contract', quote.id],
     queryFn: async () => {
@@ -779,9 +871,9 @@ function QuoteCard({ quote, isExpanded, onToggle, onEdit, isGenerating, onDownlo
   const hasContractChanges = comparison?.has_changes || false
   const totalChange = comparison?.total_change || 0
 
-  // Track signature status from contract
-  const hasCustomerSignature = contract?.customer_signature_data != null
-  const hasCompanySignature = contract?.company_signature_data != null
+  // Track signature status from quote_signatures table
+  const hasCustomerSignature = signatures?.some(sig => sig.signer_type === 'customer') || false
+  const hasCompanySignature = signatures?.some(sig => sig.signer_type === 'company_rep') || false
   const bothSigned = hasCustomerSignature && hasCompanySignature
 
   // Determine if quote has been sent (not just draft)

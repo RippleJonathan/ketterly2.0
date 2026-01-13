@@ -363,9 +363,10 @@ export async function updateLeadStatus(
       .eq('company_id', companyId)
       .eq('id', leadId)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) throw error
+    if (!data) throw new Error('Lead not found or no permission')
     return createSuccessResponse(data)
   } catch (error) {
     console.error('Update lead status exception:', error)

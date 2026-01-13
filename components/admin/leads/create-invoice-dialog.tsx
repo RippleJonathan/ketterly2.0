@@ -39,16 +39,15 @@ export function CreateInvoiceDialog({
   const supabase = createClient()
 
   // Debug logging
-  console.log('DEBUG_INVOICE_COMPONENT:', { 
-    nextInvoiceNumber,
-    isLoading: invoiceNumberLoading,
-    hasError: !!invoiceNumberError,
-    companyId: company?.id
-  })
+  console.log('DEBUG_INVOICE_COMPONENT nextInvoiceNumber:', nextInvoiceNumber)
+  console.log('DEBUG_INVOICE_COMPONENT typeof:', typeof nextInvoiceNumber)
+  console.log('DEBUG_INVOICE_COMPONENT isLoading:', invoiceNumberLoading)
+  console.log('DEBUG_INVOICE_COMPONENT error:', invoiceNumberError)
+  console.log('DEBUG_INVOICE_COMPONENT companyId:', company?.id)
 
   const [loading, setLoading] = useState(false)
   const [quotes, setQuotes] = useState<any[]>([])
-  const [selectedQuoteId, setSelectedQuoteId] = useState<string | undefined>(initialQuoteId)
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | undefined>(initialQuoteId || '')
   const [quote, setQuote] = useState<any>(null)
   const [changeOrders, setChangeOrders] = useState<any[]>([])
   const [selectedChangeOrders, setSelectedChangeOrders] = useState<string[]>([])

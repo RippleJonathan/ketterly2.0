@@ -4,24 +4,20 @@ import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { useCurrentUser } from '@/lib/hooks/use-current-user'
 import { useDashboardStats } from '@/lib/hooks/use-dashboard'
 import { 
+  Plus,
+  MapPin,
   Users, 
-  FileText, 
-  Briefcase, 
-  DollarSign, 
-  TrendingUp, 
-  AlertTriangle,
-  CheckCircle,
   Calendar,
+  FileText,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { StatCard } from '@/components/admin/dashboard/stat-card'
-import { PipelineChart } from '@/components/admin/dashboard/pipeline-chart'
-import { RevenueChart } from '@/components/admin/dashboard/revenue-chart'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UpcomingSchedule } from '@/components/admin/dashboard/upcoming-schedule'
-import { RecentActivity } from '@/components/admin/dashboard/recent-activity'
-import { UrgencyAlerts } from '@/components/admin/dashboard/urgency-alerts'
-import { CommissionTracker } from '@/components/admin/dashboard/commission-tracker'
-import { QuickTextButton } from '@/components/admin/quick-text-button'
+import { RecentJobs } from '@/components/admin/dashboard/recent-jobs'
+import { Leaderboard } from '@/components/admin/dashboard/leaderboard'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -30,10 +26,9 @@ export default function DashboardPage() {
   const user = userData?.data
   const { data: stats, isLoading } = useDashboardStats()
 
-  const isSales = user?.role === 'sales_manager' || user?.role === 'sales'
-  const isProduction = user?.role === 'production'
-  const isOffice = user?.role === 'admin' || user?.role === 'office' || user?.role === 'sales_manager'
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isOffice = user?.role === 'office'
+  const isSales = user?.role === 'sales' || user?.role === 'sales_manager'
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -45,156 +40,95 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {/* Welcome Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Here's what's happening with {company?.name || 'your business'} today
-          </p>
-        </div>
-        <QuickTextButton />
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+          Welcome back, {user?.full_name?.split(' ')[0] || 'there'}! 👋
+        </h1>
+        <p className="text-gray-600 mt-1">
+          {isAdmin && `Here's what's happening with ${company?.name || 'your business'} today`}
+          {isOffice && `Here's what's happening at your location today`}
+          {isSales && `Here's your performance today`}
+        </p>
       </div>
 
-      {/* Key Metrics - Role Specific */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Sales & Admin: Lead Metrics */}
-        {(isSales || isAdmin) && (
-          <>
-            <StatCard
-              title="Total Leads"
-              value={stats?.totalLeads || 0}
-              change={{
-                value: stats?.newLeadsThisWeek || 0,
-                type: 'positive',
-                label: 'this week',
-              }}
-              icon={Users}
-              color="blue"
-              onClick={() => router.push('/admin/leads')}
-              loading={isLoading}
-            />
-            <StatCard
-              title="Active Leads"
-              value={stats?.activeLeads || 0}
-              change={{
-                value: stats?.newLeadsToday || 0,
-                type: 'positive',
-                label: 'today',
-              }}
-              icon={TrendingUp}
-              color="green"
-              onClick={() => router.push('/admin/leads?filter=active')}
-              loading={isLoading}
-            />
-          </>
-        )}
-
-        {/* Sales & Admin: Quote Metrics */}
-        {(isSales || isAdmin) && (
-          <StatCard
-            title="Pending Quotes"
-            value={stats?.pendingQuotes || 0}
-            change={{
-              value: `${stats?.quoteWinRate.toFixed(0) || 0}%`,
-              type: 'neutral',
-              label: 'win rate',
-            }}
-            icon={FileText}
-            color="purple"
-            onClick={() => router.push('/admin/leads?filter=pending_quotes')}
-            loading={isLoading}
-          />
-        )}
-
-        {/* Production: Project Metrics */}
-        {(isProduction || isAdmin) && (
-          <StatCard
-            title="Active Projects"
-            value={stats?.activeProjects || 0}
-            change={{
-              value: stats?.scheduledThisWeek || 0,
-              type: 'positive',
-              label: 'scheduled',
-            }}
-            icon={Briefcase}
-            color="orange"
-            onClick={() => router.push('/admin/calendar')}
-            loading={isLoading}
-          />
-        )}
-
-        {/* Office & Admin: Financial Metrics */}
-        {(isOffice || isAdmin) && (
-          <>
-            <StatCard
-              title="Outstanding Invoices"
-              value={stats?.outstandingInvoices || 0}
-              change={{
-                value: stats?.overdueInvoices || 0,
-                type: stats?.overdueInvoices ? 'negative' : 'neutral',
-                label: 'overdue',
-              }}
-              icon={DollarSign}
-              color="yellow"
-              onClick={() => router.push('/admin/invoices?status=outstanding')}
-              loading={isLoading}
-            />
-            <StatCard
-              title="Revenue This Month"
-              value={formatCurrency(stats?.revenueThisMonth || 0)}
-              icon={TrendingUp}
-              color="green"
-              onClick={() => router.push('/admin/reports')}
-              loading={isLoading}
-            />
-          </>
-        )}
-
-        {/* Everyone gets at least one card if role-specific aren't shown */}
-        {!isSales && !isAdmin && !isOffice && !isProduction && (
-          <StatCard
-            title="My Schedule Today"
-            value="0"
-            icon={Calendar}
-            color="blue"
-            onClick={() => router.push('/admin/calendar')}
-            loading={isLoading}
-          />
-        )}
+      {/* Quick Action Buttons */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Button
+          variant="outline"
+          className="h-auto py-4 flex flex-col items-center gap-2"
+          onClick={() => router.push('/admin/leads/new')}
+        >
+          <Plus className="h-5 w-5" />
+          <span className="text-sm font-medium">New Lead</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-auto py-4 flex flex-col items-center gap-2"
+          onClick={() => router.push('/admin/map')}
+        >
+          <MapPin className="h-5 w-5" />
+          <span className="text-sm font-medium">Map</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-auto py-4 flex flex-col items-center gap-2"
+          onClick={() => router.push('/admin/leads')}
+        >
+          <Users className="h-5 w-5" />
+          <span className="text-sm font-medium">Leads</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-auto py-4 flex flex-col items-center gap-2"
+          onClick={() => router.push('/admin/calendar')}
+        >
+          <Calendar className="h-5 w-5" />
+          <span className="text-sm font-medium">Calendar</span>
+        </Button>
       </div>
 
-      {/* Urgency Alerts - Always Show if Any Exist */}
-      {(stats?.unsignedQuotesOlderThan7Days || stats?.invoicesOverdue30Plus || stats?.overdueFollowUps) ? (
-        <UrgencyAlerts />
-      ) : null}
+      {/* This Month Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            This Month
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-3xl font-bold text-blue-600">
+                {isLoading ? '...' : stats?.totalLeads || 0}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Total Leads</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-3xl font-bold text-green-600">
+                {isLoading ? '...' : stats?.signedContractsThisMonth || 0}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Signed Contracts</div>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <div className="text-3xl font-bold text-purple-600">
+                {isLoading ? '...' : formatCurrency(stats?.revenueThisMonth || 0)}
+              </div>
+              <div className="text-sm text-gray-600 mt-1">Total Revenue</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Main Content Grid - Role Specific */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
-        <div className="space-y-6">
-          {/* Sales & Marketing: Commission Tracker */}
-          {isSales && <CommissionTracker />}
+      {/* Upcoming Schedule */}
+      <UpcomingSchedule myEventsOnly={!isAdmin} limit={5} />
 
-          {/* Everyone: My Schedule */}
-          <UpcomingSchedule myEventsOnly={!isAdmin} limit={5} />
+      {/* Recent Jobs */}
+      <RecentJobs limit={5} />
 
-          {/* Sales & Admin: Pipeline Chart */}
-          {(isSales || isAdmin) && <PipelineChart />}
-        </div>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Recent Activity Feed */}
-          <RecentActivity />
-
-          {/* Office & Admin: Revenue Chart */}
-          {(isOffice || isAdmin) && <RevenueChart />}
-        </div>
-      </div>
+      {/* Leaderboard */}
+      <Leaderboard limit={5} />
     </div>
   )
 }

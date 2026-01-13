@@ -133,59 +133,27 @@ export async function createInvoice(
     }
 
     // AUTO-TRANSITION: Invoice created → INVOICED/INVOICE_SENT
+    // Note: Commission creation is handled by database trigger (auto_create_commissions_on_invoice)
     if (invoice.lead_id && invoice.company_id) {
       try {
-        console.log('🎯 Invoice created, processing auto-transitions and commissions...')
+        console.log('🎯 Invoice created, processing auto-transition...')
         
         // Get current lead status
         const { data: leadData } = await supabase
           .from('leads')
-          .select('status, sub_status, sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id')
+          .select('status, sub_status')
           .eq('id', invoice.lead_id)
           .single()
 
-        console.log('📋 Lead data:', leadData)
+        console.log('📋 Lead status:', leadData)
 
         if (leadData) {
-          // Auto-create commissions for all assigned users
-          const { autoCreateCommission } = await import('@/lib/utils/auto-commission')
-          const userFieldMap: Array<{ userId: string; field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
-          
-          if (leadData.sales_rep_id) userFieldMap.push({ userId: leadData.sales_rep_id, field: 'sales_rep_id' })
-          if (leadData.marketing_rep_id) userFieldMap.push({ userId: leadData.marketing_rep_id, field: 'marketing_rep_id' })
-          if (leadData.sales_manager_id) userFieldMap.push({ userId: leadData.sales_manager_id, field: 'sales_manager_id' })
-          if (leadData.production_manager_id) userFieldMap.push({ userId: leadData.production_manager_id, field: 'production_manager_id' })
-          
-          console.log(`💼 Creating commissions for ${userFieldMap.length} assigned users:`, userFieldMap.map(u => u.field))
-          
-          // Create commissions for all assigned users
-          if (userFieldMap.length > 0) {
-            const promises = userFieldMap.map(({ userId, field }) => 
-              autoCreateCommission(invoice.lead_id!, userId, invoice.company_id, null, field, true)
-                .then(result => {
-                  console.log(`✅ Commission for ${field}:`, result)
-                  return result
-                })
-                .catch(err => {
-                  console.error(`❌ Failed to auto-create commission for ${field}:`, err)
-                  return { success: false }
-                })
-            )
-            await Promise.all(promises)
-          }
-
-          console.log('🔄 Recalculating all commission amounts...')
-          
-          // Recalculate all commission amounts based on the invoice
-          const { recalculateLeadCommissions } = await import('@/lib/utils/recalculate-commissions')
-          await recalculateLeadCommissions(invoice.lead_id, invoice.company_id)
-
           console.log('📊 Updating lead status to INVOICED...')
 
           // Update lead status
           await applyStatusTransition(
-            invoice.lead_id,
             invoice.company_id,
+            invoice.lead_id,
             {
               from_status: leadData.status as LeadStatus,
               from_sub_status: leadData.sub_status as LeadSubStatus,
@@ -268,7 +236,9 @@ export async function getNextInvoiceNumber(
     const { data, error } = await supabase
       .rpc('generate_invoice_number', { p_company_id: companyId })
 
-    console.log('🔢 RPC response:', { data, error })
+    console.log('🔢 RPC data:', data)
+    console.log('🔢 RPC error:', error)
+    console.log('🔢 RPC data type:', typeof data)
 
     if (error) throw error
     

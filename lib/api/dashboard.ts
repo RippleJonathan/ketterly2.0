@@ -18,6 +18,7 @@ export interface DashboardStats {
   pendingQuotes: number
   quotesThisWeek: number
   quoteWinRate: number
+  signedContractsThisMonth: number
   
   // Financial Metrics
   totalRevenue: number
@@ -103,7 +104,7 @@ export async function getDashboardStats(
 
   // Quote/Estimate Metrics
   const { data: quotes } = await supabase
-    .from('estimates')
+    .from('quotes')
     .select('id, created_at, status, total')
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -111,29 +112,29 @@ export async function getDashboardStats(
   const totalQuotes = quotes?.length || 0
   const quotesThisWeek = quotes?.filter(q => q.created_at >= startOfWeek).length || 0
   const pendingQuotes = quotes?.filter(q => q.status === 'pending' || q.status === 'sent').length || 0
-  const approvedQuotes = quotes?.filter(q => q.status === 'approved').length || 0
+  const approvedQuotes = quotes?.filter(q => q.status === 'accepted').length || 0
+  const signedContractsThisMonth = quotes?.filter(q => q.status === 'accepted' && q.created_at >= startOfMonth).length || 0
   const quoteWinRate = totalQuotes > 0 ? (approvedQuotes / totalQuotes) * 100 : 0
 
-  // Financial Metrics
-  const { data: invoices } = await supabase
-    .from('invoices')
-    .select('id, status, total, balance_due, due_date')
+  // Financial Metrics - Use customer_invoices table
+  const { data: invoices, error: invoicesError } = await supabase
+    .from('customer_invoices')
+    .select('id, status, total, due_date, created_at')
     .eq('company_id', companyId)
     .is('deleted_at', null)
+
+  if (invoicesError) {
+    console.error('❌ customer_invoices query error:', invoicesError)
+  }
 
   const totalRevenue = invoices
-    ?.filter(i => i.status === 'paid')
+    ?.filter(i => i.status === 'paid' || i.status === 'completed')
     .reduce((sum, i) => sum + (i.total || 0), 0) || 0
 
-  const { data: invoicesThisMonth } = await supabase
-    .from('invoices')
-    .select('total')
-    .eq('company_id', companyId)
-    .eq('status', 'paid')
-    .gte('created_at', startOfMonth)
-    .is('deleted_at', null)
-
-  const revenueThisMonth = invoicesThisMonth?.reduce((sum, i) => sum + (i.total || 0), 0) || 0
+  // Revenue this month from all invoices created this month
+  const revenueThisMonth = invoices
+    ?.filter(i => i.created_at >= startOfMonth)
+    .reduce((sum, i) => sum + (i.total || 0), 0) || 0
 
   const outstandingInvoices = invoices?.filter(i => 
     i.status === 'sent' || i.status === 'overdue'
@@ -142,8 +143,8 @@ export async function getDashboardStats(
   const overdueInvoices = invoices?.filter(i => i.status === 'overdue').length || 0
   
   const totalOutstandingAmount = invoices
-    ?.filter(i => i.status !== 'paid' && i.status !== 'draft')
-    .reduce((sum, i) => sum + (i.balance_due || 0), 0) || 0
+    ?.filter(i => i.status !== 'paid' && i.status !== 'completed' && i.status !== 'draft')
+    .reduce((sum, i) => sum + (i.balance || 0), 0) || 0
 
   // Production Metrics
   const { data: projects } = await supabase
@@ -177,20 +178,22 @@ export async function getDashboardStats(
   if (userId) {
     const { data: commissions } = await supabase
       .from('lead_commissions')
-      .select('commission_amount')
+      .select('calculated_amount')
       .eq('company_id', companyId)
       .eq('user_id', userId)
+      .is('deleted_at', null)
 
-    myCommissionsTotal = commissions?.reduce((sum, c) => sum + (c.commission_amount || 0), 0) || 0
+    myCommissionsTotal = commissions?.reduce((sum, c) => sum + (c.calculated_amount || 0), 0) || 0
 
     const { data: commissionsThisMonth } = await supabase
       .from('lead_commissions')
-      .select('commission_amount')
+      .select('calculated_amount')
       .eq('company_id', companyId)
       .eq('user_id', userId)
       .gte('created_at', startOfMonth)
+      .is('deleted_at', null)
 
-    myCommissionsThisMonth = commissionsThisMonth?.reduce((sum, c) => sum + (c.commission_amount || 0), 0) || 0
+    myCommissionsThisMonth = commissionsThisMonth?.reduce((sum, c) => sum + (c.calculated_amount || 0), 0) || 0
 
     const { data: myLeads } = await supabase
       .from('leads')
@@ -208,7 +211,7 @@ export async function getDashboardStats(
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
   const { data: oldUnsignedQuotes } = await supabase
-    .from('estimates')
+    .from('quotes')
     .select('id')
     .eq('company_id', companyId)
     .in('status', ['pending', 'sent'])
@@ -221,7 +224,7 @@ export async function getDashboardStats(
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
   const { data: oldOverdueInvoices } = await supabase
-    .from('invoices')
+    .from('customer_invoices')
     .select('id')
     .eq('company_id', companyId)
     .eq('status', 'overdue')
@@ -242,6 +245,7 @@ export async function getDashboardStats(
     pendingQuotes,
     quotesThisWeek,
     quoteWinRate,
+    signedContractsThisMonth,
     totalRevenue,
     revenueThisMonth,
     outstandingInvoices,
@@ -271,7 +275,7 @@ export async function getPipelineMetrics(companyId: string): Promise<PipelineMet
       id,
       status,
       sub_status,
-      estimates (total)
+      quotes (total)
     `)
     .eq('company_id', companyId)
     .is('deleted_at', null)
@@ -318,10 +322,9 @@ export async function getRevenueByMonth(companyId: string): Promise<RevenueByMon
     const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString()
 
     const { data: invoices } = await supabase
-      .from('invoices')
+      .from('customer_invoices')
       .select('total')
       .eq('company_id', companyId)
-      .eq('status', 'paid')
       .gte('created_at', startOfMonth)
       .lte('created_at', endOfMonth)
       .is('deleted_at', null)

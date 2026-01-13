@@ -368,16 +368,16 @@ export async function uploadAvatar(
     const fileName = `${userId}.${fileExt}`
     const filePath = `avatars/${fileName}`
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage (using lead-photos bucket)
     const { error: uploadError } = await supabase.storage
-      .from('user-avatars')
+      .from('lead-photos')
       .upload(filePath, file, { upsert: true })
 
     if (uploadError) throw uploadError
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
-      .from('user-avatars')
+      .from('lead-photos')
       .getPublicUrl(filePath)
 
     // Update user record with avatar URL
@@ -418,9 +418,9 @@ export async function deleteAvatar(userId: string): Promise<ApiResponse<void>> {
       const fileName = urlParts[urlParts.length - 1]
       const filePath = `avatars/${fileName}`
 
-      // Delete from storage
+      // Delete from storage (using lead-photos bucket)
       const { error: deleteError } = await supabase.storage
-        .from('user-avatars')
+        .from('lead-photos')
         .remove([filePath])
 
       if (deleteError) console.error('Failed to delete file from storage:', deleteError)

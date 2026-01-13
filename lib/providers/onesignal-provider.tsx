@@ -14,6 +14,19 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // Only initialize OneSignal on allowed domains
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+      const isAllowedDomain = 
+        hostname === 'ketterly.com' || 
+        hostname === 'www.ketterly.com' ||
+        hostname.endsWith('.vercel.app') ||
+        hostname === 'localhost'
+
+      if (!isAllowedDomain) {
+        console.warn('OneSignal: Domain not configured -', hostname)
+        return
+      }
+
       try {
         await OneSignal.init({
           appId,

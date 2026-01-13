@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { CalendarPageClient } from '@/components/admin/calendar/calendar-page-client'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Calendar | Ketterly',
   description: 'Schedule and manage appointments, consultations, and production events',

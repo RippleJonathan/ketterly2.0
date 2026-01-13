@@ -1,4 +1,7 @@
-import { Suspense } from 'react'
+﻿import { Suspense } from 'react'
+
+export const dynamic = 'force-dynamic'
+
 import { CommissionPlansList } from '@/components/admin/settings/commission-plans-list'
 import { Skeleton } from '@/components/ui/skeleton'
 

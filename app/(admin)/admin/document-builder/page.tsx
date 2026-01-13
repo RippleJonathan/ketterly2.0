@@ -1,4 +1,7 @@
-'use client'
+﻿'use client'
+
+export const dynamic = 'force-dynamic'
+
 
 import { Button } from '@/components/ui/button'
 import { TemplatesList } from '@/components/admin/document-builder/templates-list'

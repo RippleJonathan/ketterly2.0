@@ -1,4 +1,7 @@
-'use client'
+﻿'use client'
+
+export const dynamic = 'force-dynamic'
+
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -63,7 +66,7 @@ export default function LocationsPage() {
   const locations = useMemo(() => {
     const allLocations = allLocationsResponse?.data || []
     
-    console.log('🏢 Locations Debug:', {
+    console.log('ðŸ¢ Locations Debug:', {
       allLocationsResponse,
       allLocationsCount: allLocations.length,
       userData: userData ? { id: userData.id, email: userData.email, role: userData.role, default_location_id: userData.default_location_id } : null,
@@ -73,20 +76,20 @@ export default function LocationsPage() {
     })
     
     if (!allLocations.length || !userData) {
-      console.log('⚠️ No locations or user data')
+      console.log('âš ï¸ No locations or user data')
       return []
     }
     
     const isAdmin = ['admin', 'super_admin'].includes(userData.role || '')
     if (isAdmin) {
-      console.log('✅ Admin user - showing all locations:', allLocations.length)
+      console.log('âœ… Admin user - showing all locations:', allLocations.length)
       return allLocations
     }
     
     // Office users: Try location_users table first (preferred multi-location method)
     if (managedLocationIds.length > 0) {
       const filtered = allLocations.filter(loc => managedLocationIds.includes(loc.id))
-      console.log('✅ Office user - filtered via location_users table:', {
+      console.log('âœ… Office user - filtered via location_users table:', {
         managedLocationIds,
         filteredCount: filtered.length,
         locationNames: filtered.map(l => l.name)
@@ -97,7 +100,7 @@ export default function LocationsPage() {
     // FALLBACK: If no location_users entries, check users.default_location_id (legacy single location)
     if (userData.default_location_id) {
       const filtered = allLocations.filter(loc => loc.id === userData.default_location_id)
-      console.log('✅ Office user - filtered via users.default_location_id fallback:', {
+      console.log('âœ… Office user - filtered via users.default_location_id fallback:', {
         userLocationId: userData.default_location_id,
         filteredCount: filtered.length,
         locationNames: filtered.map(l => l.name)
@@ -105,7 +108,7 @@ export default function LocationsPage() {
       return filtered
     }
     
-    console.error('⚠️ Office user has no location assignment!', {
+    console.error('âš ï¸ Office user has no location assignment!', {
       message: 'User needs entry in location_users table OR default_location_id on users table',
       userId: userData.id,
       userEmail: userData.email,

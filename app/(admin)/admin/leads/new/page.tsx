@@ -1,4 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
+
+export const dynamic = 'force-dynamic'
+
 import { redirect } from 'next/navigation'
 import { LeadForm } from '@/components/admin/leads/lead-form'
 import Link from 'next/link'

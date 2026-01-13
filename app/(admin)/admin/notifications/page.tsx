@@ -1,4 +1,7 @@
-'use client'
+﻿'use client'
+
+export const dynamic = 'force-dynamic'
+
 
 import { useState } from 'react'
 import { Bell, Check, X, Filter } from 'lucide-react'

@@ -1,4 +1,7 @@
-import { Metadata } from 'next'
+﻿import { Metadata } from 'next'
+
+export const dynamic = 'force-dynamic'
+
 import { DocumentLibraryClient } from '@/components/admin/documents/document-library-client'
 
 export const metadata: Metadata = {

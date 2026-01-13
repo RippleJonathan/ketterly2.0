@@ -1,4 +1,7 @@
-import { Suspense } from 'react'
+﻿import { Suspense } from 'react'
+
+export const dynamic = 'force-dynamic'
+
 import { UserList } from '@/components/admin/users/user-list'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'

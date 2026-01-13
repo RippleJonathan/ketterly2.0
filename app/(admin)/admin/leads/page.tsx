@@ -1,4 +1,7 @@
-import { createAdminClient } from '@/lib/supabase/admin'
+﻿import { createAdminClient } from '@/lib/supabase/admin'
+
+export const dynamic = 'force-dynamic'
+
 import { LeadsTable } from '@/components/admin/leads/leads-table'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'

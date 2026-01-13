@@ -1,4 +1,7 @@
-import { Suspense } from 'react'
+﻿import { Suspense } from 'react'
+
+export const dynamic = 'force-dynamic'
+
 import { RoleTemplatesList } from '@/components/admin/settings/role-templates-list'
 import { Skeleton } from '@/components/ui/skeleton'
 

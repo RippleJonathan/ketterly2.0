@@ -1,4 +1,7 @@
-'use client'
+﻿'use client'
+
+export const dynamic = 'force-dynamic'
+
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -189,7 +192,7 @@ export default function TestAutoMeasurePage() {
         {result && (
           <Card className="border-green-200 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-green-900">Success! 🎉</CardTitle>
+              <CardTitle className="text-green-900">Success! ðŸŽ‰</CardTitle>
               <CardDescription>{result.message}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -215,7 +218,7 @@ export default function TestAutoMeasurePage() {
               <div className="mt-4 pt-4 border-t space-y-2">
                 <p className="text-sm">
                   <span className="text-muted-foreground">Pitch (degrees):</span>{' '}
-                  <strong>{result.data.roof_pitch_degrees}°</strong>
+                  <strong>{result.data.roof_pitch_degrees}Â°</strong>
                 </p>
                 <p className="text-sm">
                   <span className="text-muted-foreground">Roof Segments:</span>{' '}
@@ -252,7 +255,7 @@ export default function TestAutoMeasurePage() {
             </ol>
             
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-              <p className="font-medium text-blue-900">💡 Tip:</p>
+              <p className="font-medium text-blue-900">ðŸ’¡ Tip:</p>
               <p className="text-blue-800 mt-1">
                 After testing, go to the lead's Estimates tab to see the auto-measure button in action!
               </p>

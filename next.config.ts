@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next'
 import withPWA from '@ducanh2912/next-pwa'
 
+// Production-ready configuration for Vercel deployment
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [

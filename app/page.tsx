@@ -16,36 +16,11 @@ export default function HomePage() {
           quote generation, project tracking, and invoicing - all in one place.
         </p>
         
-        <div className="flex gap-4 justify-center">
-          <Link href="/login">
-            <Button size="lg" className="text-lg px-8">
-              Login
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button size="lg" variant="outline" className="text-lg px-8">
-              Sign Up
-            </Button>
-          </Link>
-        </div>
-
-        <div className="mt-16 pt-16 border-t border-gray-300">
-          <p className="text-sm text-gray-500 mb-4">Built with modern technology</p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <div className="bg-white px-6 py-3 rounded-lg shadow-sm">
-              <span className="text-green-600 font-semibold">✓</span> Next.js 15
-            </div>
-            <div className="bg-white px-6 py-3 rounded-lg shadow-sm">
-              <span className="text-green-600 font-semibold">✓</span> Supabase
-            </div>
-            <div className="bg-white px-6 py-3 rounded-lg shadow-sm">
-              <span className="text-green-600 font-semibold">✓</span> TypeScript
-            </div>
-            <div className="bg-white px-6 py-3 rounded-lg shadow-sm">
-              <span className="text-green-600 font-semibold">✓</span> Tailwind CSS
-            </div>
-          </div>
-        </div>
+        <Link href="/login">
+          <Button size="lg" className="text-lg px-8">
+            Login
+          </Button>
+        </Link>
       </div>
     </div>
   );

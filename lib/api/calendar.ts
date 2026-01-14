@@ -349,7 +349,7 @@ export async function createEvent(
           leadName = lead?.full_name || null
         }
 
-        // Send notifications via API route to avoid import issues
+        // Send appointment email notifications via API route
         fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-appointment-emails`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -370,6 +370,25 @@ export async function createEvent(
         }).catch(notificationError => {
           console.error('Failed to send appointment notifications:', notificationError)
         })
+
+        // Send push notifications for job scheduled
+        const { notifyJobScheduled } = await import('@/lib/email/user-notifications')
+        for (const userId of event.assigned_users) {
+          try {
+            await notifyJobScheduled({
+              userId,
+              companyId,
+              eventId: data.id,
+              leadId: event.lead_id || null,
+              leadName,
+              jobDate: event.event_date,
+              jobType: event.title,
+              address: event.location || null,
+            })
+          } catch (pushError) {
+            console.error(`Failed to send job_scheduled push to user ${userId}:`, pushError)
+          }
+        }
       } catch (notificationError) {
         console.error('Failed to send appointment notifications:', notificationError)
         // Don't fail the event creation if notifications fail

@@ -777,3 +777,141 @@ export async function notifyAppointmentAssigned(data: {
 
   console.log(`Sent appointment_assigned notification to ${user.email}`)
 }
+
+/**
+ * Send new note added notification
+ */
+export async function notifyNewNote(data: {
+  userId: string
+  companyId: string
+  leadId: string
+  leadName: string
+  noteAuthor: string
+  noteAuthorId: string
+  noteContent: string
+}) {
+  // Check if user wants push notifications for notes
+  const canSendPush = await shouldSendPushNotification(data.userId, 'new_note')
+  
+  if (!canSendPush) {
+    console.log(`Skipping new_note notification for user ${data.userId}`)
+    return
+  }
+
+  // Don't notify user of their own notes
+  if (data.userId === data.noteAuthorId) {
+    return
+  }
+
+  const company = await getCompanyDetails(data.companyId)
+  const notePreview = data.noteContent.length > 50 
+    ? data.noteContent.substring(0, 50) + '...'
+    : data.noteContent
+
+  try {
+    await sendPushNotification({
+      userIds: [data.userId],
+      title: '💬 New Note',
+      message: `${data.noteAuthor} added a note to ${data.leadName}: "${notePreview}"`,
+      url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.leadId}`,
+      data: {
+        type: 'new_note',
+        leadId: data.leadId,
+        icon: company.logo_url || undefined,
+      },
+    })
+    console.log(`Sent new_note push notification to user ${data.userId}`)
+  } catch (error) {
+    console.error('Failed to send new_note push notification:', error)
+  }
+}
+
+/**
+ * Send new lead created notification (for managers/admins)
+ */
+export async function notifyNewLeadCreated(data: {
+  userIds: string[]  // List of managers/admins to notify
+  companyId: string
+  leadId: string
+  leadName: string
+  leadEmail: string
+  leadPhone?: string | null
+  serviceType: string
+  source: string
+  address?: string | null
+}) {
+  const company = await getCompanyDetails(data.companyId)
+
+  for (const userId of data.userIds) {
+    // Check if user wants push notifications for new leads
+    const canSendPush = await shouldSendPushNotification(userId, 'new_leads')
+    
+    if (!canSendPush) {
+      console.log(`Skipping new_leads notification for user ${userId}`)
+      continue
+    }
+
+    try {
+      await sendPushNotification({
+        userIds: [userId],
+        title: '🎯 New Lead',
+        message: `${data.leadName} - ${data.serviceType} (${data.source})`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.leadId}`,
+        data: {
+          type: 'new_lead',
+          leadId: data.leadId,
+          icon: company.logo_url || undefined,
+        },
+      })
+      console.log(`Sent new_leads push notification to user ${userId}`)
+    } catch (error) {
+      console.error('Failed to send new_leads push notification:', error)
+    }
+  }
+}
+
+/**
+ * Send job scheduled notification
+ */
+export async function notifyJobScheduled(data: {
+  userId: string  // Crew member or assignee
+  companyId: string
+  eventId: string
+  leadId?: string | null
+  leadName?: string | null
+  jobDate: string  // ISO date string
+  jobType: string  // e.g., "Inspection", "Installation"
+  address?: string | null
+}) {
+  // Check if user wants push notifications for job schedules
+  const canSendPush = await shouldSendPushNotification(data.userId, 'job_scheduled')
+  
+  if (!canSendPush) {
+    console.log(`Skipping job_scheduled notification for user ${data.userId}`)
+    return
+  }
+
+  const company = await getCompanyDetails(data.companyId)
+  const jobDateFormatted = format(new Date(data.jobDate), 'MMM d, yyyy h:mm a')
+  const customerInfo = data.leadName ? ` for ${data.leadName}` : ''
+
+  try {
+    await sendPushNotification({
+      userIds: [data.userId],
+      title: '📅 Job Scheduled',
+      message: `${data.jobType}${customerInfo} on ${jobDateFormatted}`,
+      url: data.leadId 
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.leadId}`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/admin/calendar`,
+      data: {
+        type: 'job_scheduled',
+        eventId: data.eventId,
+        leadId: data.leadId || undefined,
+        icon: company.logo_url || undefined,
+      },
+    })
+    console.log(`Sent job_scheduled push notification to user ${data.userId}`)
+  } catch (error) {
+    console.error('Failed to send job_scheduled push notification:', error)
+  }
+}

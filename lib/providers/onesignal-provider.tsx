@@ -38,22 +38,23 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
           serviceWorkerParam: {
             scope: '/',
           },
-          serviceWorkerPath: '/OneSignalSDK.sw.js',
-          promptOptions: {
-            slidedown: {
-              prompts: [
-                {
-                  type: 'push',
-                  autoPrompt: false, // Don't auto-show, let user click the button
-                  text: {
-                    actionMessage: 'Get updates and notifications on leads and jobs.',
-                    acceptButton: 'Accept',
-                    cancelButton: 'No Thanks',
-                  },
-                },
-              ],
-            },
+          serviceWorkerPath: '/OneSignalSDKWorker.js',
+          notifyButton: {
+            enable: false, // Disable default bell
           },
+          welcomeNotification: {
+            disable: true, // Disable welcome notification
+          },
+        })
+
+        // Customize slidedown prompt
+        await OneSignal.Slidedown.promptPush({
+          text: {
+            actionMessage: 'Get updates and notifications on leads and jobs.',
+            acceptButton: 'Accept',
+            cancelButton: 'No Thanks',
+          },
+          autoPrompt: false,
         })
 
         console.log('✅ OneSignal initialized successfully')

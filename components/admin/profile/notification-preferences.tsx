@@ -30,6 +30,7 @@ const NOTIFICATION_GROUPS: NotificationGroup[] = [
       { key: 'new_leads', label: 'New Leads', description: 'When a new lead is created or assigned to you' },
       { key: 'lead_assigned', label: 'Lead Assignments', description: 'When you are assigned to a lead' },
       { key: 'lead_status_change', label: 'Lead Status Changes', description: 'When a lead status changes' },
+      { key: 'new_note', label: 'New Notes', description: 'When someone adds a note to your leads' },
     ]
   },
   {
@@ -39,6 +40,7 @@ const NOTIFICATION_GROUPS: NotificationGroup[] = [
       { key: 'appointments', label: 'New Appointments', description: 'When appointments are scheduled' },
       { key: 'appointment_reminders', label: 'Appointment Reminders', description: 'Reminders before upcoming appointments' },
       { key: 'production_scheduled', label: 'Production Scheduled', description: 'When production is scheduled for a project' },
+      { key: 'job_scheduled', label: 'Jobs Scheduled', description: 'When jobs or calendar events are assigned to you' },
     ]
   },
   {

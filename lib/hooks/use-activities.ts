@@ -37,9 +37,49 @@ export function useCreateActivity(
       }
       return result
     },
-    onSuccess: () => {
+    onSuccess: async (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['activities', entityType, entityId] })
       toast.success('Activity logged successfully')
+
+      // Send push notification for new notes on leads
+      if (entityType === 'lead' && variables.activity_type === 'note' && result.data) {
+        try {
+          // Get lead details and assigned user
+          const { getLeads } = await import('@/lib/api/leads')
+          const leadResult = await getLeads(company!.id, { lead_id: entityId })
+          
+          if (leadResult.data && leadResult.data.length > 0) {
+            const lead = leadResult.data[0]
+            
+            // Notify assigned user (if different from author)
+            if (lead.sales_rep_id && lead.sales_rep_id !== variables.created_by) {
+              const { notifyNewNote } = await import('@/lib/email/user-notifications')
+              
+              // Get author name
+              const { createClient } = await import('@/lib/supabase/client')
+              const supabase = createClient()
+              const { data: author } = await supabase
+                .from('users')
+                .select('full_name')
+                .eq('id', variables.created_by)
+                .single()
+
+              await notifyNewNote({
+                userId: lead.sales_rep_id,
+                companyId: company!.id,
+                leadId: entityId,
+                leadName: lead.full_name,
+                noteAuthor: author?.full_name || 'Unknown',
+                noteAuthorId: variables.created_by || '',
+                noteContent: variables.description || variables.title || '',
+              })
+            }
+          }
+        } catch (notificationError) {
+          console.error('Failed to send note notification:', notificationError)
+          // Don't fail activity creation if notification fails
+        }
+      }
     },
     onError: (error: Error) => {
       console.error('Create activity error:', error)

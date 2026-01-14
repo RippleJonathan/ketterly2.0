@@ -7,6 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 export function OneSignalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initOneSignal = async () => {
+      // Temporarily disable OneSignal - causing domain configuration issues
+      // Will re-enable once OneSignal dashboard is properly configured
+      console.log('OneSignal: Disabled until dashboard configuration is verified')
+      return
+
       const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
       
       if (!appId) {

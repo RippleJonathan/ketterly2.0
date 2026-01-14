@@ -7,23 +7,16 @@ import { createClient } from '@/lib/supabase/client'
 export function OneSignalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initOneSignal = async () => {
+      // Temporarily disable OneSignal until properly configured in dashboard
+      if (process.env.NODE_ENV === 'production') {
+        console.log('OneSignal: Disabled in production until domain configuration complete')
+        return
+      }
+
       const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
       
       if (!appId) {
         console.warn('OneSignal App ID not configured')
-        return
-      }
-
-      // Only initialize OneSignal on allowed domains
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
-      const isAllowedDomain = 
-        hostname === 'ketterly.com' || 
-        hostname === 'www.ketterly.com' ||
-        hostname.endsWith('.vercel.app') ||
-        hostname === 'localhost'
-
-      if (!isAllowedDomain) {
-        console.warn('OneSignal: Domain not configured -', hostname)
         return
       }
 

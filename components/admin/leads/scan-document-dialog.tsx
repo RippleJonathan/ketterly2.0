@@ -88,24 +88,19 @@ export function ScanDocumentDialog({
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(videoElement, 0, 0)
 
-      // Set default corners (full frame) - user will adjust these
+      // DON'T transform yet - just capture the raw image
+      // User will see full image in preview and can adjust corners if needed
+      const imageData = canvas.toDataURL('image/jpeg', 0.92)
+
+      // Set default corners (full frame) - user can adjust in preview
       const defaultCorners: DetectedCorners = {
-        topLeft: { x: canvas.width * 0.1, y: canvas.height * 0.1 },
-        topRight: { x: canvas.width * 0.9, y: canvas.height * 0.1 },
-        bottomRight: { x: canvas.width * 0.9, y: canvas.height * 0.9 },
-        bottomLeft: { x: canvas.width * 0.1, y: canvas.height * 0.9 },
+        topLeft: { x: canvas.width * 0.05, y: canvas.height * 0.05 },
+        topRight: { x: canvas.width * 0.95, y: canvas.height * 0.05 },
+        bottomRight: { x: canvas.width * 0.95, y: canvas.height * 0.95 },
+        bottomLeft: { x: canvas.width * 0.05, y: canvas.height * 0.95 },
       }
 
-      // Apply perspective transform with default corners
-      const transformedCanvas = applyPerspectiveTransform(canvas, defaultCorners)
-
-      // Enhance document (increase contrast)
-      enhanceDocument(transformedCanvas)
-
-      // Convert to base64
-      const imageData = canvasToBase64(transformedCanvas, 0.85)
-
-      // Create page object
+      // Create page object with RAW image
       const newPage: ScanPage = {
         id: generatePageId(),
         imageData,

@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react'
 import { useLeadMeasurements, useCreateMeasurements, useUpdateMeasurements, useAddMeasurementAccessory, useRemoveMeasurementAccessory, useUpdateMeasurementAccessory, useAutoMeasure } from '@/lib/hooks/use-measurements'
 import { useSearchMaterials } from '@/lib/hooks/use-materials'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -62,6 +63,7 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
   const createMeasurements = useCreateMeasurements(leadId)
   const updateMeasurements = useUpdateMeasurements(leadId)
   const autoMeasure = useAutoMeasure(leadId)
+  const queryClient = useQueryClient()
 
   const existingMeasurements = measurementsResponse?.data
 
@@ -229,6 +231,9 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
         } else {
           await createMeasurements.mutateAsync(measurementData)
         }
+        
+        // Invalidate queries to refresh UI immediately
+        queryClient.invalidateQueries({ queryKey: ['measurements', leadId] })
         
         // THEN update formData state for UI
         setFormData(prev => ({

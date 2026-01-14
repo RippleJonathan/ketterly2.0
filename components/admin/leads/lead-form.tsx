@@ -216,7 +216,7 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
     }
   }, [mode, user, setValue, watch, isAdmin, userLocationsSuccess, userLocationsData, userLocationsError])
 
-  // Fetch users for assignment dropdown - filtered by location
+  // Fetch users for assignment dropdown - filtered by location (or all users for admins)
   useEffect(() => {
     async function fetchUsers() {
       if (!company?.id || !user?.id) return
@@ -224,6 +224,26 @@ export function LeadForm({ lead, mode }: LeadFormProps) {
       const supabase = createClient()
       const selectedLocationId = watch('location_id')
       
+      // ADMINS: Show ALL users regardless of location or role
+      if (isAdmin) {
+        const { data: allUsers, error } = await supabase
+          .from('users')
+          .select('id, full_name, email, role')
+          .eq('company_id', company.id)
+          .is('deleted_at', null)
+          .order('full_name')
+        
+        if (error) {
+          console.error('Error fetching all users (admin):', error)
+          setUsers([])
+          return
+        }
+        
+        setUsers(allUsers || [])
+        return
+      }
+      
+      // NON-ADMINS: Filter by location
       if (!selectedLocationId) {
         // If no location selected, show all users who have at least one location assignment
         const { data: locationUserData, error } = await supabase

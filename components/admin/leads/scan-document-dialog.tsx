@@ -45,6 +45,7 @@ export function ScanDocumentDialog({
   const [step, setStep] = useState<ScanStep>('camera')
   const [pages, setPages] = useState<ScanPage[]>([])
   const [currentCorners, setCurrentCorners] = useState<DetectedCorners | null>(null)
+  const [editingPageIndex, setEditingPageIndex] = useState<number | null>(null)
   const [isDetecting, setIsDetecting] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -109,8 +110,10 @@ export function ScanDocumentDialog({
       }
 
       setPages((prev) => [...prev, newPage])
+      setCurrentCorners(defaultCorners)
+      setEditingPageIndex(pages.length) // Index of the new page
       setStep('preview')
-      toast.success('Page captured! Review or add more pages.')
+      toast.success('Page captured! Adjust corners to crop, then add more pages or finish.')
     } catch (error) {
       console.error('Capture error:', error)
       toast.error('Failed to capture page')
@@ -130,6 +133,7 @@ export function ScanDocumentDialog({
   const handleAddPage = useCallback(() => {
     setStep('camera')
     setCurrentCorners(null)
+    setEditingPageIndex(null)
   }, [])
 
   // Preview all pages before saving
@@ -162,12 +166,23 @@ export function ScanDocumentDialog({
     setIsSaving(true)
 
     try {
-      // Compress images before sending
-      const compressedPages = await Promise.all(
-        pages.map(async (page) => ({
-          ...page,
-          imageData: await compressImage(page.imageData, 1200, 1800, 0.8),
-        }))
+      // Apply perspective transform and compress images before sending
+      const processedPages = await Promise.all(
+        pages.map(async (page) => {
+          // Apply perspective transform using corners
+          const transformedImage = await applyPerspectiveTransform(page.imageData, page.corners)
+          
+          // Enhance the document (increase contrast, sharpen)
+          const enhancedImage = await enhanceDocument(transformedImage)
+          
+          // Compress for upload
+          const compressedImage = await compressImage(enhancedImage, 1600, 2400, 0.85)
+          
+          return {
+            ...page,
+            imageData: compressedImage,
+          }
+        })
       )
 
       // Send to API to generate PDF
@@ -177,7 +192,7 @@ export function ScanDocumentDialog({
         body: JSON.stringify({
           leadId,
           title: documentTitle,
-          pages: compressedPages,
+          pages: processedPages,
         }),
       })
 
@@ -213,26 +228,91 @@ export function ScanDocumentDialog({
   }, [])
 
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!draggedCorner || !currentCorners || !canvasRef.current) return
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (!draggedCorner || !currentCorners || !canvasRef.current || editingPageIndex === null) return
 
       const canvas = canvasRef.current
       const rect = canvas.getBoundingClientRect()
       const scaleX = canvas.width / rect.width
       const scaleY = canvas.height / rect.height
 
-      const x = (e.clientX - rect.left) * scaleX
-      const y = (e.clientY - rect.top) * scaleY
+      let clientX: number
+      let clientY: number
 
-      setCurrentCorners({
+      if ('touches' in e) {
+        // Touch event
+        if (e.touches.length === 0) return
+        clientX = e.touches[0].clientX
+        clientY = e.touches[0].clientY
+      } else {
+        // Mouse event
+        clientX = e.clientX
+        clientY = e.clientY
+      }
+
+      const x = (clientX - rect.left) * scaleX
+      const y = (clientY - rect.top) * scaleY
+
+      const newCorners = {
         ...currentCorners,
         [draggedCorner]: { x, y },
-      })
+      }
+
+      setCurrentCorners(newCorners)
+
+      // Update the page's corners
+      setPages((prev) =>
+        prev.map((page, index) =>
+          index === editingPageIndex ? { ...page, corners: newCorners } : page
+        )
+      )
     },
-    [draggedCorner, currentCorners]
+    [draggedCorner, currentCorners, editingPageIndex]
   )
 
   const handleMouseUp = useCallback(() => {
+    setDraggedCorner(null)
+  }, [])
+
+  const handleTouchStart = useCallback((corner: keyof DetectedCorners) => {
+    setDraggedCorner(corner)
+  }, [])
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (!draggedCorner || !currentCorners || !canvasRef.current || editingPageIndex === null) return
+
+      e.preventDefault() // Prevent scrolling while dragging
+
+      const canvas = canvasRef.current
+      const rect = canvas.getBoundingClientRect()
+      const scaleX = canvas.width / rect.width
+      const scaleY = canvas.height / rect.height
+
+      if (e.touches.length === 0) return
+      const touch = e.touches[0]
+
+      const x = (touch.clientX - rect.left) * scaleX
+      const y = (touch.clientY - rect.top) * scaleY
+
+      const newCorners = {
+        ...currentCorners,
+        [draggedCorner]: { x, y },
+      }
+
+      setCurrentCorners(newCorners)
+
+      // Update the page's corners
+      setPages((prev) =>
+        prev.map((page, index) =>
+          index === editingPageIndex ? { ...page, corners: newCorners } : page
+        )
+      )
+    },
+    [draggedCorner, currentCorners, editingPageIndex]
+  )
+
+  const handleTouchEnd = useCallback(() => {
     setDraggedCorner(null)
   }, [])
 
@@ -247,56 +327,106 @@ export function ScanDocumentDialog({
     onOpenChange(false)
   }, [onOpenChange])
 
-  // Draw edge overlay on canvas
+  // Draw edge overlay on canvas (for camera and preview)
   const drawEdgeOverlay = useCallback(() => {
-    if (!currentCorners || !canvasRef.current || step !== 'camera') return
+    if (!currentCorners || !canvasRef.current) return
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const videoElement = webcamRef.current?.video
-    if (!videoElement) return
-
-    // Clear and draw video frame
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
 
+    if (step === 'camera') {
+      // Camera view: draw video + corners
+      const videoElement = webcamRef.current?.video
+      if (!videoElement) return
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
+    } else if (step === 'preview' && editingPageIndex !== null) {
+      // Preview: draw captured image + corners
+      const page = pages[editingPageIndex]
+      if (!page) return
+
+      const img = new Image()
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx.drawImage(img, 0, 0)
+
+        // Draw corners overlay
+        drawCornersOverlay(ctx, currentCorners)
+      }
+      img.src = page.imageData
+      return // Don't draw corners yet, wait for image to load
+    }
+
+    // Draw corners overlay
+    drawCornersOverlay(ctx, currentCorners)
+  }, [currentCorners, step, editingPageIndex, pages])
+
+  // Helper to draw corners
+  const drawCornersOverlay = useCallback((ctx: CanvasRenderingContext2D, corners: DetectedCorners) => {
     // Draw detected corners
     ctx.strokeStyle = '#22c55e'
     ctx.lineWidth = 3
     ctx.fillStyle = '#22c55e'
 
     ctx.beginPath()
-    ctx.moveTo(currentCorners.topLeft.x, currentCorners.topLeft.y)
-    ctx.lineTo(currentCorners.topRight.x, currentCorners.topRight.y)
-    ctx.lineTo(currentCorners.bottomRight.x, currentCorners.bottomRight.y)
-    ctx.lineTo(currentCorners.bottomLeft.x, currentCorners.bottomLeft.y)
+    ctx.moveTo(corners.topLeft.x, corners.topLeft.y)
+    ctx.lineTo(corners.topRight.x, corners.topRight.y)
+    ctx.lineTo(corners.bottomRight.x, corners.bottomRight.y)
+    ctx.lineTo(corners.bottomLeft.x, corners.bottomLeft.y)
     ctx.closePath()
     ctx.stroke()
 
-    // Draw corner handles
-    const corners = [
-      currentCorners.topLeft,
-      currentCorners.topRight,
-      currentCorners.bottomRight,
-      currentCorners.bottomLeft,
+    // Draw corner handles (larger for mobile)
+    const cornerHandles = [
+      { corner: corners.topLeft, label: 'TL' },
+      { corner: corners.topRight, label: 'TR' },
+      { corner: corners.bottomRight, label: 'BR' },
+      { corner: corners.bottomLeft, label: 'BL' },
     ]
 
-    corners.forEach((corner) => {
+    cornerHandles.forEach(({ corner, label }) => {
+      // Outer circle (larger for touch)
+      ctx.beginPath()
+      ctx.arc(corner.x, corner.y, 20, 0, 2 * Math.PI)
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.3)'
+      ctx.fill()
+
+      // Inner circle
       ctx.beginPath()
       ctx.arc(corner.x, corner.y, 10, 0, 2 * Math.PI)
+      ctx.fillStyle = '#22c55e'
       ctx.fill()
+
+      // Label
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '10px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, corner.x, corner.y)
     })
-  }, [currentCorners, step])
+  }, [])
 
   // Update overlay when corners change
   useEffect(() => {
     if (step === 'camera') {
       const interval = setInterval(drawEdgeOverlay, 100)
       return () => clearInterval(interval)
+    } else if (step === 'preview' && currentCorners) {
+      // Draw preview with corners once when entering preview
+      drawEdgeOverlay()
     }
-  }, [step, drawEdgeOverlay])
+  }, [step, drawEdgeOverlay, currentCorners])
+
+  // Redraw when corners change in preview mode
+  useEffect(() => {
+    if (step === 'preview' && currentCorners) {
+      drawEdgeOverlay()
+    }
+  }, [currentCorners, step, drawEdgeOverlay])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -387,15 +517,57 @@ export function ScanDocumentDialog({
           </div>
         )}
 
-        {/* Single Page Preview */}
-        {step === 'preview' && pages.length > 0 && (
+        {/* Single Page Preview with Adjustable Corners */}
+        {step === 'preview' && pages.length > 0 && editingPageIndex !== null && (
           <div className="space-y-4">
-            <div className="bg-gray-100 rounded-lg p-4">
-              <img
-                src={pages[pages.length - 1].imageData}
-                alt="Captured page"
-                className="w-full h-auto rounded"
+            <div className="bg-gray-900 rounded-lg p-2 relative">
+              <canvas
+                ref={canvasRef}
+                className="w-full h-auto rounded touch-none"
+                style={{ maxHeight: '60vh', objectFit: 'contain' }}
+                onMouseDown={(e) => {
+                  if (!currentCorners) return
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const x = ((e.clientX - rect.left) / rect.width) * e.currentTarget.width
+                  const y = ((e.clientY - rect.top) / rect.height) * e.currentTarget.height
+
+                  // Find closest corner
+                  const corners = Object.entries(currentCorners) as [keyof DetectedCorners, { x: number; y: number }][]
+                  const closest = corners.reduce((prev, [key, corner]) => {
+                    const dist = Math.sqrt((corner.x - x) ** 2 + (corner.y - y) ** 2)
+                    return dist < prev.dist ? { key, dist } : prev
+                  }, { key: 'topLeft' as keyof DetectedCorners, dist: Infinity })
+
+                  if (closest.dist < 50) {
+                    handleCornerMouseDown(closest.key)
+                  }
+                }}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onTouchStart={(e) => {
+                  if (!currentCorners || e.touches.length === 0) return
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const touch = e.touches[0]
+                  const x = ((touch.clientX - rect.left) / rect.width) * e.currentTarget.width
+                  const y = ((touch.clientY - rect.top) / rect.height) * e.currentTarget.height
+
+                  // Find closest corner
+                  const corners = Object.entries(currentCorners) as [keyof DetectedCorners, { x: number; y: number }][]
+                  const closest = corners.reduce((prev, [key, corner]) => {
+                    const dist = Math.sqrt((corner.x - x) ** 2 + (corner.y - y) ** 2)
+                    return dist < prev.dist ? { key, dist } : prev
+                  }, { key: 'topLeft' as keyof DetectedCorners, dist: Infinity })
+
+                  if (closest.dist < 50) {
+                    handleTouchStart(closest.key)
+                  }
+                }}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               />
+              <p className="text-center text-sm text-white mt-2">
+                Drag the green corners to crop the document
+              </p>
             </div>
 
             <div className="flex gap-2">

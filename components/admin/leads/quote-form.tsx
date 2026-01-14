@@ -453,6 +453,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                 id="option_label"
                 {...form.register('option_label')}
                 placeholder="e.g., Option A: Full Replacement"
+                className="w-full"
               />
             </div>
 
@@ -462,6 +463,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                 id="valid_until"
                 type="date"
                 {...form.register('valid_until')}
+                className="w-full"
               />
               {form.formState.errors.valid_until && (
                 <p className="text-sm text-red-600 mt-1">
@@ -482,6 +484,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                 {...form.register('tax_rate', {
                   valueAsNumber: true,
                 })}
+                className="w-full"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Note: Residential roofing labor is tax-exempt in Texas. Only add tax for commercial jobs or materials.
@@ -494,6 +497,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                 id="payment_terms"
                 {...form.register('payment_terms')}
                 placeholder="e.g., Net 30 - 50% deposit required"
+                className="w-full"
               />
             </div>
 
@@ -588,6 +592,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                                   <Input
                                     {...form.register(`line_items.${index}.description`)}
                                     placeholder="e.g., Asphalt shingles - 30yr"
+                                    className="w-full"
                                   />
                                 </div>
 
@@ -600,6 +605,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                                     {...form.register(`line_items.${index}.quantity`, {
                                       setValueAs: (v) => (v ? parseFloat(v) : 0),
                                     })}
+                                    className="w-full"
                                   />
                                 </div>
 
@@ -609,6 +615,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                                   <Input
                                     {...form.register(`line_items.${index}.unit`)}
                                     placeholder="sqft, hrs, ea"
+                                    className="w-full"
                                   />
                                 </div>
 
@@ -622,6 +629,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                                       setValueAs: (v) => (v ? parseFloat(v) : 0),
                                     })}
                                     placeholder="0.00"
+                                    className="w-full"
                                   />
                                 </div>
 
@@ -632,6 +640,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
                                     {...form.register(`line_items.${index}.notes`)}
                                     placeholder="Optional notes for this line item..."
                                     rows={2}
+                                    className="w-full"
                                   />
                                 </div>
 

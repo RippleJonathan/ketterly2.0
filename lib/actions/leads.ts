@@ -13,6 +13,7 @@ import {
   notifyLeadAssigned, 
   notifyLeadStatusChanged 
 } from '@/lib/email/user-notifications'
+import { createUnifiedNotification } from '@/lib/api/unified-notifications'
 import { LeadInsert, LeadUpdate } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 
@@ -65,7 +66,7 @@ export async function createLeadAction(
 
     console.log('[CREATE LEAD ACTION] Lead created successfully:', data.id)
 
-    // Send notifications to all assigned users (INCLUDING current user if assigned)
+    // Send unified notifications (in-app + push) to all assigned users
     const assignedUserIds = [
       (data as any).sales_rep_id,
       (data as any).marketing_rep_id,
@@ -77,23 +78,24 @@ export async function createLeadAction(
     const uniqueAssignedUserIds = Array.from(new Set(assignedUserIds))
 
     if (uniqueAssignedUserIds.length > 0) {
-      console.log('[CREATE LEAD ACTION] Sending notifications to:', uniqueAssignedUserIds)
+      console.log('[CREATE LEAD ACTION] Sending unified notifications to:', uniqueAssignedUserIds)
       
-      // Send notification to each assigned user
-      for (const userId of uniqueAssignedUserIds) {
-        await notifyNewLead({
-          userId,
-          companyId,
+      // Use new unified notification system
+      await createUnifiedNotification({
+        userIds: uniqueAssignedUserIds,
+        title: '🎯 New Lead Assigned',
+        message: `New lead: ${lead.full_name} - ${lead.service_type || 'Unknown service'} at ${lead.address || 'No address'}`,
+        type: 'user',
+        priority: 'high',
+        locationId: (data as any).location_id || undefined,
+        pushUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.id}`,
+        pushData: {
           leadId: data.id,
           leadName: lead.full_name,
-          leadEmail: lead.email,
-          leadPhone: lead.phone,
-          serviceType: lead.service_type || 'Unknown',
-          address: lead.address,
-          source: lead.source || 'Unknown',
-          createdAt: data.created_at,
-        }).catch(err => console.error(`Failed to send new lead notification to ${userId}:`, err))
-      }
+          serviceType: lead.service_type,
+        },
+        preferenceKey: 'new_leads',
+      }).catch(err => console.error('Failed to send unified notifications:', err))
     } else {
       console.log('[CREATE LEAD ACTION] No users assigned - skipping notifications')
     }

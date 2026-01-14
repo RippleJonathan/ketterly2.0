@@ -55,6 +55,13 @@ export async function sendPushNotification({
       url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://localhost:3000', // Always provide valid URL
     }
 
+    console.log('🔔 Sending push notification:', {
+      title,
+      message,
+      targetUserIds: userIds,
+      url: notification.url,
+    })
+
     if (data) {
       // Extract icon and image if provided
       const { icon, image, ...customData } = data
@@ -89,6 +96,13 @@ export async function sendPushNotification({
     })
 
     const result = await response.json()
+
+    console.log('🔔 OneSignal API response:', {
+      success: response.ok,
+      recipients: result.recipients,
+      externalIds: result.external_ids,
+      errors: result.errors,
+    })
 
     if (!response.ok) {
       console.error('OneSignal API error:', result)

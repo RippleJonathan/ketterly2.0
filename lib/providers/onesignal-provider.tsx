@@ -76,15 +76,7 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
             }
             
             // Give OneSignal a moment to process
-            await new Promise(resolve => setTimeout(resolve, 500))
-            
-            // Verify external ID was set
-            const externalId = await OneSignal.User.getExternalId()
-            console.log('✅ OneSignal external ID verified:', externalId || 'NOT SET')
-            
-            if (!externalId) {
-              console.error('❌ External ID not set! This will prevent push notifications from targeting this user.')
-            }
+            await new Promise(resolve => setTimeout(resolve, 1000))
             
             // Check if user is subscribed
             const isSubscribed = await OneSignal.User.PushSubscription.optedIn
@@ -96,6 +88,8 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
               setTimeout(() => {
                 OneSignal.Slidedown.promptPush()
               }, 2000)
+            } else {
+              console.log('✅ Push notifications are enabled and ready')
             }
           } catch (error) {
             console.error('❌ Failed to set OneSignal user ID:', error)

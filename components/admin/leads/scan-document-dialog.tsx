@@ -332,6 +332,11 @@ export function ScanDocumentDialog({
     if (!currentCorners || !canvasRef.current) return
 
     const canvas = canvasRef.current
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      console.error('canvasRef.current is not a canvas element')
+      return
+    }
+    
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -343,6 +348,9 @@ export function ScanDocumentDialog({
       const videoElement = webcamRef.current?.video
       if (!videoElement) return
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
+      
+      // Draw corners overlay
+      drawCornersOverlay(ctx, currentCorners)
     } else if (step === 'preview' && editingPageIndex !== null) {
       // Preview: draw captured image + corners
       const page = pages[editingPageIndex]
@@ -352,17 +360,23 @@ export function ScanDocumentDialog({
       img.onload = () => {
         canvas.width = img.width
         canvas.height = img.height
-        ctx.drawImage(img, 0, 0)
+        
+        // Clear and draw image
+        const freshCtx = canvas.getContext('2d')
+        if (!freshCtx) return
+        
+        freshCtx.clearRect(0, 0, canvas.width, canvas.height)
+        freshCtx.drawImage(img, 0, 0)
 
         // Draw corners overlay
-        drawCornersOverlay(ctx, currentCorners)
+        drawCornersOverlay(freshCtx, currentCorners)
+      }
+      img.onerror = (err) => {
+        console.error('Failed to load preview image:', err)
       }
       img.src = page.imageData
       return // Don't draw corners yet, wait for image to load
     }
-
-    // Draw corners overlay
-    drawCornersOverlay(ctx, currentCorners)
   }, [currentCorners, step, editingPageIndex, pages])
 
   // Helper to draw corners

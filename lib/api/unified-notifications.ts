@@ -8,7 +8,8 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { sendPushNotification, shouldSendPushNotification } from '@/lib/email/user-notifications'
+import { shouldSendPushNotification } from '@/lib/email/user-notifications'
+import { sendPushNotification } from '@/lib/api/onesignal'
 
 export type UnifiedNotificationType = 'company' | 'location' | 'user' | 'system'
 export type UnifiedNotificationPriority = 'low' | 'medium' | 'high'

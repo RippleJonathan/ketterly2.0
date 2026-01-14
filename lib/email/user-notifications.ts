@@ -70,7 +70,7 @@ function shouldSendNotification(
 /**
  * Check if user wants push notifications for this type
  */
-async function shouldSendPushNotification(
+export async function shouldSendPushNotification(
   userId: string,
   notificationType: string
 ): Promise<boolean> {

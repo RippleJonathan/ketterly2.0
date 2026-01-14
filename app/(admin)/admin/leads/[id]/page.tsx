@@ -16,7 +16,7 @@ import { FinancialsTab } from '@/components/admin/leads/financials-tab'
 import { CommissionsTab } from '@/components/admin/leads/commissions-tab'
 import { EditableDetailsTab } from '@/components/admin/leads/editable-details-tab'
 import Link from 'next/link'
-import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, CheckSquare, Image, TrendingUp, Banknote, Calendar } from 'lucide-react'
+import { ArrowLeft, Pencil, Phone, Mail, MapPin, FileText, Ruler, DollarSign, ClipboardList, StickyNote, CreditCard, CheckSquare, Image, TrendingUp, Banknote, Calendar, MessageSquare } from 'lucide-react'
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -112,7 +112,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     { id: 'estimates', label: 'Estimates', icon: DollarSign, permission: 'can_view_lead_estimates' },
     { id: 'work-orders', label: 'Orders', icon: ClipboardList, permission: 'can_view_lead_orders' },
     { id: 'photos', label: 'Photos', icon: Image, permission: 'can_view_lead_photos' },
-    { id: 'notes', label: 'Notes & Activity', icon: StickyNote, permission: 'can_view_lead_notes' },
+    { id: 'notes', label: 'Notes', icon: StickyNote, permission: 'can_view_lead_notes' },
     { id: 'documents', label: 'Documents', icon: FileText, permission: 'can_view_lead_documents' },
     { id: 'payments', label: 'Invoice/Payments', icon: CreditCard, permission: 'can_view_lead_payments' },
     { id: 'financials', label: 'Financials', icon: TrendingUp, permission: 'can_view_lead_financials' },
@@ -133,6 +133,43 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
     <div className="space-y-6 p-6">
       {/* Lead Summary Card */}
       <LeadSummaryCard lead={lead} leadId={id} />
+
+      {/* Mobile Action Buttons */}
+      <div className="flex gap-2 md:hidden">
+        <a
+          href={`tel:${lead.phone}`}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Phone className="h-5 w-5" />
+          <span className="text-sm font-medium">Call</span>
+        </a>
+        <button
+          disabled
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+          title="SMS feature coming soon"
+        >
+          <MessageSquare className="h-5 w-5" />
+          <span className="text-sm font-medium">Text</span>
+        </button>
+        <a
+          href={`mailto:${lead.email}`}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <Mail className="h-5 w-5" />
+          <span className="text-sm font-medium">Email</span>
+        </a>
+        {lead.address && (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <MapPin className="h-5 w-5" />
+            <span className="text-sm font-medium">Nav</span>
+          </a>
+        )}
+      </div>
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">

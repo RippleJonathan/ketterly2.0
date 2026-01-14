@@ -25,7 +25,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             Company

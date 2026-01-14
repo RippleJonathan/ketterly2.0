@@ -359,11 +359,12 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 onClick={handleAutoMeasure}
                 disabled={autoMeasure.isPending || (!address && (!latitude || !longitude))}
                 variant="outline"
+                className="w-full sm:w-auto"
               >
                 {autoMeasure.isPending ? (
                   <>
@@ -383,6 +384,7 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
                 onClick={() => setShowMap(!showMap)}
                 disabled={!latitude || !longitude}
                 title={(!latitude || !longitude) ? "Add location to lead to enable drawing map" : ""}
+                className="w-full sm:w-auto"
               >
                 <Map className="h-4 w-4 mr-2" />
                 {showMap ? 'Hide Map' : 'Show Drawing Map'}

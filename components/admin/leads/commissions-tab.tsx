@@ -302,24 +302,24 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
           <h2 className="text-2xl font-bold text-gray-900">Commissions</h2>
           <p className="text-gray-600 mt-1">Track and manage sales commissions for this lead</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          {canCreateFinal && (
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Commission
-            </Button>
-          )}
-        </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
+
+      {/* Add Commission Button */}
+      {canCreateFinal && (
+        <Button onClick={() => setShowAddDialog(true)} className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Commission
+        </Button>
+      )}
 
       {/* Estimate Revenue Info */}
       {defaultBaseAmount > 0 && (

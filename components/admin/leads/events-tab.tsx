@@ -105,19 +105,19 @@ export function EventsTab({ leadId, leadName, leadAddress, leadCity, leadState, 
 
   return (
     <div className="space-y-6">
-      {/* Header with Schedule Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Events & Appointments</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Schedule and manage appointments for {leadName}
-          </p>
-        </div>
-        <Button onClick={() => setShowScheduleModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Schedule Appointment
-        </Button>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Events & Appointments</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Schedule and manage appointments for {leadName}
+        </p>
       </div>
+
+      {/* Schedule Button */}
+      <Button onClick={() => setShowScheduleModal(true)} className="w-full sm:w-auto">
+        <Plus className="h-4 w-4 mr-2" />
+        Schedule Appointment
+      </Button>
 
       {/* Upcoming Events */}
       <Card>

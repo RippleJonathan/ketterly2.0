@@ -478,32 +478,33 @@ export function EstimatesTab({
     <>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h2 className="text-2xl font-semibold text-gray-900">Estimates</h2>
-            <p className="text-gray-600 mt-1">
-              {quotes.length} {quotes.length === 1 ? 'estimate' : 'estimates'} for {leadName}
-            </p>
-            {measurements && (
-              <div className="mt-2 text-sm text-gray-600">
-                Roof: {measurements.actual_squares} squares • {measurements.roof_pitch || 'Unknown pitch'} • {measurements.roof_complexity || 'Unknown complexity'}
-              </div>
-            )}
-          </div>
-          <div className="flex gap-3">
-            <Button 
-              variant="outline"
-              onClick={() => setIsPresentModalOpen(true)}
-              disabled={!quotes || quotes.length === 0}
-            >
-              <Presentation className="h-4 w-4 mr-2" />
-              Present
-            </Button>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Estimate
-            </Button>
-          </div>
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">Estimates</h2>
+          <p className="text-gray-600 mt-1">
+            {quotes.length} {quotes.length === 1 ? 'estimate' : 'estimates'} for {leadName}
+          </p>
+          {measurements && (
+            <div className="mt-2 text-sm text-gray-600">
+              Roof: {measurements.actual_squares} squares • {measurements.roof_pitch || 'Unknown pitch'} • {measurements.roof_complexity || 'Unknown complexity'}
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button 
+            variant="outline"
+            onClick={() => setIsPresentModalOpen(true)}
+            disabled={!quotes || quotes.length === 0}
+            className="w-full sm:w-auto"
+          >
+            <Presentation className="h-4 w-4 mr-2" />
+            Present
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            New Estimate
+          </Button>
         </div>
 
         {/* Quotes List */}

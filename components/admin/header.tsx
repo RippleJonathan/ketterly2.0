@@ -29,17 +29,17 @@ export function Header() {
 
       {/* Top Bar with Search and Profile */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
-        <div className="flex items-center gap-3 px-4 lg:px-8 py-3">
+        <div className="flex items-center gap-2 px-4 lg:px-8 py-3">
           {/* Left: Back button (persistent on all pages) */}
           <div className="flex-shrink-0">
             <Button 
               variant="outline" 
               size="sm"
               onClick={handleBackClick}
+              className="px-2 sm:px-4"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Back</span>
-              <span className="sm:hidden">←</span>
             </Button>
           </div>
 

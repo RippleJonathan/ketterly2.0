@@ -662,24 +662,11 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between gap-2 pt-4 border-t">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 pt-4 border-t flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => setShowDetails(true)}>
-                <FileText className="h-4 w-4 mr-1" />
-                View Details
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleDownloadPDF}
-                disabled={isGeneratingPDF}
-              >
-                {isGeneratingPDF ? (
-                  <></>
-                ) : (
-                  <Download className="h-4 w-4 mr-1" />
-                )}
-                {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+                <FileText className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">View Details</span>
               </Button>
               <Button 
                 variant="outline" 
@@ -687,56 +674,39 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 onClick={() => setShowEmailDialog(true)}
                 disabled={isSendingEmail}
               >
-                <Mail className="h-4 w-4 mr-1" />
-                {isSendingEmail ? 'Sending...' : 'Email PO'}
+                <Mail className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">{isSendingEmail ? 'Sending...' : 'Email PO'}</span>
               </Button>
-              {order.status === 'delivered' && order.total_actual === 0 && (
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-1" />
-                  Update Costs
-                </Button>
-              )}
-              {order.status !== 'cancelled' && (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleUploadInvoice}
-                    disabled={uploadDocument.isPending}
-                  >
-                    <Upload className="h-4 w-4 mr-1" />
-                    {uploadDocument.isPending ? 'Uploading...' : 'Upload Invoice'}
-                  </Button>
-                  {invoiceDocument && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={handleViewInvoice}
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      View Invoice
-                    </Button>
-                  )}
-                </>
-              )}
+              
+              {/* 3-dot menu for additional actions */}
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 cursor-pointer"
+                onChange={(e) => {
+                  const action = e.target.value
+                  e.target.value = ''
+                  
+                  if (action === 'download') handleDownloadPDF()
+                  else if (action === 'upload') handleUploadInvoice()
+                  else if (action === 'view-invoice') handleViewInvoice()
+                  else if (action === 'delete') handleDelete()
+                }}
+                disabled={isGeneratingPDF || uploadDocument.isPending || isDeleting}
+              >
+                <option value="">⋯ More</option>
+                <option value="download">Download PDF</option>
+                {order.status !== 'cancelled' && <option value="upload">Upload Invoice</option>}
+                {invoiceDocument && <option value="view-invoice">View Invoice</option>}
+                <option value="delete" className="text-red-600">Delete Order</option>
+              </select>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                className="hidden"
+              />
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
           </div>
 
           {/* Notes */}

@@ -52,34 +52,7 @@ export function ScanDocumentDialog({
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [draggedCorner, setDraggedCorner] = useState<keyof DetectedCorners | null>(null)
 
-  // Auto-detect document edges periodically
-  useEffect(() => {
-    if (step !== 'camera' || !webcamRef.current || isDetecting) return
-
-    const interval = setInterval(() => {
-      try {
-        setIsDetecting(true)
-        const videoElement = webcamRef.current?.video
-        const canvas = canvasRef.current
-
-        if (videoElement && canvas && videoElement.readyState === 4) {
-          // Set canvas size to match video
-          canvas.width = videoElement.videoWidth
-          canvas.height = videoElement.videoHeight
-
-          // Detect document
-          const corners = autoDetectDocument(canvas, videoElement)
-          setCurrentCorners(corners)
-        }
-      } catch (error) {
-        console.error('Detection error:', error)
-      } finally {
-        setIsDetecting(false)
-      }
-    }, 500) // Run detection every 500ms
-
-    return () => clearInterval(interval)
-  }, [step, isDetecting])
+  // No auto-detection - user captures then adjusts corners manually
 
   // Handle camera errors
   const handleUserMediaError = useCallback((error: string | DOMException) => {
@@ -95,13 +68,13 @@ export function ScanDocumentDialog({
     }
   }, [])
 
-  // Capture current frame
+  // Capture current frame - snap photo and set default corners for user to adjust
   const handleCapture = useCallback(() => {
     const videoElement = webcamRef.current?.video
     const canvas = canvasRef.current
 
-    if (!videoElement || !canvas || !currentCorners) {
-      toast.error('Unable to capture image')
+    if (!videoElement || !canvas) {
+      toast.error('Camera not ready')
       return
     }
 
@@ -115,8 +88,16 @@ export function ScanDocumentDialog({
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(videoElement, 0, 0)
 
-      // Apply perspective transform
-      const transformedCanvas = applyPerspectiveTransform(canvas, currentCorners)
+      // Set default corners (full frame) - user will adjust these
+      const defaultCorners: DetectedCorners = {
+        topLeft: { x: canvas.width * 0.1, y: canvas.height * 0.1 },
+        topRight: { x: canvas.width * 0.9, y: canvas.height * 0.1 },
+        bottomRight: { x: canvas.width * 0.9, y: canvas.height * 0.9 },
+        bottomLeft: { x: canvas.width * 0.1, y: canvas.height * 0.9 },
+      }
+
+      // Apply perspective transform with default corners
+      const transformedCanvas = applyPerspectiveTransform(canvas, defaultCorners)
 
       // Enhance document (increase contrast)
       enhanceDocument(transformedCanvas)
@@ -128,20 +109,20 @@ export function ScanDocumentDialog({
       const newPage: ScanPage = {
         id: generatePageId(),
         imageData,
-        corners: currentCorners,
+        corners: defaultCorners,
         timestamp: Date.now(),
       }
 
       setPages((prev) => [...prev, newPage])
       setStep('preview')
-      toast.success('Page captured!')
+      toast.success('Page captured! Review or add more pages.')
     } catch (error) {
       console.error('Capture error:', error)
       toast.error('Failed to capture page')
     } finally {
       setIsProcessing(false)
     }
-  }, [currentCorners])
+  }, [])
 
   // Retake current page
   const handleRetake = useCallback(() => {
@@ -323,7 +304,7 @@ export function ScanDocumentDialog({
             Scan Document
           </DialogTitle>
           <DialogDescription>
-            {step === 'camera' && 'Position document in frame. Edges will be detected automatically.'}
+            {step === 'camera' && 'Snap a photo of your document, then review and adjust as needed.'}
             {step === 'preview' && 'Review the captured page or add more pages.'}
             {step === 'all-pages' && 'Review all pages and save as PDF.'}
           </DialogDescription>
@@ -367,14 +348,6 @@ export function ScanDocumentDialog({
                   style={{ zIndex: 10, pointerEvents: draggedCorner ? 'auto' : 'none' }}
                 />
 
-                {/* Corner adjustment instructions */}
-                {currentCorners && (
-                  <div className="absolute top-4 left-4 right-4 bg-black/70 text-white text-sm p-3 rounded">
-                    <p className="font-medium">✓ Document detected</p>
-                    <p className="text-xs mt-1">Drag corners to adjust if needed</p>
-                  </div>
-                )}
-
                 {/* Page count badge */}
                 {pages.length > 0 && (
                   <Badge className="absolute top-4 right-4 bg-green-600">
@@ -387,7 +360,7 @@ export function ScanDocumentDialog({
             <div className="flex gap-2">
               <Button
                 onClick={handleCapture}
-                disabled={!currentCorners || isProcessing || cameraError !== null}
+                disabled={isProcessing || cameraError !== null}
                 className="flex-1"
               >
                 {isProcessing ? (
@@ -398,7 +371,7 @@ export function ScanDocumentDialog({
                 ) : (
                   <>
                     <Camera className="h-4 w-4 mr-2" />
-                    Capture Page
+                    Snap Photo
                   </>
                 )}
               </Button>

@@ -205,8 +205,41 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
           pitch_ratio: pitchRatio,
         }))
         
+        // AUTO-SAVE: Immediately save measurements to database
+        const measurementData = {
+          flat_squares: flatSquares,
+          actual_squares: actualSquares,
+          waste_percentage: formData.waste_percentage,
+          two_story_squares: formData.two_story_squares,
+          low_slope_squares: formData.low_slope_squares,
+          steep_7_12_squares: formData.steep_7_12_squares,
+          steep_8_12_squares: formData.steep_8_12_squares,
+          steep_9_12_squares: formData.steep_9_12_squares,
+          steep_10_12_squares: formData.steep_10_12_squares,
+          steep_11_12_squares: formData.steep_11_12_squares,
+          steep_12_plus_squares: formData.steep_12_plus_squares,
+          ridge_feet: formData.ridge_feet,
+          valley_feet: formData.valley_feet,
+          eave_feet: formData.eave_feet,
+          rake_feet: formData.rake_feet,
+          hip_feet: formData.hip_feet,
+          layers_to_remove: formData.layers_to_remove,
+          pitch_ratio: pitchRatio,
+          notes: formData.notes,
+          roof_data_raw: result.data,
+        }
+
+        if (existingMeasurements) {
+          await updateMeasurements.mutateAsync({
+            measurementId: existingMeasurements.id,
+            data: measurementData,
+          })
+        } else {
+          await createMeasurements.mutateAsync(measurementData)
+        }
+        
         setShowMap(true)
-        toast.success(`Satellite complete! ${flatSquares} flat sq → ${actualSquares} actual sq @ ${pitchRatio} pitch`)
+        toast.success(`Saved! ${flatSquares} flat sq → ${actualSquares} actual sq @ ${pitchRatio} pitch`)
       }
     } catch (error) {
       // Error handled by mutation

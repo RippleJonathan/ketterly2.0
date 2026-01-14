@@ -69,8 +69,8 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
     ? photos
     : photos.filter(p => p.category === filterCategory)
   
-  // Lazy loading: show first 6 photos, load rest on demand
-  const INITIAL_PHOTO_COUNT = 6
+  // Lazy loading: show first 4 photos, load rest on demand
+  const INITIAL_PHOTO_COUNT = 4
   const displayedPhotos = showAllPhotos ? filteredPhotos : filteredPhotos.slice(0, INITIAL_PHOTO_COUNT)
   const hasMorePhotos = filteredPhotos.length > INITIAL_PHOTO_COUNT
 

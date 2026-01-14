@@ -310,24 +310,24 @@ export function CompanySettingsForm() {
                   <div className="space-y-3">
                     {/* Current logo preview */}
                     {formData.logo_url && (
-                      <div className="flex items-center gap-3 p-3 border rounded-lg">
-                        <img
-                          src={formData.logo_url}
-                          alt="Company logo"
-                          className="h-12 w-auto object-contain"
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm text-muted-foreground">Current logo</p>
+                      <div className="space-y-2 p-3 border rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <img
+                            src={formData.logo_url}
+                            alt="Company logo"
+                            className="h-12 w-auto object-contain"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRemoveLogo}
+                            disabled={isUploadingLogo}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRemoveLogo}
-                          disabled={isUploadingLogo}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <p className="text-sm text-muted-foreground text-center">Current logo</p>
                       </div>
                     )}
 

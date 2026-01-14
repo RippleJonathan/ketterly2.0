@@ -131,45 +131,44 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
   return (
     <div className="space-y-6 p-6">
-      {/* Lead Summary Card */}
-      <LeadSummaryCard lead={lead} leadId={id} />
-
       {/* Mobile Action Buttons */}
       <div className="flex gap-2 md:hidden">
         <a
           href={`tel:${lead.phone}`}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex-1 flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          title="Call"
         >
-          <Phone className="h-5 w-5" />
-          <span className="text-sm font-medium">Call</span>
+          <Phone className="h-6 w-6" />
         </a>
         <button
           disabled
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+          className="flex-1 flex items-center justify-center px-4 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
           title="SMS feature coming soon"
         >
-          <MessageSquare className="h-5 w-5" />
-          <span className="text-sm font-medium">Text</span>
+          <MessageSquare className="h-6 w-6" />
         </button>
         <a
           href={`mailto:${lead.email}`}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          className="flex-1 flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          title="Email"
         >
-          <Mail className="h-5 w-5" />
-          <span className="text-sm font-medium">Email</span>
+          <Mail className="h-6 w-6" />
         </a>
         {lead.address && (
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lead.address}, ${lead.city}, ${lead.state} ${lead.zip}`)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex-1 flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            title="Navigate"
           >
-            <MapPin className="h-5 w-5" />
-            <span className="text-sm font-medium">Nav</span>
+            <MapPin className="h-6 w-6" />
           </a>
         )}
       </div>
+
+      {/* Lead Summary Card */}
+      <LeadSummaryCard lead={lead} leadId={id} />
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">

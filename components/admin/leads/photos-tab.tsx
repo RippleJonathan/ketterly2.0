@@ -216,15 +216,29 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Upload Photos
+            Add Photos
           </CardTitle>
           <CardDescription>
-            Add photos for {leadName} - before, during, or after work
+            Take or upload photos for {leadName}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Primary: Snap Photo Button */}
           <div>
-            <Label htmlFor="photo-files">Select Photos</Label>
+            <Button
+              type="button"
+              onClick={openCamera}
+              size="lg"
+              className="w-full h-16 text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+            >
+              <Camera className="h-6 w-6 mr-2" />
+              Snap Photo
+            </Button>
+          </div>
+
+          {/* Secondary: Upload Files */}
+          <div>
+            <Label htmlFor="photo-files" className="text-sm text-gray-500">Or upload from device</Label>
             <div className="flex gap-2 mt-1">
               <Input
                 ref={fileInputRef}
@@ -235,17 +249,6 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
                 onChange={handleFileSelect}
                 className="flex-1"
               />
-              {/* Camera Button - Opens Full Camera Modal */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openCamera}
-                className="shrink-0"
-                title="Open Camera"
-              >
-                <Camera className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Camera</span>
-              </Button>
             </div>
             {selectedFiles.length > 0 && (
               <p className="text-sm text-gray-500 mt-1">

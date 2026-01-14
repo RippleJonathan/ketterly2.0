@@ -343,7 +343,7 @@ export function ScanDocumentDialog({
               </Card>
             ) : (
               <div className="relative bg-black rounded-lg overflow-hidden">
-                {/* Hidden webcam for video stream */}
+                {/* Webcam for video stream */}
                 <Webcam
                   ref={webcamRef}
                   audio={false}
@@ -354,16 +354,17 @@ export function ScanDocumentDialog({
                     height: { ideal: 1080 },
                   }}
                   onUserMediaError={handleUserMediaError}
-                  className="hidden"
+                  className="w-full h-auto"
                 />
 
                 {/* Overlay canvas for edge detection */}
                 <canvas
                   ref={canvasRef}
-                  className="w-full h-auto cursor-crosshair"
+                  className="absolute inset-0 w-full h-full cursor-crosshair pointer-events-auto"
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
+                  style={{ zIndex: 10 }}
                 />
 
                 {/* Corner adjustment instructions */}

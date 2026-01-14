@@ -190,14 +190,15 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
         const rise = Math.tan(pitchRadians) * 12
         const pitchRatio = `${Math.round(rise)}/12`
         
-        // Set the pitch ratio in the form
+        // OVERRIDE: Set the pitch ratio in the form (replaces any existing value)
+        // User can still manually edit it after auto-measure
         setFormData(prev => ({
           ...prev,
-          pitch_ratio: pitchRatio,
+          pitch_ratio: pitchRatio, // This will override existing value
         }))
         
         setShowMap(true)
-        toast.success(`Satellite measurement complete! Detected pitch: ${pitchRatio}`)
+        toast.success(`Satellite measurement complete! Detected pitch: ${pitchRatio} (editable)`)
       }
     } catch (error) {
       // Error handled by mutation

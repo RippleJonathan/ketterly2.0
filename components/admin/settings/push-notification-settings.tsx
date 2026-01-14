@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Bell, BellOff, Check } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Bell, BellOff, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import OneSignal from 'react-onesignal'
@@ -10,21 +10,42 @@ import { toast } from 'sonner'
 export function PushNotificationSettings() {
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [oneSignalReady, setOneSignalReady] = useState(false)
 
-  // Check subscription status on mount
-  useState(() => {
-    const checkSubscription = async () => {
+  // Check if OneSignal is initialized and check subscription status
+  useEffect(() => {
+    const checkOneSignal = async () => {
       try {
-        const permission = await OneSignal.Notifications.permission
-        setIsSubscribed(permission)
+        // Wait a bit for OneSignal to initialize
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        // Check if OneSignal is available
+        if (typeof window !== 'undefined' && window.OneSignal) {
+          setOneSignalReady(true)
+          
+          // Check current permission status
+          const permission = await OneSignal.Notifications.permission
+          setIsSubscribed(permission)
+          console.log('OneSignal permission status:', permission)
+        } else {
+          console.warn('OneSignal not initialized')
+          setOneSignalReady(false)
+        }
       } catch (error) {
-        console.error('Failed to check subscription:', error)
+        console.error('Failed to check OneSignal status:', error)
+        setOneSignalReady(false)
       }
     }
-    checkSubscription()
-  })
+    
+    checkOneSignal()
+  }, [])
 
   const handleEnableNotifications = async () => {
+    if (!oneSignalReady) {
+      toast.error('Push notifications are not available. Please refresh the page.')
+      return
+    }
+
     setIsLoading(true)
     try {
       const permission = await OneSignal.Notifications.requestPermission()
@@ -75,13 +96,20 @@ export function PushNotificationSettings() {
         </div>
 
         <div className="space-y-4">
-          {isSubscribed === null && (
+          {!oneSignalReady && (
+            <div className="flex items-center gap-2 text-sm text-amber-600">
+              <AlertCircle className="h-4 w-4" />
+              <span>Push notifications are not available on this domain. They work on ketterly.com.</span>
+            </div>
+          )}
+
+          {oneSignalReady && isSubscribed === null && (
             <div className="text-sm text-gray-500">
               Checking notification status...
             </div>
           )}
 
-          {isSubscribed === false && (
+          {oneSignalReady && isSubscribed === false && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-amber-600">
                 <BellOff className="h-4 w-4" />
@@ -92,12 +120,12 @@ export function PushNotificationSettings() {
                 disabled={isLoading}
                 className="w-full sm:w-auto"
               >
-                Enable Push Notifications
+                {isLoading ? 'Enabling...' : 'Enable Push Notifications'}
               </Button>
             </div>
           )}
 
-          {isSubscribed === true && (
+          {oneSignalReady && isSubscribed === true && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm text-green-600">
                 <Check className="h-4 w-4" />

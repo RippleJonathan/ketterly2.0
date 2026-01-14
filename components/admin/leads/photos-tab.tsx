@@ -60,6 +60,7 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxPhoto, setLightboxPhoto] = useState<any>(null)
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
+  const [showAllPhotos, setShowAllPhotos] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -67,6 +68,11 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const filteredPhotos = filterCategory === 'all'
     ? photos
     : photos.filter(p => p.category === filterCategory)
+  
+  // Lazy loading: show first 6 photos, load rest on demand
+  const INITIAL_PHOTO_COUNT = 6
+  const displayedPhotos = showAllPhotos ? filteredPhotos : filteredPhotos.slice(0, INITIAL_PHOTO_COUNT)
+  const hasMorePhotos = filteredPhotos.length > INITIAL_PHOTO_COUNT
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -337,8 +343,9 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
               <p className="text-sm text-gray-400 mt-1">Upload photos using the form above</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {filteredPhotos.map((photo: any) => (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {displayedPhotos.map((photo: any) => (
                 <div 
                   key={photo.id} 
                   className="group relative bg-white border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
@@ -377,7 +384,21 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+              
+              {/* View All Button */}
+              {hasMorePhotos && !showAllPhotos && (
+                <div className="text-center mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAllPhotos(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    View All Photos ({filteredPhotos.length})
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

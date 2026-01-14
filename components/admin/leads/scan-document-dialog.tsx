@@ -360,11 +360,11 @@ export function ScanDocumentDialog({
                 {/* Overlay canvas for edge detection */}
                 <canvas
                   ref={canvasRef}
-                  className="absolute inset-0 w-full h-full cursor-crosshair pointer-events-auto"
+                  className="absolute inset-0 w-full h-full cursor-crosshair pointer-events-none"
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
-                  style={{ zIndex: 10 }}
+                  style={{ zIndex: 10, pointerEvents: draggedCorner ? 'auto' : 'none' }}
                 />
 
                 {/* Corner adjustment instructions */}

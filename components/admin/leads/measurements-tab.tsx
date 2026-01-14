@@ -190,15 +190,23 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
         const rise = Math.tan(pitchRadians) * 12
         const pitchRatio = `${Math.round(rise)}/12`
         
-        // OVERRIDE: Set the pitch ratio in the form (replaces any existing value)
-        // User can still manually edit it after auto-measure
+        // Calculate flat squares from actual squares (Google's actual_squares already includes pitch)
+        // Reverse the pitch multiplier to get flat area
+        const actualSquares = result.data.actual_squares || 0
+        const pitchMultiplier = 1 / Math.cos(pitchRadians)
+        const flatSquares = Number((actualSquares / pitchMultiplier).toFixed(2))
+        
+        // OVERRIDE: Set all measurements from satellite (replaces any existing values)
+        // User can still manually edit everything after auto-measure
         setFormData(prev => ({
           ...prev,
-          pitch_ratio: pitchRatio, // This will override existing value
+          flat_squares: flatSquares,
+          actual_squares: actualSquares,
+          pitch_ratio: pitchRatio,
         }))
         
         setShowMap(true)
-        toast.success(`Satellite measurement complete! Detected pitch: ${pitchRatio} (editable)`)
+        toast.success(`Satellite complete! ${flatSquares} flat sq → ${actualSquares} actual sq @ ${pitchRatio} pitch`)
       }
     } catch (error) {
       // Error handled by mutation

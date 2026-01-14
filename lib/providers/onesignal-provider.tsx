@@ -7,11 +7,6 @@ import { createClient } from '@/lib/supabase/client'
 export function OneSignalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initOneSignal = async () => {
-      // Temporarily disable OneSignal - causing domain configuration issues
-      // Will re-enable once OneSignal dashboard is properly configured
-      console.log('OneSignal: Disabled until dashboard configuration is verified')
-      return
-
       const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
       
       if (!appId) {
@@ -19,14 +14,18 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Only allow ketterly.com and localhost
+      // Only initialize on www.ketterly.com (as configured in OneSignal dashboard)
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname
-        const isAllowed = hostname === 'ketterly.com' || 
-                         hostname === 'www.ketterly.com' || 
-                         hostname === 'localhost'
         
-        if (!isAllowed) {
+        // Redirect non-www to www for consistency with OneSignal config
+        if (hostname === 'ketterly.com') {
+          console.log('OneSignal: Redirecting to www.ketterly.com for push notification support')
+          window.location.href = 'https://www.ketterly.com' + window.location.pathname + window.location.search
+          return
+        }
+        
+        if (hostname !== 'www.ketterly.com' && hostname !== 'localhost') {
           console.log('OneSignal: Not initialized - domain not configured:', hostname)
           return
         }

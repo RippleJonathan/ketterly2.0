@@ -39,6 +39,21 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
             scope: '/',
           },
           serviceWorkerPath: '/OneSignalSDK.sw.js',
+          promptOptions: {
+            slidedown: {
+              prompts: [
+                {
+                  type: 'push',
+                  autoPrompt: false, // Don't auto-show, let user click the button
+                  text: {
+                    actionMessage: 'Get updates and notifications on leads and jobs.',
+                    acceptButton: 'Accept',
+                    cancelButton: 'No Thanks',
+                  },
+                },
+              ],
+            },
+          },
         })
 
         console.log('✅ OneSignal initialized successfully')

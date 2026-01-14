@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Plus, ArrowLeft } from 'lucide-react'
+import { Search, Plus, ArrowLeft, Menu } from 'lucide-react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,11 @@ import { useCurrentCompany } from '@/lib/hooks/use-current-company'
 import { CommandPalette } from './command-palette'
 import { NotificationDropdown } from './notification-dropdown'
 
-export function Header() {
+interface HeaderProps {
+  onMenuToggle?: () => void
+}
+
+export function Header({ onMenuToggle }: HeaderProps = {}) {
   const router = useRouter()
   const pathname = usePathname()
   const { data: company } = useCurrentCompany()

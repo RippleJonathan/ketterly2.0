@@ -363,39 +363,41 @@ export async function uploadAvatar(
   file: File
 ): Promise<ApiResponse<string>> {
   const supabase = createClient()
-  try {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${userId}.${fileExt}`
-    const filePath = `avatars/${fileName}`
+  
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${userId}.${fileExt}`
+  const filePath = `avatars/${fileName}`
 
-    // Upload to Supabase Storage (using lead-photos bucket)
-    const { error: uploadError } = await supabase.storage
-      .from('lead-photos')
-      .upload(filePath, file, { upsert: true })
+  // Upload to Supabase Storage (using lead-photos bucket)
+  const { error: uploadError } = await supabase.storage
+    .from('lead-photos')
+    .upload(filePath, file, { upsert: true })
 
-    if (uploadError) throw uploadError
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('lead-photos')
-      .getPublicUrl(filePath)
-
-    // Update user record with avatar URL
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ 
-        avatar_url: publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-
-    if (updateError) throw updateError
-
-    return { data: publicUrl, error: null }
-  } catch (error) {
-    console.error('Failed to upload avatar:', error)
-    return createErrorResponse(error)
+  if (uploadError) {
+    console.error('Storage upload error:', uploadError)
+    throw new Error(uploadError.message || 'Failed to upload file')
   }
+
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('lead-photos')
+    .getPublicUrl(filePath)
+
+  // Update user record with avatar URL
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ 
+      avatar_url: publicUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId)
+
+  if (updateError) {
+    console.error('User update error:', updateError)
+    throw new Error(updateError.message || 'Failed to update user profile')
+  }
+
+  return { data: publicUrl, error: null }
 }
 
 // =====================================================

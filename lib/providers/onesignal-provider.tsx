@@ -7,12 +7,6 @@ import { createClient } from '@/lib/supabase/client'
 export function OneSignalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initOneSignal = async () => {
-      // Temporarily disable OneSignal until properly configured in dashboard
-      if (process.env.NODE_ENV === 'production') {
-        console.log('OneSignal: Disabled in production until domain configuration complete')
-        return
-      }
-
       const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
       
       if (!appId) {
@@ -20,10 +14,23 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      // Only allow ketterly.com and localhost
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname
+        const isAllowed = hostname === 'ketterly.com' || 
+                         hostname === 'www.ketterly.com' || 
+                         hostname === 'localhost'
+        
+        if (!isAllowed) {
+          console.log('OneSignal: Not initialized - domain not configured:', hostname)
+          return
+        }
+      }
+
       try {
         await OneSignal.init({
           appId,
-          allowLocalhostAsSecureOrigin: true, // For local development
+          allowLocalhostAsSecureOrigin: true,
           serviceWorkerParam: {
             scope: '/',
           },

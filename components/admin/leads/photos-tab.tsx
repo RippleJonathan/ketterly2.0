@@ -26,6 +26,7 @@ import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, C
 import { formatBytes } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import { CameraCaptureModal } from './camera-capture-modal'
 
 interface PhotosTabProps {
   leadId: string
@@ -58,6 +59,7 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const [editCaption, setEditCaption] = useState('')
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxPhoto, setLightboxPhoto] = useState<any>(null)
+  const [cameraModalOpen, setCameraModalOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -136,7 +138,22 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   }
 
   const openCamera = () => {
-    cameraInputRef.current?.click()
+    setCameraModalOpen(true)
+  }
+
+  const handleCameraCapture = async (file: File) => {
+    // Upload photo immediately
+    try {
+      await uploadPhoto.mutateAsync({
+        file,
+        category: uploadCategory,
+        caption: uploadCaption || undefined,
+      })
+      // Don't close camera modal - let user keep taking photos!
+    } catch (error) {
+      console.error('Upload failed:', error)
+      throw error // Re-throw so camera modal can show error
+    }
   }
 
   const handleUpload = async () => {
@@ -281,26 +298,18 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
                 onChange={handleFileSelect}
                 className="flex-1"
               />
-              {/* Mobile Camera Button */}
+              {/* Camera Button - Opens Full Camera Modal */}
               <Button
                 type="button"
                 variant="outline"
                 onClick={openCamera}
                 className="shrink-0"
-                title="Take Photo"
+                title="Open Camera"
               >
-                <Camera className="h-4 w-4" />
+                <Camera className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">Camera</span>
               </Button>
             </div>
-            {/* Hidden camera input for mobile devices */}
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleCameraCapture}
-              className="hidden"
-            />
             {selectedFiles.length > 0 && (
               <p className="text-sm text-gray-500 mt-1">
                 {selectedFiles.length} file(s) selected ({formatBytes(selectedFiles.reduce((sum, f) => sum + f.size, 0))})
@@ -586,6 +595,14 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Camera Capture Modal */}
+      <CameraCaptureModal
+        open={cameraModalOpen}
+        onOpenChange={setCameraModalOpen}
+        onCapture={handleCameraCapture}
+        leadName={leadName}
+      />
     </div>
   )
 }

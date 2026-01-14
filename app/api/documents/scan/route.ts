@@ -90,9 +90,9 @@ export async function POST(request: NextRequest) {
 
     console.log('Uploading PDF to storage:', storagePath)
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage (documents bucket)
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('lead_documents')
+      .from('documents')
       .upload(storagePath, pdfBuffer, {
         contentType: 'application/pdf',
         upsert: false,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       
       // Try to clean up uploaded file
       await supabase.storage
-        .from('lead_documents')
+        .from('documents')
         .remove([uploadData.path])
 
       return NextResponse.json(

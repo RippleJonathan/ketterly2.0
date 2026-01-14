@@ -423,7 +423,7 @@ export function QuoteForm({ leadId, leadName, isOpen, onClose, existingQuote, in
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {isOpen && console.log('QuoteForm Dialog is rendering, isOpen:', isOpen)}
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-full sm:max-w-3xl lg:max-w-5xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? 'Edit Estimate' : 'Create New Estimate'}

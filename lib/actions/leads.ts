@@ -65,19 +65,22 @@ export async function createLeadAction(
 
     console.log('[CREATE LEAD ACTION] Lead created successfully:', data.id)
 
-    // Send notifications to all assigned users (except current user)
+    // Send notifications to all assigned users (INCLUDING current user if assigned)
     const assignedUserIds = [
       (data as any).sales_rep_id,
       (data as any).marketing_rep_id,
       (data as any).sales_manager_id,
       (data as any).production_manager_id,
-    ].filter((id): id is string => !!id && id !== currentUserId)
+    ].filter((id): id is string => !!id)
+    
+    // Remove duplicates
+    const uniqueAssignedUserIds = Array.from(new Set(assignedUserIds))
 
-    if (assignedUserIds.length > 0) {
-      console.log('[CREATE LEAD ACTION] Sending notifications to:', assignedUserIds)
+    if (uniqueAssignedUserIds.length > 0) {
+      console.log('[CREATE LEAD ACTION] Sending notifications to:', uniqueAssignedUserIds)
       
       // Send notification to each assigned user
-      for (const userId of assignedUserIds) {
+      for (const userId of uniqueAssignedUserIds) {
         await notifyNewLead({
           userId,
           companyId,
@@ -92,7 +95,7 @@ export async function createLeadAction(
         }).catch(err => console.error(`Failed to send new lead notification to ${userId}:`, err))
       }
     } else {
-      console.log('[CREATE LEAD ACTION] No other users assigned - skipping notifications')
+      console.log('[CREATE LEAD ACTION] No users assigned - skipping notifications')
     }
 
     revalidatePath('/admin/leads')

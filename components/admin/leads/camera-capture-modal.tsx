@@ -142,10 +142,7 @@ export function CameraCaptureModal({ open, onOpenChange, onCapture, leadName }: 
         reduction: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`,
       })
 
-      // Upload the photo (parent handles the upload)
-      await onCapture(compressedFile)
-
-      // Visual feedback
+      // Visual feedback IMMEDIATELY (don't wait for upload)
       toast.success('Photo captured! Uploading in background...')
 
       // Brief flash effect
@@ -155,6 +152,12 @@ export function CameraCaptureModal({ open, onOpenChange, onCapture, leadName }: 
           if (canvas) canvas.style.opacity = '1'
         }, 100)
       }
+
+      // Fire-and-forget upload (don't wait for it to complete)
+      onCapture(compressedFile).catch((error) => {
+        console.error('Background upload failed:', error)
+        toast.error('Upload failed - photo not saved')
+      })
     } catch (error) {
       console.error('Failed to capture photo:', error)
       toast.error('Failed to capture photo')

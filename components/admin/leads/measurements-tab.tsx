@@ -182,15 +182,22 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
           setLatitude(result.data.latitude)
           setLongitude(result.data.longitude)
         }
-        // Auto-measure provides the satellite data for drawing
-        // Don't set actual_squares here - let the user draw on the map
-        // which will calculate both flat_squares and actual_squares correctly
+        
+        // Convert pitch degrees to pitch ratio format (e.g., "6/12")
+        // Standard: 12" run for every X" rise based on angle
+        const pitchDegrees = result.data.roof_pitch_degrees || 0
+        const pitchRadians = (pitchDegrees * Math.PI) / 180
+        const rise = Math.tan(pitchRadians) * 12
+        const pitchRatio = `${Math.round(rise)}/12`
+        
+        // Set the pitch ratio in the form
         setFormData(prev => ({
           ...prev,
-          pitch_ratio: `${result.data.roof_pitch_degrees}°`,
+          pitch_ratio: pitchRatio,
         }))
+        
         setShowMap(true)
-        toast.success('Satellite measurement complete!')
+        toast.success(`Satellite measurement complete! Detected pitch: ${pitchRatio}`)
       }
     } catch (error) {
       // Error handled by mutation

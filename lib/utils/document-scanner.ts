@@ -160,9 +160,9 @@ export function autoDetectDocument(
  */
 export async function compressImage(
   base64: string,
-  maxWidth: number = 1600,
-  maxHeight: number = 2400,
-  quality: number = 0.85
+  maxWidth: number = 2400,
+  maxHeight: number = 3200,
+  quality: number = 0.92
 ): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image()
@@ -222,16 +222,16 @@ export async function applyPerspectiveTransform(
         
         ctx.drawImage(img, 0, 0)
         
-        // Apply perspective transform
+        // Apply perspective transform with high resolution for clarity
         const transformedCanvas = applyPerspectiveTransformToCanvas(
           sourceCanvas,
           corners,
-          1200,
-          1600
+          2400,
+          3200
         )
         
-        // Convert back to base64
-        resolve(transformedCanvas.toDataURL('image/jpeg', 0.92))
+        // Convert back to base64 with high quality
+        resolve(transformedCanvas.toDataURL('image/jpeg', 0.95))
       } catch (error) {
         reject(error)
       }
@@ -344,8 +344,8 @@ export async function enhanceDocument(base64Image: string): Promise<string> {
         // Enhance the canvas
         enhanceDocumentCanvas(canvas)
         
-        // Convert back to base64
-        resolve(canvas.toDataURL('image/jpeg', 0.92))
+        // Convert back to base64 with high quality
+        resolve(canvas.toDataURL('image/jpeg', 0.95))
       } catch (error) {
         reject(error)
       }

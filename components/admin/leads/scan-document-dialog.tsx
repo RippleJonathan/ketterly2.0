@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import Webcam from 'react-webcam'
 import jsPDF from 'jspdf'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -39,6 +40,7 @@ export function ScanDocumentDialog({
   leadName,
   onSuccess,
 }: ScanDocumentDialogProps) {
+  const queryClient = useQueryClient()
   const webcamRef = useRef<Webcam>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   
@@ -175,8 +177,8 @@ export function ScanDocumentDialog({
           // Enhance the document (increase contrast, sharpen)
           const enhancedImage = await enhanceDocument(transformedImage)
           
-          // Compress for upload
-          const compressedImage = await compressImage(enhancedImage, 1600, 2400, 0.85)
+          // Compress for upload with high quality settings
+          const compressedImage = await compressImage(enhancedImage, 2400, 3200, 0.92)
           
           return {
             ...page,
@@ -210,6 +212,9 @@ export function ScanDocumentDialog({
       }
 
       const result = await response.json()
+      
+      // Invalidate documents cache to show new document immediately
+      queryClient.invalidateQueries({ queryKey: ['documents', leadId] })
       
       toast.success(`Document "${documentTitle}" saved successfully!`)
       onSuccess()

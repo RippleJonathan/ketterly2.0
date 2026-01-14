@@ -635,7 +635,14 @@ function DocumentsTable({ documents, leadId, router }: { documents: any[], leadI
                             if (error || !signedUrl) {
                               toast.error('Failed to view document')
                             } else {
-                              window.open(signedUrl, '_blank')
+                              // Create a download link for mobile compatibility
+                              const link = document.createElement('a')
+                              link.href = signedUrl
+                              link.target = '_blank'
+                              link.rel = 'noopener noreferrer'
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
                             }
                           }}>
                             <Eye className="h-4 w-4 mr-2" />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import imageCompression from 'browser-image-compression'
 import { useLeadPhotos, useUploadPhoto, useDeletePhoto, useUpdatePhoto } from '@/lib/hooks/use-photos'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, Camera, ZoomIn } from 'lucide-react'
+import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, Camera, ZoomIn, Share2 } from 'lucide-react'
 import { formatBytes } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -77,16 +78,45 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
       const files = Array.from(e.target.files)
       
       // Show loading toast
-      const toastId = toast.loading(`Uploading ${files.length} photo(s)...`)
+      const toastId = toast.loading(`Compressing and uploading ${files.length} photo(s)...`)
       
       try {
-        // Auto-upload camera photos immediately
+        // Compression options for fast uploads with good quality
+        const compressionOptions = {
+          maxSizeMB: 1,              // Max 1MB file size
+          maxWidthOrHeight: 1920,     // Max dimension (full HD)
+          useWebWorker: true,         // Don't block UI
+          fileType: 'image/jpeg',     // Convert to JPEG for better compression
+          initialQuality: 0.8,        // 80% quality (barely noticeable)
+        }
+        
+        // Auto-upload camera photos immediately with compression
         for (const file of files) {
-          await uploadPhoto.mutateAsync({
-            file,
-            category: uploadCategory,
-            caption: uploadCaption || undefined,
-          })
+          try {
+            // Compress the image
+            const compressedFile = await imageCompression(file, compressionOptions)
+            
+            console.log(`📸 Photo compression:`, {
+              originalSize: formatBytes(file.size),
+              compressedSize: formatBytes(compressedFile.size),
+              reduction: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`
+            })
+            
+            // Upload compressed file
+            await uploadPhoto.mutateAsync({
+              file: compressedFile,
+              category: uploadCategory,
+              caption: uploadCaption || undefined,
+            })
+          } catch (compressionError) {
+            console.error('Compression failed, uploading original:', compressionError)
+            // Fallback to original file if compression fails
+            await uploadPhoto.mutateAsync({
+              file,
+              category: uploadCategory,
+              caption: uploadCaption || undefined,
+            })
+          }
         }
         
         // Success feedback
@@ -112,12 +142,42 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return
 
-    for (const file of selectedFiles) {
-      await uploadPhoto.mutateAsync({
-        file,
-        category: uploadCategory,
-        caption: uploadCaption || undefined,
-      })
+    // Show loading toast
+    const toastId = toast.loading(`Compressing and uploading ${selectedFiles.length} photo(s)...`)
+
+    try {
+      // Compression options
+      const compressionOptions = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+        initialQuality: 0.8,
+      }
+
+      for (const file of selectedFiles) {
+        try {
+          // Compress before upload
+          const compressedFile = await imageCompression(file, compressionOptions)
+          
+          await uploadPhoto.mutateAsync({
+            file: compressedFile,
+            category: uploadCategory,
+            caption: uploadCaption || undefined,
+          })
+        } catch (compressionError) {
+          // Fallback to original
+          await uploadPhoto.mutateAsync({
+            file,
+            category: uploadCategory,
+            caption: uploadCaption || undefined,
+          })
+        }
+      }
+
+      toast.success(`${selectedFiles.length} photo(s) uploaded!`, { id: toastId })
+    } catch (error) {
+      toast.error('Upload failed', { id: toastId })
     }
 
     // Reset form
@@ -157,14 +217,34 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
     setEditingPhoto(null)
   }
 
-  const handleDownload = (url: string, fileName: string) => {
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileName
-    link.target = '_blank'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleDownload = async (url: string, fileName: string) => {
+    try {
+      // For mobile: Try to save to Photos using Share API
+      if (navigator.share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Fetch the image as a blob
+        const response = await fetch(url)
+        const blob = await response.blob()
+        const file = new File([blob], fileName, { type: blob.type })
+        
+        // Share/Save to device
+        await navigator.share({
+          files: [file],
+          title: 'Save Photo',
+        })
+      } else {
+        // Desktop: Standard download
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } catch (error) {
+      // Fallback: Open in new tab (user can long-press to save on mobile)
+      window.open(url, '_blank')
+    }
   }
 
   if (isLoading) {
@@ -383,7 +463,7 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
                   </div>
                   
                   {/* Action buttons */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant="secondary"
@@ -391,9 +471,23 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
                         e.stopPropagation()
                         handleDownload(lightboxPhoto.file_url, lightboxPhoto.file_name)
                       }}
+                      className="hidden sm:flex"
                     >
                       <Download className="h-4 w-4 mr-1" />
                       Download
+                    </Button>
+                    {/* Mobile: Save/Share button */}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDownload(lightboxPhoto.file_url, lightboxPhoto.file_name)
+                      }}
+                      className="sm:hidden"
+                    >
+                      <Share2 className="h-4 w-4 mr-1" />
+                      Save
                     </Button>
                     <Button
                       size="sm"

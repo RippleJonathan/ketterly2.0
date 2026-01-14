@@ -284,6 +284,7 @@ export function EventQuickAddModal({
             <Input
               id="event_date"
               type="date"
+              className="max-w-[200px]"
               {...form.register('event_date')}
             />
             {form.formState.errors.event_date && (
@@ -313,6 +314,7 @@ export function EventQuickAddModal({
                 <Input
                   id="start_time"
                   type="time"
+                  className="max-w-[150px]"
                   value={startTime}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
                 />
@@ -322,6 +324,7 @@ export function EventQuickAddModal({
                 <Input
                   id="end_time"
                   type="time"
+                  className="max-w-[150px]"
                   {...form.register('end_time')}
                 />
               </div>

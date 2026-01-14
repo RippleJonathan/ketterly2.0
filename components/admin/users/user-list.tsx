@@ -427,7 +427,6 @@ export function UserList() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="super_admin">Super Admin</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
             <SelectItem value="office">Office</SelectItem>
             <SelectItem value="sales_manager">Sales Manager</SelectItem>

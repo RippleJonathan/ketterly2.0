@@ -47,6 +47,7 @@
     "@tiptap/react": "^3.14.0",
     "@tiptap/starter-kit": "^3.14.0",
     "@types/react-signature-canvas": "^1.0.7",
+    "browser-image-compression": "^2.0.2",
     "canvas": "^3.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

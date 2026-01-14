@@ -196,36 +196,28 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
         const pitchMultiplier = 1 / Math.cos(pitchRadians)
         const flatSquares = Number((actualSquares / pitchMultiplier).toFixed(2))
         
-        // OVERRIDE: Set all measurements from satellite (replaces any existing values)
-        // User can still manually edit everything after auto-measure
-        setFormData(prev => ({
-          ...prev,
-          flat_squares: flatSquares,
-          actual_squares: actualSquares,
-          pitch_ratio: pitchRatio,
-        }))
-        
         // AUTO-SAVE: Immediately save measurements to database
+        // Use current formData values (not the state we're about to set)
         const measurementData = {
           flat_squares: flatSquares,
           actual_squares: actualSquares,
-          waste_percentage: formData.waste_percentage,
-          two_story_squares: formData.two_story_squares,
-          low_slope_squares: formData.low_slope_squares,
-          steep_7_12_squares: formData.steep_7_12_squares,
-          steep_8_12_squares: formData.steep_8_12_squares,
-          steep_9_12_squares: formData.steep_9_12_squares,
-          steep_10_12_squares: formData.steep_10_12_squares,
-          steep_11_12_squares: formData.steep_11_12_squares,
-          steep_12_plus_squares: formData.steep_12_plus_squares,
-          ridge_feet: formData.ridge_feet,
-          valley_feet: formData.valley_feet,
-          eave_feet: formData.eave_feet,
-          rake_feet: formData.rake_feet,
-          hip_feet: formData.hip_feet,
-          layers_to_remove: formData.layers_to_remove,
+          waste_percentage: formData.waste_percentage || 10,
+          two_story_squares: formData.two_story_squares || null,
+          low_slope_squares: formData.low_slope_squares || null,
+          steep_7_12_squares: formData.steep_7_12_squares || null,
+          steep_8_12_squares: formData.steep_8_12_squares || null,
+          steep_9_12_squares: formData.steep_9_12_squares || null,
+          steep_10_12_squares: formData.steep_10_12_squares || null,
+          steep_11_12_squares: formData.steep_11_12_squares || null,
+          steep_12_plus_squares: formData.steep_12_plus_squares || null,
+          ridge_feet: formData.ridge_feet || null,
+          valley_feet: formData.valley_feet || null,
+          eave_feet: formData.eave_feet || null,
+          rake_feet: formData.rake_feet || null,
+          hip_feet: formData.hip_feet || null,
+          layers_to_remove: formData.layers_to_remove || 1,
           pitch_ratio: pitchRatio,
-          notes: formData.notes,
+          notes: formData.notes || null,
           roof_data_raw: result.data,
         }
 
@@ -237,6 +229,14 @@ export function MeasurementsTab({ leadId, address, latitude: initialLatitude, lo
         } else {
           await createMeasurements.mutateAsync(measurementData)
         }
+        
+        // THEN update formData state for UI
+        setFormData(prev => ({
+          ...prev,
+          flat_squares: flatSquares,
+          actual_squares: actualSquares,
+          pitch_ratio: pitchRatio,
+        }))
         
         setShowMap(true)
         toast.success(`Saved! ${flatSquares} flat sq → ${actualSquares} actual sq @ ${pitchRatio} pitch`)

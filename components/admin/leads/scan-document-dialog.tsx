@@ -187,8 +187,16 @@ export function ScanDocumentDialog({
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to save document')
+        const errorText = await response.text()
+        let errorMessage = 'Failed to save document'
+        try {
+          const errorJson = JSON.parse(errorText)
+          errorMessage = errorJson.message || errorJson.error || errorMessage
+        } catch {
+          errorMessage = errorText || errorMessage
+        }
+        console.error('Document save failed:', { status: response.status, error: errorMessage })
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
@@ -323,7 +331,7 @@ export function ScanDocumentDialog({
                 </Button>
               </Card>
             ) : (
-              <div className="relative bg-black rounded-lg overflow-hidden">
+              <div className="relative bg-black rounded-lg overflow-hidden" style={{ maxHeight: '60vh' }}>
                 {/* Webcam for video stream */}
                 <Webcam
                   ref={webcamRef}
@@ -331,11 +339,10 @@ export function ScanDocumentDialog({
                   screenshotFormat="image/jpeg"
                   videoConstraints={{
                     facingMode: 'environment', // Use back camera on mobile
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
+                    aspectRatio: 4/3, // Better for documents
                   }}
                   onUserMediaError={handleUserMediaError}
-                  className="w-full h-auto"
+                  className="w-full h-auto max-h-[60vh] object-contain"
                 />
 
                 {/* Overlay canvas for edge detection */}

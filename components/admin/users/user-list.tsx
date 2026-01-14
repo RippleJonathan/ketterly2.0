@@ -210,6 +210,9 @@ export function UserList() {
             <div>
               <div className="font-medium">{user.full_name}</div>
               <div className="text-sm text-muted-foreground">{user.email}</div>
+              {user.phone && (
+                <div className="text-sm text-muted-foreground">{user.phone}</div>
+              )}
             </div>
           </div>
         )
@@ -285,30 +288,7 @@ export function UserList() {
         )
       },
     },
-    {
-      accessorKey: 'phone',
-      header: 'Phone',
-      cell: ({ row }) => {
-        const phone = row.original.phone
-        return phone ? (
-          <span className="text-sm">{phone}</span>
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )
-      },
-    },
-    {
-      accessorKey: 'is_active',
-      header: 'Status',
-      cell: ({ row }) => {
-        const isActive = row.original.is_active
-        return (
-          <Badge variant={isActive ? 'default' : 'secondary'}>
-            {isActive ? 'Active' : 'Inactive'}
-          </Badge>
-        )
-      },
-    },
+
     {
       id: 'actions',
       cell: ({ row }) => {
@@ -449,8 +429,11 @@ export function UserList() {
             <SelectItem value="all">All Roles</SelectItem>
             <SelectItem value="super_admin">Super Admin</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="manager">Manager</SelectItem>
-            <SelectItem value="user">User</SelectItem>
+            <SelectItem value="office">Office</SelectItem>
+            <SelectItem value="sales_manager">Sales Manager</SelectItem>
+            <SelectItem value="sales">Sales</SelectItem>
+            <SelectItem value="production">Production</SelectItem>
+            <SelectItem value="marketing">Marketing</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'active' | 'inactive')}>

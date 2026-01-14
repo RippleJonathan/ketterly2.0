@@ -278,53 +278,50 @@ export function EventQuickAddModal({
             />
           </div>
 
-          {/* Date & Time */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="event_date" className="text-sm">Date *</Label>
-              <Input
-                id="event_date"
-                type="date"
-                className="text-sm"
-                {...form.register('event_date')}
-              />
-              {form.formState.errors.event_date && (
-                <p className="text-sm text-red-600">
-                  {form.formState.errors.event_date.message}
-                </p>
-              )}
-            </div>
+          {/* Date */}
+          <div className="space-y-2">
+            <Label htmlFor="event_date">Date *</Label>
+            <Input
+              id="event_date"
+              type="date"
+              {...form.register('event_date')}
+            />
+            {form.formState.errors.event_date && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.event_date.message}
+              </p>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label className="flex items-center justify-between text-sm">
-                <span>All Day Event</span>
-                <Switch
-                  checked={isAllDay}
-                  onCheckedChange={(checked) => form.setValue('is_all_day', checked)}
-                />
-              </Label>
-            </div>
+          {/* All Day Toggle */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <Label htmlFor="all_day" className="cursor-pointer">
+              All Day Event
+            </Label>
+            <Switch
+              id="all_day"
+              checked={isAllDay}
+              onCheckedChange={(checked) => form.setValue('is_all_day', checked)}
+            />
           </div>
 
           {/* Start/End Time (if not all day) */}
           {!isAllDay && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="start_time" className="text-sm">Start Time</Label>
+                <Label htmlFor="start_time">Start Time</Label>
                 <Input
                   id="start_time"
                   type="time"
-                  className="text-sm"
                   value={startTime}
                   onChange={(e) => handleStartTimeChange(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="end_time" className="text-sm">End Time</Label>
+                <Label htmlFor="end_time">End Time</Label>
                 <Input
                   id="end_time"
                   type="time"
-                  className="text-sm"
                   {...form.register('end_time')}
                 />
               </div>

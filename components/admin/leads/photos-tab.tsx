@@ -8,6 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -17,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, Camera } from 'lucide-react'
+import { Upload, X, Download, Loader2, Image as ImageIcon, Tag, Edit2, Trash2, Camera, ZoomIn } from 'lucide-react'
 import { formatBytes } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -51,6 +55,8 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null)
   const [editCategory, setEditCategory] = useState('')
   const [editCaption, setEditCaption] = useState('')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxPhoto, setLightboxPhoto] = useState<any>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -302,98 +308,43 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
               <p className="text-sm text-gray-400 mt-1">Upload photos using the form above</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {filteredPhotos.map((photo: any) => (
-                <div key={photo.id} className="group relative bg-white border rounded-lg overflow-hidden">
-                  {/* Image */}
+                <div 
+                  key={photo.id} 
+                  className="group relative bg-white border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => {
+                    setLightboxPhoto(photo)
+                    setLightboxOpen(true)
+                  }}
+                >
+                  {/* Thumbnail Image */}
                   <div className="aspect-square bg-gray-100 relative">
                     <img
                       src={photo.file_url}
                       alt={photo.caption || photo.file_name}
                       className="w-full h-full object-cover"
                     />
-                    {/* Action buttons overlay */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleDownload(photo.file_url, photo.file_name)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleEditClick(photo)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteClick(photo.id, photo.file_url)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    {/* Hover overlay with zoom icon */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <ZoomIn className="h-8 w-8 text-white" />
                     </div>
                   </div>
 
                   {/* Photo info */}
-                  <div className="p-3">
-                    {editingPhoto === photo.id ? (
-                      <div className="space-y-2">
-                        <Select value={editCategory} onValueChange={setEditCategory}>
-                          <SelectTrigger className="h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PHOTO_CATEGORIES.map(cat => (
-                              <SelectItem key={cat.value} value={cat.value}>
-                                {cat.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          value={editCaption}
-                          onChange={(e) => setEditCaption(e.target.value)}
-                          placeholder="Caption..."
-                          className="h-8 text-sm"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveEdit(photo.id)}
-                            className="flex-1"
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingPhoto(null)}
-                            className="flex-1"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Tag className="h-3 w-3 text-gray-400" />
-                          <span className="text-xs font-medium text-gray-600">
-                            {PHOTO_CATEGORIES.find(c => c.value === photo.category)?.label || photo.category}
-                          </span>
-                        </div>
-                        {photo.caption && (
-                          <p className="text-sm text-gray-700 mb-2 line-clamp-2">{photo.caption}</p>
-                        )}
-                        <p className="text-xs text-gray-400">
-                          {formatBytes(photo.file_size)} • {formatDistanceToNow(new Date(photo.uploaded_at), { addSuffix: true })}
-                        </p>
-                      </>
+                  <div className="p-2">
+                    <div className="flex items-center gap-1 mb-1">
+                      <Tag className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600 truncate">
+                        {PHOTO_CATEGORIES.find(c => c.value === photo.category)?.label || photo.category}
+                      </span>
+                    </div>
+                    {photo.caption && (
+                      <p className="text-xs text-gray-700 mb-1 line-clamp-2">{photo.caption}</p>
                     )}
+                    <p className="text-xs text-gray-400 truncate">
+                      {formatDistanceToNow(new Date(photo.uploaded_at), { addSuffix: true })}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -401,6 +352,128 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Photo Lightbox */}
+      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          {lightboxPhoto && (
+            <div className="relative">
+              {/* Full size image */}
+              <img
+                src={lightboxPhoto.file_url}
+                alt={lightboxPhoto.caption || lightboxPhoto.file_name}
+                className="w-full h-auto max-h-[85vh] object-contain bg-black"
+              />
+              
+              {/* Photo info overlay */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    {lightboxPhoto.caption && (
+                      <p className="text-white font-medium mb-1">{lightboxPhoto.caption}</p>
+                    )}
+                    <div className="flex items-center gap-3 text-sm text-white/80">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        {PHOTO_CATEGORIES.find(c => c.value === lightboxPhoto.category)?.label || lightboxPhoto.category}
+                      </span>
+                      <span>{formatBytes(lightboxPhoto.file_size)}</span>
+                      <span>{formatDistanceToNow(new Date(lightboxPhoto.uploaded_at), { addSuffix: true })}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Action buttons */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDownload(lightboxPhoto.file_url, lightboxPhoto.file_name)
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditClick(lightboxPhoto)
+                        setLightboxOpen(false)
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteClick(lightboxPhoto.id, lightboxPhoto.file_url)
+                        setLightboxOpen(false)
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Photo Dialog */}
+      <Dialog open={editingPhoto !== null} onOpenChange={(open) => !open && setEditingPhoto(null)}>
+        <DialogContent>
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Edit Photo</h3>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="edit-category">Category</Label>
+                <Select value={editCategory} onValueChange={setEditCategory}>
+                  <SelectTrigger id="edit-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PHOTO_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-caption">Caption</Label>
+                <Input
+                  id="edit-caption"
+                  value={editCaption}
+                  onChange={(e) => setEditCaption(e.target.value)}
+                  placeholder="Add a description..."
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingPhoto(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => editingPhoto && handleSaveEdit(editingPhoto)}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -680,7 +680,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
               
               {/* 3-dot menu for additional actions */}
               <select
-                className="px-2 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 cursor-pointer"
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 cursor-pointer"
                 onChange={(e) => {
                   const action = e.target.value
                   e.target.value = ''
@@ -692,7 +692,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 }}
                 disabled={isGeneratingPDF || uploadDocument.isPending || isDeleting}
               >
-                <option value="">⋯</option>
+                <option value="">More</option>
                 <option value="download">Download PDF</option>
                 {order.status !== 'cancelled' && <option value="upload">Upload Invoice</option>}
                 {invoiceDocument && <option value="view-invoice">View Invoice</option>}

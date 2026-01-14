@@ -62,7 +62,6 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const [cameraModalOpen, setCameraModalOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const photos = photosResponse?.data || []
   const filteredPhotos = filterCategory === 'all'
@@ -72,68 +71,6 @@ export function PhotosTab({ leadId, leadName }: PhotosTabProps) {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setSelectedFiles(Array.from(e.target.files))
-    }
-  }
-
-  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files)
-      
-      // Show loading toast
-      const toastId = toast.loading(`Compressing and uploading ${files.length} photo(s)...`)
-      
-      try {
-        // Compression options for fast uploads with good quality
-        const compressionOptions = {
-          maxSizeMB: 1,              // Max 1MB file size
-          maxWidthOrHeight: 1920,     // Max dimension (full HD)
-          useWebWorker: true,         // Don't block UI
-          fileType: 'image/jpeg',     // Convert to JPEG for better compression
-          initialQuality: 0.8,        // 80% quality (barely noticeable)
-        }
-        
-        // Auto-upload camera photos immediately with compression
-        for (const file of files) {
-          try {
-            // Compress the image
-            const compressedFile = await imageCompression(file, compressionOptions)
-            
-            console.log(`📸 Photo compression:`, {
-              originalSize: formatBytes(file.size),
-              compressedSize: formatBytes(compressedFile.size),
-              reduction: `${Math.round((1 - compressedFile.size / file.size) * 100)}%`
-            })
-            
-            // Upload compressed file
-            await uploadPhoto.mutateAsync({
-              file: compressedFile,
-              category: uploadCategory,
-              caption: uploadCaption || undefined,
-            })
-          } catch (compressionError) {
-            console.error('Compression failed, uploading original:', compressionError)
-            // Fallback to original file if compression fails
-            await uploadPhoto.mutateAsync({
-              file,
-              category: uploadCategory,
-              caption: uploadCaption || undefined,
-            })
-          }
-        }
-        
-        // Success feedback
-        toast.success(`${files.length} photo(s) uploaded successfully!`, { id: toastId })
-      } catch (error) {
-        toast.error('Failed to upload photo(s)', { id: toastId })
-      }
-
-      // Reset camera input
-      if (cameraInputRef.current) {
-        cameraInputRef.current.value = ''
-      }
-      
-      // Clear caption after upload
-      setUploadCaption('')
     }
   }
 

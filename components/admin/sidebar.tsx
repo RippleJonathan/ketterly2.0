@@ -51,6 +51,11 @@ interface NavItem {
   comingSoon?: boolean
 }
 
+interface SidebarProps {
+  mobileMenuOpen: boolean
+  setMobileMenuOpen: (open: boolean) => void
+}
+
 // Sales workflow navigation
 const salesNavigation: NavItem[] = [
   { 
@@ -205,9 +210,13 @@ function NavItemWithPermission({ item, isActive, onClick }: {
   )
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileMenuOpen: boolean
+  setMobileMenuOpen: (open: boolean) => void
+}
+
+export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const pathname = usePathname()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { data: company } = useCurrentCompany()
   const { data: userResponse } = useCurrentUser()
   const supabase = createClient()
@@ -238,18 +247,6 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200"
-      >
-        {mobileMenuOpen ? (
-          <X className="w-6 h-6 text-gray-700" />
-        ) : (
-          <Menu className="w-6 h-6 text-gray-700" />
-        )}
-      </button>
-
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div

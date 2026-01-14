@@ -665,8 +665,8 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
           <div className="flex items-center justify-between gap-2 pt-4 border-t flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
               <Button variant="outline" size="sm" onClick={() => setShowDetails(true)}>
-                <FileText className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">View Details</span>
+                <FileText className="h-4 w-4 mr-1" />
+                View Details
               </Button>
               <Button 
                 variant="outline" 
@@ -674,13 +674,13 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 onClick={() => setShowEmailDialog(true)}
                 disabled={isSendingEmail}
               >
-                <Mail className="h-4 w-4 sm:mr-1" />
-                <span className="hidden sm:inline">{isSendingEmail ? 'Sending...' : 'Email PO'}</span>
+                <Mail className="h-4 w-4 mr-1" />
+                {isSendingEmail ? 'Sending...' : 'Email PO'}
               </Button>
               
               {/* 3-dot menu for additional actions */}
               <select
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 cursor-pointer"
+                className="px-2 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 cursor-pointer"
                 onChange={(e) => {
                   const action = e.target.value
                   e.target.value = ''
@@ -692,7 +692,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
                 }}
                 disabled={isGeneratingPDF || uploadDocument.isPending || isDeleting}
               >
-                <option value="">⋯ More</option>
+                <option value="">⋯</option>
                 <option value="download">Download PDF</option>
                 {order.status !== 'cancelled' && <option value="upload">Upload Invoice</option>}
                 {invoiceDocument && <option value="view-invoice">View Invoice</option>}

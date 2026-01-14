@@ -30,15 +30,24 @@ export function Header() {
       {/* Top Bar with Search and Profile */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
         <div className="flex items-center gap-2 px-4 lg:px-8 py-3">
+          {/* Hamburger menu for mobile (passed from parent) */}
+          {onMenuToggle && (
+            <button
+              onClick={onMenuToggle}
+              className="lg:hidden flex-shrink-0 p-2 rounded-lg hover:bg-gray-100"
+            >
+              <Menu className="h-5 w-5 text-gray-700" />
+            </button>
+          )}
+          
           {/* Left: Back button (persistent on all pages) */}
           <div className="flex-shrink-0">
             <Button 
               variant="outline" 
               size="sm"
               onClick={handleBackClick}
-              className="px-2 sm:px-4"
             >
-              <ArrowLeft className="h-4 w-4 sm:mr-2" />
+              <ArrowLeft className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Back</span>
             </Button>
           </div>

@@ -1,22 +1,30 @@
+'use client'
+
 import { Sidebar } from '@/components/admin/sidebar'
 import { Header } from '@/components/admin/header'
 import { PermissionErrorHandler } from '@/components/admin/permission-error-handler'
+import { useState } from 'react'
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
   return (
     <div className="flex h-screen bg-gray-50">
       <PermissionErrorHandler />
       
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar 
+        mobileMenuOpen={mobileMenuOpen}
+        setMobileMenuOpen={setMobileMenuOpen}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <Header onMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />
         
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">

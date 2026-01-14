@@ -64,8 +64,44 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
         const { data: { user } } = await supabase.auth.getUser()
         
         if (user) {
-          await OneSignal.login(user.id)
-          console.log('✅ OneSignal user ID set:', user.id)
+          try {
+            // Use both methods for compatibility
+            await OneSignal.login(user.id)
+            console.log('✅ OneSignal.login() called with ID:', user.id)
+            
+            // Also use the older setExternalUserId method for backwards compatibility
+            if (typeof (OneSignal as any).setExternalUserId === 'function') {
+              await (OneSignal as any).setExternalUserId(user.id)
+              console.log('✅ setExternalUserId() called with ID:', user.id)
+            }
+            
+            // Give OneSignal a moment to process
+            await new Promise(resolve => setTimeout(resolve, 500))
+            
+            // Verify external ID was set
+            const externalId = await OneSignal.User.getExternalId()
+            console.log('✅ OneSignal external ID verified:', externalId || 'NOT SET')
+            
+            if (!externalId) {
+              console.error('❌ External ID not set! This will prevent push notifications from targeting this user.')
+            }
+            
+            // Check if user is subscribed
+            const isSubscribed = await OneSignal.User.PushSubscription.optedIn
+            console.log('🔔 Push subscription status:', isSubscribed ? 'SUBSCRIBED' : 'NOT SUBSCRIBED')
+            
+            if (!isSubscribed) {
+              console.log('⚠️  User not subscribed to push notifications. Will prompt shortly...')
+              // Auto-prompt for push notifications
+              setTimeout(() => {
+                OneSignal.Slidedown.promptPush()
+              }, 2000)
+            }
+          } catch (error) {
+            console.error('❌ Failed to set OneSignal user ID:', error)
+          }
+        } else {
+          console.log('⚠️  No authenticated user - skipping OneSignal login')
         }
 
         // Listen for subscription changes

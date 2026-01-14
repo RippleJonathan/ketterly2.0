@@ -299,3 +299,186 @@ export async function compressImage(
 export function generatePageId(): string {
   return `page_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
+
+/**
+ * Apply perspective transform to base64 image (async wrapper)
+ */
+export async function applyPerspectiveTransform(
+  base64Image: string,
+  corners: DetectedCorners
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    
+    img.onload = () => {
+      try {
+        // Create source canvas from image
+        const sourceCanvas = document.createElement('canvas')
+        sourceCanvas.width = img.width
+        sourceCanvas.height = img.height
+        const ctx = sourceCanvas.getContext('2d')
+        
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'))
+          return
+        }
+        
+        ctx.drawImage(img, 0, 0)
+        
+        // Apply perspective transform
+        const transformedCanvas = applyPerspectiveTransformToCanvas(
+          sourceCanvas,
+          corners,
+          1200,
+          1600
+        )
+        
+        // Convert back to base64
+        resolve(transformedCanvas.toDataURL('image/jpeg', 0.92))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    
+    img.onerror = () => {
+      reject(new Error('Failed to load image for perspective transform'))
+    }
+    
+    img.src = base64Image
+  })
+}
+
+/**
+ * Apply perspective transformation to canvas (renamed from original)
+ */
+function applyPerspectiveTransformToCanvas(
+  sourceCanvas: HTMLCanvasElement,
+  corners: DetectedCorners,
+  outputWidth: number = 1200,
+  outputHeight: number = 1600
+): HTMLCanvasElement {
+  const outputCanvas = document.createElement('canvas')
+  outputCanvas.width = outputWidth
+  outputCanvas.height = outputHeight
+  const ctx = outputCanvas.getContext('2d')!
+  
+  // Calculate transformation matrix using perspective transform
+  // For simplicity, we'll use a bilinear approach
+  
+  const srcCtx = sourceCanvas.getContext('2d')!
+  const srcData = srcCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height)
+  const dstData = ctx.createImageData(outputWidth, outputHeight)
+  
+  // Source corners
+  const src = [
+    corners.topLeft,
+    corners.topRight,
+    corners.bottomRight,
+    corners.bottomLeft,
+  ]
+  
+  // Destination corners (full output canvas)
+  const dst = [
+    { x: 0, y: 0 },
+    { x: outputWidth, y: 0 },
+    { x: outputWidth, y: outputHeight },
+    { x: 0, y: outputHeight },
+  ]
+  
+  // Apply perspective transform using bilinear interpolation
+  for (let y = 0; y < outputHeight; y++) {
+    for (let x = 0; x < outputWidth; x++) {
+      // Normalized coordinates in destination
+      const u = x / outputWidth
+      const v = y / outputHeight
+      
+      // Bilinear interpolation of source coordinates
+      const srcX =
+        (1 - u) * (1 - v) * src[0].x +
+        u * (1 - v) * src[1].x +
+        u * v * src[2].x +
+        (1 - u) * v * src[3].x
+      
+      const srcY =
+        (1 - u) * (1 - v) * src[0].y +
+        u * (1 - v) * src[1].y +
+        u * v * src[2].y +
+        (1 - u) * v * src[3].y
+      
+      // Sample source pixel (with bounds checking)
+      const sx = Math.max(0, Math.min(sourceCanvas.width - 1, Math.floor(srcX)))
+      const sy = Math.max(0, Math.min(sourceCanvas.height - 1, Math.floor(srcY)))
+      
+      const srcIdx = (sy * sourceCanvas.width + sx) * 4
+      const dstIdx = (y * outputWidth + x) * 4
+      
+      dstData.data[dstIdx] = srcData.data[srcIdx]
+      dstData.data[dstIdx + 1] = srcData.data[srcIdx + 1]
+      dstData.data[dstIdx + 2] = srcData.data[srcIdx + 2]
+      dstData.data[dstIdx + 3] = srcData.data[srcIdx + 3]
+    }
+  }
+  
+  ctx.putImageData(dstData, 0, 0)
+  return outputCanvas
+}
+
+/**
+ * Enhance document image from base64 (async wrapper)
+ */
+export async function enhanceDocument(base64Image: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'))
+          return
+        }
+        
+        ctx.drawImage(img, 0, 0)
+        
+        // Enhance the canvas
+        enhanceDocumentCanvas(canvas)
+        
+        // Convert back to base64
+        resolve(canvas.toDataURL('image/jpeg', 0.92))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    
+    img.onerror = () => {
+      reject(new Error('Failed to load image for enhancement'))
+    }
+    
+    img.src = base64Image
+  })
+}
+
+/**
+ * Enhance document canvas (renamed from original)
+ */
+function enhanceDocumentCanvas(canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext('2d')!
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const data = imageData.data
+  
+  // Increase contrast
+  const factor = 1.5
+  const intercept = 128 * (1 - factor)
+  
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.max(0, Math.min(255, factor * data[i] + intercept))
+    data[i + 1] = Math.max(0, Math.min(255, factor * data[i + 1] + intercept))
+    data[i + 2] = Math.max(0, Math.min(255, factor * data[i + 2] + intercept))
+  }
+  
+  ctx.putImageData(imageData, 0, 0)
+}

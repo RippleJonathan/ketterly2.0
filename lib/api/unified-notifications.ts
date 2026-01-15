@@ -250,19 +250,26 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
           
           if (usersWithEmails && usersWithEmails.length > 0) {
             // Generate email HTML with simple notification template
-            const emailSubject = params.emailSubject || `${companyName}: ${params.title}`
+            // Use more natural subject line without emoji to avoid spam filters
+            const naturalTitle = params.title.replace(/[📝🎯📋✅🎉📅💰🔔]/g, '').trim()
+            const emailSubject = params.emailSubject || `${naturalTitle} - ${companyName}`
             
             // Generate plain text version (important for spam filters)
             const emailText = params.emailHtml ? '' : `
-${params.title}
+Hi there,
 
 ${params.message}
 
-${params.pushUrl ? `View Details: ${params.pushUrl}` : ''}
+${params.pushUrl ? `View in Dashboard: ${params.pushUrl}` : ''}
+
+Best regards,
+Your ${companyName} Team
 
 ---
-This is an automated notification from ${companyName}.
-To manage your notification preferences, visit your profile settings.
+You're receiving this because you're assigned to this lead.
+Manage preferences: ${process.env.NEXT_PUBLIC_APP_URL}/admin/profile
+
+Ketterly, LLC | Georgetown, TX 78626 | support@ketterly.com
             `.trim()
             
             const emailHtml = params.emailHtml || `
@@ -281,6 +288,10 @@ To manage your notification preferences, visit your profile settings.
   <![endif]-->
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
+  <!-- Preheader text for better inbox preview -->
+  <div style="display: none; max-height: 0; overflow: hidden;">
+    ${params.message.substring(0, 100)}...
+  </div>
   <!--[if mso]>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
     <tr><td align="center">
@@ -291,10 +302,8 @@ To manage your notification preferences, visit your profile settings.
         <table role="presentation" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <tr>
             <td style="padding: 40px 40px 24px 40px;">
-              <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 600; color: #111827; line-height: 1.3;">
-                ${params.title}
-              </h2>
-              <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.6;">
+              <p style="margin: 0 0 24px 0; color: #6b7280; font-size: 14px;">Hi there,</p>
+              <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 1.6;">
                 ${params.message}
               </p>
             </td>
@@ -303,18 +312,19 @@ To manage your notification preferences, visit your profile settings.
           <tr>
             <td style="padding: 0 40px 32px 40px;">
               <a href="${params.pushUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
-                View Details
+                View in Dashboard
               </a>
             </td>
           </tr>
           ` : ''}
           <tr>
             <td style="padding: 24px 40px 40px 40px; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
-                This is an automated notification from ${companyName}.
+              <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
+                Best regards,<br>
+                Your ${companyName} Team
               </p>
               <p style="margin: 0 0 8px 0; color: #9ca3af; font-size: 12px; line-height: 1.5;">
-                To manage your notification preferences, visit your profile settings.
+                You're receiving this because you're assigned to this lead. <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/profile" style="color: #2563eb; text-decoration: none;">Manage email preferences</a>
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 1.4;">
                 Ketterly, LLC | Georgetown, TX 78626 | support@ketterly.com

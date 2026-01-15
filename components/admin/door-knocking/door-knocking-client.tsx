@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
-import { GoogleMapComponent } from '@/components/admin/door-knocking/google-map';
-import { PinModal } from '@/components/admin/door-knocking/pin-modal';
-import { MapLegend } from '@/components/admin/door-knocking/map-legend';
+import { useState, useCallback } from 'react';
+import { GoogleMapComponent } from './google-map';
+import { PinModal } from './pin-modal';
+import { MapLegend } from './map-legend';
 import { useDoorKnockPins, useCreateDoorKnockPin, useUpdateDoorKnockPin, useDeleteDoorKnockPin, useUserLocation } from '@/lib/hooks/use-door-knock';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
 import { Loader2 } from 'lucide-react';
 
-function DoorKnockingContent() {
+export function DoorKnockingClient() {
   const { data: user } = useCurrentUser();
   const { data: userLocation } = useUserLocation();
   const { data: pins, isLoading } = useDoorKnockPins(user?.company_id || '', {});
@@ -101,17 +101,5 @@ function DoorKnockingContent() {
         onConvertToLead={handleConvertToLead}
       />
     </div>
-  );
-}
-
-export default function DoorKnockingPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    }>
-      <DoorKnockingContent />
-    </Suspense>
   );
 }

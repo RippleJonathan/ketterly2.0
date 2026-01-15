@@ -29,6 +29,37 @@ const NOTIFICATION_GROUPS: NotificationGroup[] = [
     items: [
       { key: 'new_leads', label: 'New Leads', description: 'When a new lead is created or assigned to you' },
       { key: 'new_note', label: 'New Notes', description: 'When someone adds a note to your leads' },
+      { key: 'lead_assigned', label: 'Lead Reassigned', description: 'When a lead is reassigned to you' },
+    ]
+  },
+  {
+    title: 'Schedule & Appointments',
+    description: 'Never miss an appointment or schedule change',
+    items: [
+      { key: 'appointment_scheduled', label: 'New Appointments', description: 'When an appointment is scheduled' },
+      { key: 'appointment_reminders', label: 'Appointment Reminders', description: 'Reminder 1 day before appointments' },
+    ]
+  },
+  {
+    title: 'Sales & Quotes',
+    description: 'Track quote and contract activity',
+    items: [
+      { key: 'quote_approved', label: 'Quote Approved', description: 'When a customer accepts a quote' },
+      { key: 'contract_signed', label: 'Contract Signed', description: 'When a contract is fully executed' },
+    ]
+  },
+  {
+    title: 'Financial',
+    description: 'Stay on top of invoices and payments',
+    items: [
+      { key: 'invoice_overdue', label: 'Overdue Invoices', description: 'When an invoice becomes overdue' },
+    ]
+  },
+  {
+    title: 'Production',
+    description: 'Track project and crew scheduling',
+    items: [
+      { key: 'production_scheduled', label: 'Production Scheduled', description: 'When production is scheduled for a project' },
     ]
   },
 ]

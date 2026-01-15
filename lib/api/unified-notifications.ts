@@ -83,9 +83,12 @@ export interface UnifiedNotificationParams {
   emailHtml?: string // Custom HTML email body
   
   // Preference key (what type of notification this is for checking user preferences)
-  preferenceKey?: 'new_leads' | 'lead_assigned' | 'lead_status_change' | 'appointment_scheduled' | 
-                  'quote_sent' | 'quote_accepted' | 'project_milestone' | 'invoice_due' | 
-                  'payment_received' | 'crew_assignment' | 'material_delivery'
+  preferenceKey?: 'new_leads' | 'new_note' | 'lead_assigned' | 'lead_status_change' | 
+                  'appointment_scheduled' | 'appointment_reminders' | 
+                  'quote_sent' | 'quote_approved' | 'contract_signed' | 
+                  'invoice_overdue' | 'payment_received' | 
+                  'production_scheduled' | 'project_milestone' | 
+                  'crew_assignment' | 'material_delivery'
 }
 
 /**

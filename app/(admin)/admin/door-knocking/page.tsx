@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { GoogleMapComponent } from '@/components/admin/door-knocking/google-map';
 import { PinModal } from '@/components/admin/door-knocking/pin-modal';
 import { MapLegend } from '@/components/admin/door-knocking/map-legend';
@@ -9,9 +9,7 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
 import { Loader2 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-
-export default function DoorKnockingPage() {
+function DoorKnockingContent() {
   const { data: user } = useCurrentUser();
   const { data: userLocation } = useUserLocation();
   const { data: pins, isLoading } = useDoorKnockPins(user?.company_id || '', {});
@@ -103,5 +101,17 @@ export default function DoorKnockingPage() {
         onConvertToLead={handleConvertToLead}
       />
     </div>
+  );
+}
+
+export default function DoorKnockingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    }>
+      <DoorKnockingContent />
+    </Suspense>
   );
 }

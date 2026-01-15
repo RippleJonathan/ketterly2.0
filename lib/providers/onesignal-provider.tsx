@@ -120,15 +120,34 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
               // Only save player ID if we have both ID and token (confirming active subscription)
               if (playerId && token) {
                 try {
-                  const { error } = await supabase
+                  // Check if user already has a player_id saved
+                  const { data: existingUser } = await supabase
                     .from('users')
-                    .update({ onesignal_player_id: playerId })
+                    .select('onesignal_player_id')
                     .eq('id', user.id)
+                    .single()
                   
-                  if (error) {
-                    console.error('❌ Failed to save player ID:', error)
+                  // Only update if no player_id exists OR if this is a mobile device (preferred)
+                  // Mobile devices are type 0 (iOS) or 1 (Android) in OneSignal
+                  const deviceInfo = await OneSignal.User.PushSubscription.optedIn
+                  const shouldUpdate = !existingUser?.onesignal_player_id || 
+                                      existingUser.onesignal_player_id === playerId
+                  
+                  if (shouldUpdate) {
+                    const { error } = await supabase
+                      .from('users')
+                      .update({ onesignal_player_id: playerId })
+                      .eq('id', user.id)
+                    
+                    if (error) {
+                      console.error('❌ Failed to save player ID:', error)
+                    } else {
+                      console.log('✅ Player ID saved to database (subscription verified with token)')
+                    }
                   } else {
-                    console.log('✅ Player ID saved to database (subscription verified with token)')
+                    console.log('ℹ️  Player ID already exists in database - not overwriting')
+                    console.log('   Current device:', playerId)
+                    console.log('   Saved in DB:', existingUser?.onesignal_player_id)
                   }
                 } catch (dbError) {
                   console.error('❌ Database error saving player ID:', dbError)

@@ -93,6 +93,47 @@ export async function createActivity(
       return createErrorResponse(error)
     }
 
+    // Send notifications for notes on leads/jobs
+    if (activity.activity_type === 'note' && activity.entity_type === 'lead') {
+      // Import server-side notification function
+      try {
+        const { createUnifiedNotification } = await import('@/lib/api/unified-notifications')
+        
+        // Get the lead to find assigned users
+        const { data: lead } = await supabase
+          .from('leads')
+          .select('sales_rep_id, marketing_rep_id, sales_manager_id, production_manager_id, full_name')
+          .eq('id', activity.entity_id)
+          .single()
+        
+        if (lead) {
+          const assignedUsers = [
+            lead.sales_rep_id,
+            lead.marketing_rep_id,
+            lead.sales_manager_id,
+            lead.production_manager_id
+          ].filter((id): id is string => !!id && id !== activity.created_by) // Don't notify the note creator
+          
+          if (assignedUsers.length > 0) {
+            console.log('📝 Sending note notifications to assigned users:', assignedUsers)
+            
+            await createUnifiedNotification({
+              userIds: assignedUsers,
+              title: '📝 New Note Added',
+              message: `${activity.title}${activity.description ? ': ' + activity.description.substring(0, 100) : ''}`,
+              type: 'user',
+              priority: 'low',
+              pushUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${activity.entity_id}`,
+              preferenceKey: 'new_note',
+            })
+          }
+        }
+      } catch (notifError) {
+        // Don't fail the activity creation if notifications fail
+        console.error('Failed to send note notifications:', notifError)
+      }
+    }
+
     return createSuccessResponse(data)
   } catch (error) {
     console.error('Create activity exception:', error)

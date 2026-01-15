@@ -13,6 +13,7 @@ export interface EmailOptions {
   subject: string
   html: string
   text?: string
+  headers?: Record<string, string>
   attachments?: Array<{
     filename: string
     content: string | Buffer
@@ -24,7 +25,18 @@ export interface EmailOptions {
  */
 export async function sendEmail(options: EmailOptions) {
   try {
-    const { data, error } = await resend.emails.send(options)
+    // Add anti-spam headers
+    const headers = {
+      'X-Entity-Ref-ID': Date.now().toString(),
+      'List-Unsubscribe': `<${process.env.NEXT_PUBLIC_APP_URL}/admin/profile>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      ...options.headers,
+    }
+
+    const { data, error } = await resend.emails.send({
+      ...options,
+      headers,
+    })
 
     if (error) {
       console.error('Failed to send email:', error)

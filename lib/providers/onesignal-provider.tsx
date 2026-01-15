@@ -71,10 +71,10 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
             await OneSignal.login(user.id)
             console.log('✅ OneSignal.login() called')
             
-            // Method 2: Use User.addAlias (recommended for external_id mapping)
+            // Method 2: Use User.addAlias with custom label (not "external_id" which is reserved)
             try {
-              await OneSignal.User.addAlias('external_id', user.id)
-              console.log('✅ OneSignal.User.addAlias() called with external_id:', user.id)
+              await OneSignal.User.addAlias('supabase_user_id', user.id)
+              console.log('✅ OneSignal.User.addAlias() called with supabase_user_id:', user.id)
             } catch (aliasError) {
               console.warn('⚠️  addAlias failed:', aliasError)
             }
@@ -109,7 +109,26 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
               }, 2000)
             } else {
               console.log('✅ Push notifications are enabled and ready')
-              console.log('📱 Your OneSignal Player ID:', await OneSignal.User.PushSubscription.id || 'Not available')
+              const playerId = await OneSignal.User.PushSubscription.id
+              console.log('📱 Your OneSignal Player ID:', playerId || 'Not available')
+              
+              // Save player ID to database for push notification targeting
+              if (playerId) {
+                try {
+                  const { error } = await supabase
+                    .from('users')
+                    .update({ onesignal_player_id: playerId })
+                    .eq('id', user.id)
+                  
+                  if (error) {
+                    console.error('❌ Failed to save player ID:', error)
+                  } else {
+                    console.log('✅ Player ID saved to database')
+                  }
+                } catch (dbError) {
+                  console.error('❌ Database error saving player ID:', dbError)
+                }
+              }
             }
           } catch (error) {
             console.error('❌ Failed to set OneSignal user ID:', error)

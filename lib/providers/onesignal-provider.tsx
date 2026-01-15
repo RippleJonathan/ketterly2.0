@@ -127,11 +127,16 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
                     .eq('id', user.id)
                     .single()
                   
-                  // Only update if no player_id exists OR if this is a mobile device (preferred)
-                  // Mobile devices are type 0 (iOS) or 1 (Android) in OneSignal
-                  const deviceInfo = await OneSignal.User.PushSubscription.optedIn
+                  // Detect if this is a mobile device (PWA or mobile browser)
+                  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+                  
+                  // Determine if we should update:
+                  // 1. No existing player_id → always update
+                  // 2. Same player_id → update (refresh)
+                  // 3. Mobile device → ALWAYS update (prefer mobile over desktop)
                   const shouldUpdate = !existingUser?.onesignal_player_id || 
-                                      existingUser.onesignal_player_id === playerId
+                                      existingUser.onesignal_player_id === playerId ||
+                                      isMobile
                   
                   if (shouldUpdate) {
                     const { error } = await supabase
@@ -142,7 +147,14 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
                     if (error) {
                       console.error('❌ Failed to save player ID:', error)
                     } else {
-                      console.log('✅ Player ID saved to database (subscription verified with token)')
+                      const reason = isMobile && existingUser?.onesignal_player_id && existingUser.onesignal_player_id !== playerId
+                        ? '(mobile device overwriting desktop)'
+                        : '(subscription verified with token)'
+                      console.log(`✅ Player ID saved to database ${reason}`)
+                      if (existingUser?.onesignal_player_id && existingUser.onesignal_player_id !== playerId) {
+                        console.log('   Previous:', existingUser.onesignal_player_id)
+                        console.log('   New:', playerId)
+                      }
                     }
                   } else {
                     console.log('ℹ️  Player ID already exists in database - not overwriting')

@@ -28,60 +28,7 @@ const NOTIFICATION_GROUPS: NotificationGroup[] = [
     description: 'Stay updated on new leads and customer interactions',
     items: [
       { key: 'new_leads', label: 'New Leads', description: 'When a new lead is created or assigned to you' },
-      { key: 'lead_assigned', label: 'Lead Assignments', description: 'When you are assigned to a lead' },
-      { key: 'lead_status_change', label: 'Lead Status Changes', description: 'When a lead status changes' },
       { key: 'new_note', label: 'New Notes', description: 'When someone adds a note to your leads' },
-    ]
-  },
-  {
-    title: 'Schedule & Appointments',
-    description: 'Never miss an appointment or important date',
-    items: [
-      { key: 'appointments', label: 'New Appointments', description: 'When appointments are scheduled' },
-      { key: 'appointment_reminders', label: 'Appointment Reminders', description: 'Reminders before upcoming appointments' },
-      { key: 'production_scheduled', label: 'Production Scheduled', description: 'When production is scheduled for a project' },
-      { key: 'job_scheduled', label: 'Jobs Scheduled', description: 'When jobs or calendar events are assigned to you' },
-    ]
-  },
-  {
-    title: 'Messages & Communication',
-    description: 'Keep track of customer messages and team communication',
-    items: [
-      { key: 'messages', label: 'New Messages', description: 'When you receive new messages from customers or team' },
-      { key: 'tasks', label: 'Task Assignments', description: 'When tasks are assigned to you' },
-      { key: 'task_due_soon', label: 'Task Reminders', description: 'When tasks are due soon' },
-    ]
-  },
-  {
-    title: 'Sales & Quotes',
-    description: 'Track quote and contract activities',
-    items: [
-      { key: 'quotes_sent', label: 'Quotes Sent', description: 'When quotes are sent to customers' },
-      { key: 'quotes_approved', label: 'Quotes Approved', description: 'When customers approve quotes' },
-      { key: 'contracts_signed', label: 'Contracts Signed', description: 'When contracts are signed' },
-    ]
-  },
-  {
-    title: 'Payments & Invoicing',
-    description: 'Monitor financial transactions',
-    items: [
-      { key: 'invoices_paid', label: 'Invoices Paid', description: 'When invoices are marked as paid' },
-      { key: 'payments_received', label: 'Payments Received', description: 'When payments are recorded' },
-    ]
-  },
-  {
-    title: 'Projects & Production',
-    description: 'Stay informed about project progress',
-    items: [
-      { key: 'project_updates', label: 'Project Updates', description: 'When projects have status or milestone changes' },
-    ]
-  },
-  {
-    title: 'Reports & Summaries',
-    description: 'Receive periodic updates and summaries',
-    items: [
-      { key: 'daily_summary', label: 'Daily Summary', description: 'Daily digest of your activities and tasks' },
-      { key: 'weekly_report', label: 'Weekly Report', description: 'Weekly performance and metrics report' },
     ]
   },
 ]
@@ -206,57 +153,22 @@ export function NotificationPreferences() {
             />
           </div>
 
-          {/* Push Notifications */}
-          <div className="flex items-center justify-between space-x-4 p-3 bg-gray-50 rounded-lg">
-            <div className="flex items-start space-x-4 flex-1">
-              <Smartphone className="h-5 w-5 text-gray-500 mt-0.5" />
-              <div className="space-y-1 flex-1">
-                <Label htmlFor="push-notifications" className="text-base font-medium cursor-pointer">
-                  Push Notifications
-                </Label>
-                <p className="text-sm text-gray-500">
-                  Get real-time browser notifications
-                </p>
-                {masterToggles.push_notifications && (
-                  <p className="text-xs text-amber-600 mt-2">
-                    ⚠️ You may be prompted to allow browser notifications
-                  </p>
-                )}
-              </div>
-            </div>
-            <Switch
-              id="push-notifications"
-              checked={masterToggles.push_notifications}
-              onCheckedChange={(checked) =>
-                setMasterToggles({ ...masterToggles, push_notifications: checked })
-              }
-            />
-          </div>
-
           {/* SMS Notifications */}
-          <div className="flex items-center justify-between space-x-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between space-x-4 p-3 bg-gray-50 rounded-lg opacity-60">
             <div className="flex items-start space-x-4 flex-1">
               <MessageSquare className="h-5 w-5 text-gray-500 mt-0.5" />
               <div className="space-y-1 flex-1">
-                <Label htmlFor="sms-notifications" className="text-base font-medium cursor-pointer">
-                  SMS Notifications
+                <Label className="text-base font-medium">
+                  SMS Notifications <span className="text-xs text-blue-600 font-normal">Coming Soon</span>
                 </Label>
                 <p className="text-sm text-gray-500">
                   Receive text messages for critical alerts
                 </p>
-                {masterToggles.sms_notifications && user?.phone && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    SMS will be sent to: {user.phone}
-                  </p>
-                )}
               </div>
             </div>
             <Switch
-              id="sms-notifications"
-              checked={masterToggles.sms_notifications}
-              onCheckedChange={(checked) =>
-                setMasterToggles({ ...masterToggles, sms_notifications: checked })
-              }
+              disabled
+              checked={false}
             />
           </div>
         </div>

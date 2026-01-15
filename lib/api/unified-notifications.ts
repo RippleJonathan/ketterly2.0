@@ -268,9 +268,20 @@ To manage your notification preferences, visit your profile settings.
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${emailSubject}</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+  </style>
+  <![endif]-->
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f9fafb;">
+  <!--[if mso]>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td align="center">
+  <![endif]-->
   <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f9fafb;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
@@ -299,8 +310,11 @@ To manage your notification preferences, visit your profile settings.
               <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
                 This is an automated notification from ${companyName}.
               </p>
-              <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.5;">
+              <p style="margin: 0 0 8px 0; color: #9ca3af; font-size: 12px; line-height: 1.5;">
                 To manage your notification preferences, visit your profile settings.
+              </p>
+              <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 1.4;">
+                Ketterly, LLC | Georgetown, TX 78626 | support@ketterly.com
               </p>
             </td>
           </tr>
@@ -308,6 +322,10 @@ To manage your notification preferences, visit your profile settings.
       </td>
     </tr>
   </table>
+  <!--[if mso]>
+    </td></tr>
+  </table>
+  <![endif]-->
 </body>
 </html>
             `
@@ -323,6 +341,7 @@ To manage your notification preferences, visit your profile settings.
               return sendEmail({
                 from: `${companyName} <${process.env.RESEND_FROM_EMAIL || 'notifications@ketterly.com'}>`,
                 to: user.email,
+                replyTo: process.env.RESEND_REPLY_TO_EMAIL || process.env.RESEND_FROM_EMAIL || 'support@ketterly.com',
                 subject: emailSubject,
                 html: emailHtml,
                 text: emailText,

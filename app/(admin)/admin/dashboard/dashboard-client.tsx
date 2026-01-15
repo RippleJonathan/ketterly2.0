@@ -66,7 +66,7 @@ export default function DashboardPage() {
         <Button
           variant="outline"
           className="h-auto py-4 flex flex-col items-center gap-2"
-          onClick={() => router.push('/admin/map')}
+          onClick={() => router.push('/admin/door-knocking')}
         >
           <MapPin className="h-5 w-5" />
           <span className="text-sm font-medium">Map</span>

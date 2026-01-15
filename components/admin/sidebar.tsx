@@ -82,6 +82,12 @@ const salesNavigation: NavItem[] = [
     icon: Calendar,
     permission: 'can_view_calendar'
   },
+  { 
+    name: 'Door Knocking', 
+    href: '/admin/door-knocking', 
+    icon: MapPin,
+    // Everyone can access door knocking feature
+  },
 ]
 
 // Office workflow navigation

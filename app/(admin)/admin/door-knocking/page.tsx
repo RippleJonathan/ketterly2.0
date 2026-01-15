@@ -9,6 +9,8 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
 import { Loader2 } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function DoorKnockingPage() {
   const { data: user } = useCurrentUser();
   const { data: userLocation } = useUserLocation();

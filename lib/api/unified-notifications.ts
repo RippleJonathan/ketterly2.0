@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { shouldSendPushNotification } from '@/lib/email/user-notifications'
-import { sendPushNotificationByPlayerIds } from '@/lib/api/onesignal'
+import { sendPushNotification } from '@/lib/api/onesignal'
 
 export type UnifiedNotificationType = 'company' | 'location' | 'user' | 'system'
 export type UnifiedNotificationPriority = 'low' | 'medium' | 'high'
@@ -65,10 +65,10 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
       throw new Error('Unauthorized')
     }
 
-    // Get company ID
+    // Get company ID and company name
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('company_id')
+      .select('company_id, companies(name)')
       .eq('id', user.id)
       .single()
 
@@ -77,6 +77,7 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
     }
 
     const companyId = userData.company_id
+    const companyName = (userData.companies as any)?.name || 'Ketterly'
 
     // Step 1: Create in-app notifications for all users
     const notificationInserts = params.userIds.map(userId => ({
@@ -120,44 +121,24 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
       }
       
       if (usersToNotify.length > 0) {
-        // Fetch player IDs from database
-        const { data: usersWithPlayerIds, error: playerIdError } = await supabase
-          .from('users')
-          .select('id, onesignal_player_id')
-          .in('id', usersToNotify)
-          .not('onesignal_player_id', 'is', null)
-        
-        if (playerIdError) {
-          console.error('Failed to fetch player IDs:', playerIdError)
-          errors.push('Failed to fetch player IDs')
-        } else if (usersWithPlayerIds && usersWithPlayerIds.length > 0) {
-          const playerIds = usersWithPlayerIds
-            .map(u => u.onesignal_player_id)
-            .filter(Boolean) as string[]
-          
-          if (playerIds.length > 0) {
-            try {
-              await sendPushNotificationByPlayerIds({
-                playerIds,
-                title: params.title,
-                message: params.message,
-                url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
-                data: {
-                  ...params.pushData,
-                  type: params.preferenceKey,
-                  icon: params.icon,
-                  image: params.image,
-                },
-              })
-              pushNotificationsSent = playerIds.length
-              console.log(`✅ Sent push notification to ${playerIds.length} user(s)`)
-            } catch (pushError) {
-              console.error('Failed to send push notifications:', pushError)
-              errors.push('Push notification failed')
-            }
-          } else {
-            console.log('⚠️  No player IDs found - users may not have subscribed yet')
-          }
+        try {
+          await sendPushNotification({
+            userIds: usersToNotify,
+            title: `${companyName}: ${params.title}`,
+            message: params.message,
+            url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
+            data: {
+              ...params.pushData,
+              type: params.preferenceKey,
+              icon: params.icon,
+              image: params.image,
+            },
+          })
+          pushNotificationsSent = usersToNotify.length
+          console.log(`✅ Sent push notification to ${usersToNotify.length} user(s)`)
+        } catch (pushError) {
+          console.error('Failed to send push notifications:', pushError)
+          errors.push('Push notification failed')
         }
       } else {
         console.log('⚠️  No users have push notifications enabled for this type')

@@ -25,14 +25,14 @@ interface OneSignalNotification {
 /**
  * Send a push notification to specific users by their player IDs
  */
-export async function sendPushNotificationByPlayerIds({
-  playerIds,
+export async function sendPushNotification({
+  userIds,
   title,
   message,
   url,
   data,
 }: {
-  playerIds: string[] // Array of OneSignal player IDs
+  userIds: string[] // Array of Supabase user IDs (will use external_user_id in OneSignal)
   title: string
   message: string
   url?: string
@@ -46,9 +46,9 @@ export async function sendPushNotificationByPlayerIds({
     return { success: false, error: 'OneSignal not configured' }
   }
 
-  if (playerIds.length === 0) {
-    console.warn('⚠️  No player IDs provided')
-    return { success: false, error: 'No player IDs provided' }
+  if (userIds.length === 0) {
+    console.warn('⚠️  No user IDs provided')
+    return { success: false, error: 'No user IDs provided' }
   }
 
   try {
@@ -56,14 +56,14 @@ export async function sendPushNotificationByPlayerIds({
       app_id: appId,
       headings: { en: title },
       contents: { en: message },
-      include_player_ids: playerIds,
+      include_external_user_ids: userIds,
       url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://ketterly.com',
     }
 
     console.log('🔔 Sending push notification:', {
       title,
       message,
-      playerIds,
+      userIds,
       url: notification.url,
     })
 
@@ -113,8 +113,8 @@ export async function sendPushNotificationByPlayerIds({
     // Check if recipients is 0 or undefined (no devices matched)
     if (response.ok && (!result.recipients || result.recipients === 0)) {
       console.warn('⚠️  WARNING: Notification accepted but NO RECIPIENTS matched!', {
-        targetedPlayerIds: playerIds,
-        reason: 'Player IDs not found in OneSignal - devices may not be subscribed',
+        targetedUserIds: userIds,
+        reason: 'External user IDs not found in OneSignal - users may not be subscribed',
       })
     }
 

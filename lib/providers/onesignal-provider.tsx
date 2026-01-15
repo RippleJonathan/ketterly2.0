@@ -109,11 +109,16 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
               }, 2000)
             } else {
               console.log('✅ Push notifications are enabled and ready')
-              const playerId = await OneSignal.User.PushSubscription.id
-              console.log('📱 Your OneSignal Player ID:', playerId || 'Not available')
               
-              // Save player ID to database for push notification targeting
-              if (playerId) {
+              // Get both player ID and token to verify subscription
+              const playerId = await OneSignal.User.PushSubscription.id
+              const token = await OneSignal.User.PushSubscription.token
+              
+              console.log('📱 Your OneSignal Player ID:', playerId || 'Not available')
+              console.log('🔑 Your OneSignal Token:', token ? 'Present ✅' : 'Missing ❌')
+              
+              // Only save player ID if we have both ID and token (confirming active subscription)
+              if (playerId && token) {
                 try {
                   const { error } = await supabase
                     .from('users')
@@ -123,11 +128,13 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
                   if (error) {
                     console.error('❌ Failed to save player ID:', error)
                   } else {
-                    console.log('✅ Player ID saved to database')
+                    console.log('✅ Player ID saved to database (subscription verified with token)')
                   }
                 } catch (dbError) {
                   console.error('❌ Database error saving player ID:', dbError)
                 }
+              } else if (playerId && !token) {
+                console.warn('⚠️  Player ID exists but no token - subscription may not be fully active yet')
               }
             }
           } catch (error) {
@@ -138,13 +145,33 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Listen for subscription changes
-        OneSignal.User.PushSubscription.addEventListener('change', (subscription) => {
-          console.log('Push subscription changed:', subscription)
+        OneSignal.User.PushSubscription.addEventListener('change', async (subscription) => {
+          console.log('🔔 Push subscription changed:', subscription)
           
-          if (subscription.current.token) {
-            console.log('User subscribed with token:', subscription.current.token)
+          if (subscription.current.token && subscription.current.id) {
+            console.log('✅ User subscribed with token:', subscription.current.token)
+            console.log('📱 Player ID:', subscription.current.id)
+            
+            // Save player ID when subscription becomes active
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            
+            if (user) {
+              try {
+                const { error } = await supabase
+                  .from('users')
+                  .update({ onesignal_player_id: subscription.current.id })
+                  .eq('id', user.id)
+                
+                if (!error) {
+                  console.log('✅ Player ID saved to database after subscription change')
+                }
+              } catch (err) {
+                console.error('❌ Failed to save player ID on subscription change:', err)
+              }
+            }
           } else {
-            console.log('User unsubscribed')
+            console.log('❌ User unsubscribed')
           }
         })
         

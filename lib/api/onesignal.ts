@@ -32,7 +32,7 @@ export async function sendPushNotification({
   url,
   data,
 }: {
-  userIds: string[] // Array of Supabase user IDs (will use external_user_id in OneSignal)
+  userIds: string[] // Array of Supabase user IDs (will fetch player_ids from DB)
   title: string
   message: string
   url?: string
@@ -51,19 +51,38 @@ export async function sendPushNotification({
     return { success: false, error: 'No user IDs provided' }
   }
 
+  // Fetch player_ids from database (server-side import safe here since this file is server-only)
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  
+  const { data: usersWithPlayerIds } = await supabase
+    .from('users')
+    .select('id, onesignal_player_id')
+    .in('id', userIds)
+    .not('onesignal_player_id', 'is', null)
+  
+  const playerIds = (usersWithPlayerIds || []).map(u => u.onesignal_player_id).filter(Boolean) as string[]
+  
+  if (playerIds.length === 0) {
+    console.warn('⚠️  No player IDs found for users:', userIds)
+    return { success: false, error: 'No player IDs found' }
+  }
+
+  console.log('🔔 Found player IDs:', playerIds)
+
   try {
     const notification: OneSignalNotification = {
       app_id: appId,
       headings: { en: title },
       contents: { en: message },
-      include_external_user_ids: userIds,
+      include_player_ids: playerIds,
       url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://ketterly.com',
     }
 
     console.log('🔔 Sending push notification:', {
       title,
       message,
-      userIds,
+      playerIds,
       url: notification.url,
     })
 
@@ -113,8 +132,8 @@ export async function sendPushNotification({
     // Check if recipients is 0 or undefined (no devices matched)
     if (response.ok && (!result.recipients || result.recipients === 0)) {
       console.warn('⚠️  WARNING: Notification accepted but NO RECIPIENTS matched!', {
-        targetedUserIds: userIds,
-        reason: 'External user IDs not found in OneSignal - users may not be subscribed',
+        targetedPlayerIds: playerIds,
+        reason: 'Player IDs not found in OneSignal - devices may not be subscribed',
       })
     }
 

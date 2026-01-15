@@ -122,20 +122,37 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
       
       if (usersToNotify.length > 0) {
         try {
-          await sendPushNotification({
-            userIds: usersToNotify,
-            title: `${companyName}: ${params.title}`,
-            message: params.message,
-            url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
-            data: {
+          // Fetch player IDs from database for users who should receive notifications
+          const { data: usersWithPlayerIds } = await supabase
+            .from('users')
+            .select('id, onesignal_player_id')
+            .in('id', usersToNotify)
+            .not('onesignal_player_id', 'is', null)
+          
+          const playerIds = (usersWithPlayerIds || [])
+            .map(u => u.onesignal_player_id)
+            .filter(Boolean) as string[]
+          
+          console.log(`📱 Found ${playerIds.length} player IDs for ${usersToNotify.length} users`)
+          
+          if (playerIds.length > 0) {
+            await sendPushNotification({
+              playerIds,
+              title: `${companyName}: ${params.title}`,
+              message: params.message,
+              url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
+              data: {
               ...params.pushData,
               type: params.preferenceKey,
               icon: params.icon,
               image: params.image,
             },
           })
-          pushNotificationsSent = usersToNotify.length
-          console.log(`✅ Sent push notification to ${usersToNotify.length} user(s)`)
+            pushNotificationsSent = playerIds.length
+            console.log(`✅ Sent push notification to ${playerIds.length} player ID(s)`)
+          } else {
+            console.log('⚠️  No player IDs found for users who should receive notifications')
+          }
         } catch (pushError) {
           console.error('Failed to send push notifications:', pushError)
           errors.push('Push notification failed')

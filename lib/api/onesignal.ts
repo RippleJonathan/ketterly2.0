@@ -26,13 +26,13 @@ interface OneSignalNotification {
  * Send a push notification to specific users by their player IDs
  */
 export async function sendPushNotification({
-  userIds,
+  playerIds,
   title,
   message,
   url,
   data,
 }: {
-  userIds: string[] // Array of Supabase user IDs (will fetch player_ids from DB)
+  playerIds: string[] // Array of OneSignal player IDs
   title: string
   message: string
   url?: string
@@ -46,29 +46,12 @@ export async function sendPushNotification({
     return { success: false, error: 'OneSignal not configured' }
   }
 
-  if (userIds.length === 0) {
-    console.warn('⚠️  No user IDs provided')
-    return { success: false, error: 'No user IDs provided' }
-  }
-
-  // Fetch player_ids from database (server-side import safe here since this file is server-only)
-  const { createClient } = await import('@/lib/supabase/server')
-  const supabase = await createClient()
-  
-  const { data: usersWithPlayerIds } = await supabase
-    .from('users')
-    .select('id, onesignal_player_id')
-    .in('id', userIds)
-    .not('onesignal_player_id', 'is', null)
-  
-  const playerIds = (usersWithPlayerIds || []).map(u => u.onesignal_player_id).filter(Boolean) as string[]
-  
   if (playerIds.length === 0) {
-    console.warn('⚠️  No player IDs found for users:', userIds)
-    return { success: false, error: 'No player IDs found' }
+    console.warn('⚠️  No player IDs provided')
+    return { success: false, error: 'No player IDs provided' }
   }
 
-  console.log('🔔 Found player IDs:', playerIds)
+  console.log('🔔 Sending to player IDs:', playerIds)
 
   try {
     const notification: OneSignalNotification = {

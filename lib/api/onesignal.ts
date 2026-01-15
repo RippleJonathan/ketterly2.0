@@ -23,20 +23,20 @@ interface OneSignalNotification {
 }
 
 /**
- * Send a push notification to specific users
+ * Send a push notification to specific users by their player IDs
  */
 export async function sendPushNotification({
-  userIds,
+  playerIds,
   title,
   message,
   url,
   data,
 }: {
-  userIds: string[] // Array of Supabase user IDs
+  playerIds: string[] // Array of OneSignal player IDs
   title: string
   message: string
-  url?: string // Optional deep link URL
-  data?: Record<string, any> // Optional custom data
+  url?: string
+  data?: Record<string, any>
 }): Promise<{ success: boolean; error?: string; id?: string }> {
   const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
   const restApiKey = process.env.ONESIGNAL_REST_API_KEY
@@ -46,19 +46,26 @@ export async function sendPushNotification({
     return { success: false, error: 'OneSignal not configured' }
   }
 
+  if (playerIds.length === 0) {
+    console.warn('⚠️  No player IDs provided')
+    return { success: false, error: 'No player IDs provided' }
+  }
+
+  console.log('🔔 Sending to player IDs:', playerIds)
+
   try {
     const notification: OneSignalNotification = {
       app_id: appId,
       headings: { en: title },
       contents: { en: message },
-      include_external_user_ids: userIds, // Map to your Supabase user IDs
-      url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://localhost:3000', // Always provide valid URL
+      include_player_ids: playerIds,
+      url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://ketterly.com',
     }
 
     console.log('🔔 Sending push notification:', {
       title,
       message,
-      targetUserIds: userIds,
+      playerIds,
       url: notification.url,
     })
 
@@ -97,12 +104,21 @@ export async function sendPushNotification({
 
     const result = await response.json()
 
-    console.log('🔔 OneSignal API response:', {
+    console.log('🔔 OneSignal API full response:', result)
+    console.log('🔔 OneSignal API parsed:', {
       success: response.ok,
       recipients: result.recipients,
       externalIds: result.external_ids,
       errors: result.errors,
     })
+
+    // Check if recipients is 0 or undefined (no devices matched)
+    if (response.ok && (!result.recipients || result.recipients === 0)) {
+      console.warn('⚠️  WARNING: Notification accepted but NO RECIPIENTS matched!', {
+        targetedPlayerIds: playerIds,
+        reason: 'Player IDs not found in OneSignal - devices may not be subscribed',
+      })
+    }
 
     if (!response.ok) {
       console.error('OneSignal API error:', result)

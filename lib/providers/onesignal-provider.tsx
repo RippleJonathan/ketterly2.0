@@ -67,18 +67,26 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
           try {
             console.log('🔑 Setting OneSignal user ID:', user.id)
             
-            // Use both methods for compatibility
+            // Method 1: Use login (new SDK API)
             await OneSignal.login(user.id)
-            console.log('✅ OneSignal.login() called with ID:', user.id)
+            console.log('✅ OneSignal.login() called')
             
-            // Also use the older setExternalUserId method for backwards compatibility
+            // Method 2: Use User.addAlias (recommended for external_id mapping)
+            try {
+              await OneSignal.User.addAlias('external_id', user.id)
+              console.log('✅ OneSignal.User.addAlias() called with external_id:', user.id)
+            } catch (aliasError) {
+              console.warn('⚠️  addAlias failed:', aliasError)
+            }
+            
+            // Method 3: Use older setExternalUserId for backwards compatibility
             if (typeof (OneSignal as any).setExternalUserId === 'function') {
               await (OneSignal as any).setExternalUserId(user.id)
-              console.log('✅ setExternalUserId() called with ID:', user.id)
+              console.log('✅ setExternalUserId() called')
             }
             
             // Give OneSignal a moment to process
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            await new Promise(resolve => setTimeout(resolve, 1500))
             
             // Try to verify using getExternalUserId (older API)
             try {
@@ -87,7 +95,7 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
                 console.log('🔍 External ID verification (old API):', externalId)
               }
             } catch (verifyError) {
-              console.log('ℹ️  Could not verify external ID using old API:', verifyError)
+              console.log('ℹ️  Could not verify external ID using old API')
             }
             
             // Check if user is subscribed
@@ -96,16 +104,12 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
             
             if (!isSubscribed) {
               console.log('⚠️  User not subscribed to push notifications. Will prompt shortly...')
-              // Auto-prompt for push notifications
               setTimeout(() => {
                 OneSignal.Slidedown.promptPush()
               }, 2000)
             } else {
               console.log('✅ Push notifications are enabled and ready')
-              console.log('💡 If you are not receiving push notifications, check:')
-              console.log('   1. Safari → Settings → Notifications')
-              console.log('   2. iPhone Settings → Notifications → Safari')
-              console.log('   3. OneSignal dashboard external_id mapping')
+              console.log('📱 Your OneSignal Player ID:', await OneSignal.User.PushSubscription.id || 'Not available')
             }
           } catch (error) {
             console.error('❌ Failed to set OneSignal user ID:', error)

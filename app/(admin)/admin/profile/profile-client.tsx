@@ -60,10 +60,10 @@ export default function ProfilePage() {
 
         <TabsContent value="notifications" className="space-y-6">
           <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-            {/* Push Notifications */}
-            <PushNotificationSettings />
+            {/* Push Notifications - DISABLED */}
+            {/* <PushNotificationSettings /> */}
             
-            <Separator />
+            {/* <Separator /> */}
             
             {/* Email/SMS Notification Preferences */}
             <NotificationPreferences />

@@ -36,7 +36,7 @@
 ### ⚠️ Important Findings
 
 **Note Notifications:**
-- ✅ Will work when created through the UI (/admin/leads/[id])
+- ✅ Will work when created through the UI (/admin/leads/id)
 - ❌ Do NOT trigger when created via direct database insert
 - ℹ️ This is **expected behavior** - server actions only run from UI
 

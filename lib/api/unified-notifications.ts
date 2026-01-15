@@ -164,60 +164,62 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
     // So we don't insert anything here - they'll be inserted when user marks as read
 
     // Step 3: Send push notifications to users who have it enabled
-    if (params.preferenceKey) {
-      // Get player IDs for users who should receive push notifications
-      const usersToNotify: string[] = []
-      
-      for (const userId of params.userIds) {
-        const canSendPush = await shouldSendPushNotification(userId, params.preferenceKey)
-        if (canSendPush) {
-          usersToNotify.push(userId)
-        }
-      }
-      
-      if (usersToNotify.length > 0) {
-        try {
-          // Fetch player IDs from database for users who should receive notifications
-          const { data: usersWithPlayerIds } = await supabase
-            .from('users')
-            .select('id, onesignal_player_id')
-            .in('id', usersToNotify)
-            .not('onesignal_player_id', 'is', null)
-          
-          const playerIds = (usersWithPlayerIds || [])
-            .map(u => u.onesignal_player_id)
-            .filter(Boolean) as string[]
-          
-          console.log(`📱 Found ${playerIds.length} player IDs for ${usersToNotify.length} users`)
-          
-          if (playerIds.length > 0) {
-            await sendPushNotification({
-              playerIds,
-              title: `${companyName}: ${params.title}`,
-              message: params.message,
-              url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
-              data: {
-              ...params.pushData,
-              type: params.preferenceKey,
-              icon: params.icon,
-              image: params.image,
-            },
-          })
-            pushNotificationsSent = playerIds.length
-            console.log(`✅ Sent push notification to ${playerIds.length} player ID(s)`)
-          } else {
-            console.log('⚠️  No player IDs found for users who should receive notifications')
-          }
-        } catch (pushError) {
-          console.error('Failed to send push notifications:', pushError)
-          errors.push('Push notification failed')
-        }
-      } else {
-        console.log('⚠️  No users have push notifications enabled for this type')
-      }
-    } else {
-      console.log('⚠️  No preference key provided, skipping push notifications')
-    }
+    // DISABLED: Push notifications temporarily disabled
+    console.log('⚠️  Push notifications are currently disabled')
+    // if (params.preferenceKey) {
+    //   // Get player IDs for users who should receive push notifications
+    //   const usersToNotify: string[] = []
+    //   
+    //   for (const userId of params.userIds) {
+    //     const canSendPush = await shouldSendPushNotification(userId, params.preferenceKey)
+    //     if (canSendPush) {
+    //       usersToNotify.push(userId)
+    //     }
+    //   }
+    //   
+    //   if (usersToNotify.length > 0) {
+    //     try {
+    //       // Fetch player IDs from database for users who should receive notifications
+    //       const { data: usersWithPlayerIds } = await supabase
+    //         .from('users')
+    //         .select('id, onesignal_player_id')
+    //         .in('id', usersToNotify)
+    //         .not('onesignal_player_id', 'is', null)
+    //       
+    //       const playerIds = (usersWithPlayerIds || [])
+    //         .map(u => u.onesignal_player_id)
+    //         .filter(Boolean) as string[]
+    //       
+    //       console.log(`📱 Found ${playerIds.length} player IDs for ${usersToNotify.length} users`)
+    //       
+    //       if (playerIds.length > 0) {
+    //         await sendPushNotification({
+    //           playerIds,
+    //           title: `${companyName}: ${params.title}`,
+    //           message: params.message,
+    //           url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
+    //           data: {
+    //           ...params.pushData,
+    //           type: params.preferenceKey,
+    //           icon: params.icon,
+    //           image: params.image,
+    //         },
+    //       })
+    //         pushNotificationsSent = playerIds.length
+    //         console.log(`✅ Sent push notification to ${playerIds.length} player ID(s)`)
+    //       } else {
+    //         console.log('⚠️  No player IDs found for users who should receive notifications')
+    //       }
+    //     } catch (pushError) {
+    //       console.error('Failed to send push notifications:', pushError)
+    //       errors.push('Push notification failed')
+    //     }
+    //   } else {
+    //     console.log('⚠️  No users have push notifications enabled for this type')
+    //   }
+    // } else {
+    //   console.log('⚠️  No preference key provided, skipping push notifications')
+    // }
 
     // Step 4: Send email notifications to users who have it enabled
     if (params.preferenceKey) {

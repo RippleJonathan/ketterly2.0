@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ActivityTimeline } from '@/components/admin/leads/activity-timeline'
 import { AddActivityForm } from '@/components/admin/leads/add-activity-form'
+import { NotesTab } from '@/components/admin/leads/notes-tab'
 import { StageChecklist } from '@/components/admin/leads/stage-checklist'
 import { EstimatesTab } from '@/components/admin/leads/estimates-tab'
 import { EventsTab } from '@/components/admin/leads/events-tab'
@@ -238,7 +239,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
           />
         )}
         {tab === 'photos' && (!userPermissions || userPermissions.can_view_lead_photos) && <PhotosTab leadId={id} leadName={lead.full_name} />}
-        {tab === 'notes' && (!userPermissions || userPermissions.can_view_lead_notes) && <ActivityTab leadId={id} />}
+        {tab === 'notes' && (!userPermissions || userPermissions.can_view_lead_notes) && <NotesTab leadId={id} />}
         {tab === 'documents' && (!userPermissions || userPermissions.can_view_lead_documents) && <FilesTab leadId={id} leadName={lead.full_name} />}
         {tab === 'payments' && (!userPermissions || userPermissions.can_view_lead_payments) && <PaymentsTab leadId={id} />}
         {tab === 'financials' && (!userPermissions || userPermissions.can_view_lead_financials) && <FinancialsTab leadId={id} />}
@@ -410,24 +411,6 @@ function DetailsTab({ lead }: { lead: any }) {
           <p className="text-gray-900 whitespace-pre-wrap">{lead.notes}</p>
         </div>
       )}
-    </div>
-  )
-}
-
-function ActivityTab({ leadId }: { leadId: string }) {
-  return (
-    <div className="space-y-6">
-      {/* Add Activity Form */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Add Activity</h2>
-        <AddActivityForm leadId={leadId} />
-      </div>
-
-      {/* Activity Timeline */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Activity Timeline</h2>
-        <ActivityTimeline leadId={leadId} />
-      </div>
     </div>
   )
 }

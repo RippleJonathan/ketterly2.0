@@ -4,6 +4,7 @@ import "./globals.css";
 import { ReactQueryProvider } from "@/providers/react-query-provider";
 import { OneSignalProvider } from "@/lib/providers/onesignal-provider";
 import { Toaster } from "sonner";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -52,6 +53,7 @@ export default function RootLayout({
           <OneSignalProvider>
             {children}
             <Toaster richColors position="top-right" />
+            <SpeedInsights />
           </OneSignalProvider>
         </ReactQueryProvider>
       </body>

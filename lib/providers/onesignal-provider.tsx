@@ -147,6 +147,25 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
             console.log('User unsubscribed')
           }
         })
+        
+        // Listen for notification clicks (deep linking)
+        OneSignal.Notifications.addEventListener('click', (event) => {
+          console.log('Notification clicked:', event)
+          
+          // Get the URL from the notification
+          const url = event.notification.launchURL || event.notification.url
+          
+          if (url) {
+            console.log('Opening notification URL:', url)
+            // The URL will automatically be opened by OneSignal
+            // But we can also handle it manually for SPA navigation
+            if (url.includes(window.location.origin)) {
+              // Internal URL - use client-side navigation
+              const path = url.replace(window.location.origin, '')
+              window.location.href = path
+            }
+          }
+        })
 
         // Listen for auth state changes to update user ID
         supabase.auth.onAuthStateChange(async (event, session) => {

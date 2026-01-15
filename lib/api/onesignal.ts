@@ -25,18 +25,18 @@ interface OneSignalNotification {
 /**
  * Send a push notification to specific users by their player IDs
  */
-export async function sendPushNotification({
-  userIds,
+export async function sendPushNotificationByPlayerIds({
+  playerIds,
   title,
   message,
   url,
   data,
 }: {
-  userIds: string[] // Array of Supabase user IDs
+  playerIds: string[] // Array of OneSignal player IDs
   title: string
   message: string
-  url?: string // Optional deep link URL
-  data?: Record<string, any> // Optional custom data
+  url?: string
+  data?: Record<string, any>
 }): Promise<{ success: boolean; error?: string; id?: string }> {
   const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
   const restApiKey = process.env.ONESIGNAL_REST_API_KEY
@@ -46,42 +46,23 @@ export async function sendPushNotification({
     return { success: false, error: 'OneSignal not configured' }
   }
 
+  if (playerIds.length === 0) {
+    console.warn('⚠️  No player IDs provided')
+    return { success: false, error: 'No player IDs provided' }
+  }
+
   try {
-    // Get player IDs from database for these user IDs
-    const supabase = await import('@/lib/supabase/server').then(m => m.createClient())
-    const { data: users, error: dbError } = await supabase
-      .from('users')
-      .select('id, onesignal_player_id')
-      .in('id', userIds)
-      .not('onesignal_player_id', 'is', null)
-    
-    if (dbError) {
-      console.error('Failed to fetch player IDs:', dbError)
-      return { success: false, error: 'Failed to fetch player IDs' }
-    }
-    
-    const playerIds = users?.map(u => u.onesignal_player_id).filter(Boolean) as string[] || []
-    
-    if (playerIds.length === 0) {
-      console.warn('⚠️  No player IDs found for users:', userIds)
-      console.warn('⚠️  Users may not have subscribed to push notifications yet')
-      return { success: false, error: 'No subscribed devices found' }
-    }
-    
-    console.log('🔔 Found player IDs:', playerIds)
-    
     const notification: OneSignalNotification = {
       app_id: appId,
       headings: { en: title },
       contents: { en: message },
-      include_player_ids: playerIds, // Use player IDs instead of external IDs
-      url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://localhost:3000',
+      include_player_ids: playerIds,
+      url: url || process.env.NEXT_PUBLIC_APP_URL || 'https://ketterly.com',
     }
 
     console.log('🔔 Sending push notification:', {
       title,
       message,
-      targetUserIds: userIds,
       playerIds,
       url: notification.url,
     })

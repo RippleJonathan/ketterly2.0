@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { shouldSendPushNotification } from '@/lib/email/user-notifications'
-import { sendPushNotification } from '@/lib/api/onesignal'
+import { sendPushNotificationByPlayerIds } from '@/lib/api/onesignal'
 
 export type UnifiedNotificationType = 'company' | 'location' | 'user' | 'system'
 export type UnifiedNotificationPriority = 'low' | 'medium' | 'high'
@@ -109,33 +109,58 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
 
     // Step 3: Send push notifications to users who have it enabled
     if (params.preferenceKey) {
+      // Get player IDs for users who should receive push notifications
+      const usersToNotify: string[] = []
+      
       for (const userId of params.userIds) {
-        try {
-          // Check if user wants push notifications for this type
-          const canSendPush = await shouldSendPushNotification(userId, params.preferenceKey)
-          
-          if (canSendPush) {
-            await sendPushNotification({
-              userIds: [userId],
-              title: params.title,
-              message: params.message,
-              url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
-              data: {
-                ...params.pushData,
-                type: params.preferenceKey,
-                icon: params.icon,
-                image: params.image,
-              },
-            })
-            pushNotificationsSent++
-            console.log(`✅ Sent push notification to user ${userId}`)
-          } else {
-            console.log(`⏭️  User ${userId} has push notifications disabled for ${params.preferenceKey}`)
-          }
-        } catch (pushError) {
-          console.error(`Failed to send push notification to user ${userId}:`, pushError)
-          errors.push(`Push notification failed for user ${userId}`)
+        const canSendPush = await shouldSendPushNotification(userId, params.preferenceKey)
+        if (canSendPush) {
+          usersToNotify.push(userId)
         }
+      }
+      
+      if (usersToNotify.length > 0) {
+        // Fetch player IDs from database
+        const { data: usersWithPlayerIds, error: playerIdError } = await supabase
+          .from('users')
+          .select('id, onesignal_player_id')
+          .in('id', usersToNotify)
+          .not('onesignal_player_id', 'is', null)
+        
+        if (playerIdError) {
+          console.error('Failed to fetch player IDs:', playerIdError)
+          errors.push('Failed to fetch player IDs')
+        } else if (usersWithPlayerIds && usersWithPlayerIds.length > 0) {
+          const playerIds = usersWithPlayerIds
+            .map(u => u.onesignal_player_id)
+            .filter(Boolean) as string[]
+          
+          if (playerIds.length > 0) {
+            try {
+              await sendPushNotificationByPlayerIds({
+                playerIds,
+                title: params.title,
+                message: params.message,
+                url: params.pushUrl || `${process.env.NEXT_PUBLIC_APP_URL}/admin/notifications`,
+                data: {
+                  ...params.pushData,
+                  type: params.preferenceKey,
+                  icon: params.icon,
+                  image: params.image,
+                },
+              })
+              pushNotificationsSent = playerIds.length
+              console.log(`✅ Sent push notification to ${playerIds.length} user(s)`)
+            } catch (pushError) {
+              console.error('Failed to send push notifications:', pushError)
+              errors.push('Push notification failed')
+            }
+          } else {
+            console.log('⚠️  No player IDs found - users may not have subscribed yet')
+          }
+        }
+      } else {
+        console.log('⚠️  No users have push notifications enabled for this type')
       }
     } else {
       console.log('⚠️  No preference key provided, skipping push notifications')

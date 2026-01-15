@@ -113,8 +113,8 @@ export async function sendPushNotificationByPlayerIds({
     // Check if recipients is 0 or undefined (no devices matched)
     if (response.ok && (!result.recipients || result.recipients === 0)) {
       console.warn('⚠️  WARNING: Notification accepted but NO RECIPIENTS matched!', {
-        targetedUserIds: userIds,
-        reason: 'External IDs not found in OneSignal - users may not have logged in yet or external_id not set',
+        targetedPlayerIds: playerIds,
+        reason: 'Player IDs not found in OneSignal - devices may not be subscribed',
       })
     }
 

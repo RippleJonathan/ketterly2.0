@@ -65,6 +65,8 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
         
         if (user) {
           try {
+            console.log('🔑 Setting OneSignal user ID:', user.id)
+            
             // Use both methods for compatibility
             await OneSignal.login(user.id)
             console.log('✅ OneSignal.login() called with ID:', user.id)
@@ -78,6 +80,16 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
             // Give OneSignal a moment to process
             await new Promise(resolve => setTimeout(resolve, 1000))
             
+            // Try to verify using getExternalUserId (older API)
+            try {
+              if (typeof (OneSignal as any).getExternalUserId === 'function') {
+                const externalId = await (OneSignal as any).getExternalUserId()
+                console.log('🔍 External ID verification (old API):', externalId)
+              }
+            } catch (verifyError) {
+              console.log('ℹ️  Could not verify external ID using old API:', verifyError)
+            }
+            
             // Check if user is subscribed
             const isSubscribed = await OneSignal.User.PushSubscription.optedIn
             console.log('🔔 Push subscription status:', isSubscribed ? 'SUBSCRIBED' : 'NOT SUBSCRIBED')
@@ -90,6 +102,10 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
               }, 2000)
             } else {
               console.log('✅ Push notifications are enabled and ready')
+              console.log('💡 If you are not receiving push notifications, check:')
+              console.log('   1. Safari → Settings → Notifications')
+              console.log('   2. iPhone Settings → Notifications → Safari')
+              console.log('   3. OneSignal dashboard external_id mapping')
             }
           } catch (error) {
             console.error('❌ Failed to set OneSignal user ID:', error)

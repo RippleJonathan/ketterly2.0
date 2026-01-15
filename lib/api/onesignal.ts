@@ -97,12 +97,21 @@ export async function sendPushNotification({
 
     const result = await response.json()
 
-    console.log('🔔 OneSignal API response:', {
+    console.log('🔔 OneSignal API full response:', result)
+    console.log('🔔 OneSignal API parsed:', {
       success: response.ok,
       recipients: result.recipients,
       externalIds: result.external_ids,
       errors: result.errors,
     })
+
+    // Check if recipients is 0 or undefined (no devices matched)
+    if (response.ok && (!result.recipients || result.recipients === 0)) {
+      console.warn('⚠️  WARNING: Notification accepted but NO RECIPIENTS matched!', {
+        targetedUserIds: userIds,
+        reason: 'External IDs not found in OneSignal - users may not have logged in yet or external_id not set',
+      })
+    }
 
     if (!response.ok) {
       console.error('OneSignal API error:', result)

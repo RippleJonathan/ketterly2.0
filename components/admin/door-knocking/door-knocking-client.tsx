@@ -12,7 +12,7 @@ import { Loader2 } from 'lucide-react';
 export function DoorKnockingClient() {
   const { data: user } = useCurrentUser();
   const { data: userLocation } = useUserLocation();
-  const { data: pins, isLoading } = useDoorKnockPins(user?.company_id || '', {});
+  const { data: pins, isLoading } = useDoorKnockPins(user?.data?.company_id || '', {});
   
   const createPin = useCreateDoorKnockPin();
   const updatePin = useUpdateDoorKnockPin();
@@ -38,13 +38,13 @@ export function DoorKnockingClient() {
   }, []);
 
   const handleSavePin = async (pinData: Partial<DoorKnockPinInsert>) => {
-    if (!user) return;
+    if (!user?.data) return;
 
     if (modalMode === 'create') {
       await createPin.mutateAsync({
         ...pinData,
-        company_id: user.company_id,
-        created_by: user.id,
+        company_id: user.data.company_id,
+        created_by: user.data.id,
         interaction_date: new Date().toISOString(),
       } as DoorKnockPinInsert);
     } else if (selectedPin) {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
 import { DoorKnockPinType, getPinColor } from '@/lib/types/door-knock';
 import type { DoorKnockPinWithUser } from '@/lib/types/door-knock';
 
@@ -29,18 +28,24 @@ export function GoogleMapComponent({
 
   useEffect(() => {
     const initMap = async () => {
-      const loader = new Loader({
-        apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-        version: 'weekly',
-      });
-
-      const { Map } = await loader.importLibrary('maps');
+      // Load Google Maps JavaScript API
+      if (!window.google) {
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+        
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
 
       if (!mapRef.current) return;
 
       const defaultCenter = center || userLocation || { lat: 30.2672, lng: -97.7431 };
 
-      const mapInstance = new Map(mapRef.current, {
+      const mapInstance = new google.maps.Map(mapRef.current, {
         center: defaultCenter,
         zoom,
         mapTypeId: 'roadmap',

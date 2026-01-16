@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DoorKnockPinType, PIN_TYPE_CONFIG, type DoorKnockPinInsert, type DoorKnockPinWithUser } from '@/lib/types/door-knock';
-import { reverseGeocode } from '@/lib/utils/geocoding';
 import { Loader2 } from 'lucide-react';
 
 interface PinModalProps {
@@ -37,20 +36,6 @@ export function PinModal({
   const [notes, setNotes] = useState(existingPin?.notes || '');
   const [address, setAddress] = useState(existingPin?.address || '');
   const [loading, setLoading] = useState(false);
-  const [geocoding, setGeocoding] = useState(false);
-
-  useEffect(() => {
-    if (mode === 'create' && coordinates && !address) {
-      setGeocoding(true);
-      reverseGeocode(coordinates.lat, coordinates.lng)
-        .then(result => {
-          if (result) {
-            setAddress(result.formatted_address || result.address || 'Unknown location');
-          }
-        })
-        .finally(() => setGeocoding(false));
-    }
-  }, [mode, coordinates, address]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -104,17 +89,12 @@ export function PinModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {geocoding ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-6 h-6 animate-spin" />
-              <span className="ml-2 text-sm text-muted-foreground">Getting address...</span>
+          {mode === 'edit' && address && (
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <p className="text-sm text-muted-foreground">{address}</p>
             </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label>Address</Label>
-                <p className="text-sm text-muted-foreground">{address || 'Unknown location'}</p>
-              </div>
+          )}
 
               <div className="space-y-2">
                 <Label htmlFor="pin-type">Pin Type *</Label>
@@ -177,7 +157,7 @@ export function PinModal({
                 Convert to Lead
               </Button>
             )}
-            <Button onClick={handleSave} disabled={loading || geocoding}>
+            <Button onClick={handleSave} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
             </Button>
           </div>

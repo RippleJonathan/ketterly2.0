@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { GoogleMapComponent } from './google-map';
 import { PinModal } from './pin-modal';
 import { MapLegend } from './map-legend';
+import { LeadFormFromPin } from './lead-form-from-pin';
 import { useDoorKnockPins, useCreateDoorKnockPin, useUpdateDoorKnockPin, useDeleteDoorKnockPin, useUserLocation } from '@/lib/hooks/use-door-knock';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
@@ -22,6 +23,8 @@ export function DoorKnockingClient() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | undefined>();
   const [selectedPin, setSelectedPin] = useState<DoorKnockPinWithUser | undefined>();
+  const [leadFormOpen, setLeadFormOpen] = useState(false);
+  const [leadFormPin, setLeadFormPin] = useState<DoorKnockPinWithUser | undefined>();
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     setSelectedCoordinates({ lat, lng });
@@ -60,8 +63,14 @@ export function DoorKnockingClient() {
   };
 
   const handleConvertToLead = (pin: DoorKnockPinWithUser) => {
-    // TODO: Implement lead conversion flow (Phase 4)
-    console.log('Convert to lead:', pin);
+    setLeadFormPin(pin);
+    setLeadFormOpen(true);
+    setModalOpen(false);
+  };
+
+  const handleLeadFormClose = () => {
+    setLeadFormOpen(false);
+    setLeadFormPin(undefined);
   };
 
   if (isLoading) {
@@ -99,6 +108,12 @@ export function DoorKnockingClient() {
         onSave={handleSavePin}
         onDelete={handleDeletePin}
         onConvertToLead={handleConvertToLead}
+      />
+
+      <LeadFormFromPin
+        isOpen={leadFormOpen}
+        onClose={handleLeadFormClose}
+        pin={leadFormPin}
       />
     </div>
   );

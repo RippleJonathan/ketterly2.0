@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
       const result = data.results[0];
       const addressComponents = result.address_components || [];
       
+      let streetNumber = '';
+      let route = '';
       let city = null;
       let state = null;
       let zip = null;
@@ -37,7 +39,11 @@ export async function GET(request: NextRequest) {
       for (const component of addressComponents) {
         const types = component.types;
         
-        if (types.includes('locality')) {
+        if (types.includes('street_number')) {
+          streetNumber = component.long_name;
+        } else if (types.includes('route')) {
+          route = component.long_name;
+        } else if (types.includes('locality')) {
           city = component.long_name;
         } else if (types.includes('administrative_area_level_1')) {
           state = component.short_name;
@@ -46,8 +52,11 @@ export async function GET(request: NextRequest) {
         }
       }
       
+      const streetAddress = streetNumber && route ? `${streetNumber} ${route}` : '';
+      
       return NextResponse.json({
-        address: result.formatted_address,
+        address: streetAddress || result.formatted_address,
+        street_address: streetAddress,
         city,
         state,
         zip,

@@ -1,6 +1,7 @@
 // Geocoding utility for door knock feature
 export interface GeocodeResult {
   address: string;
+  street_address?: string;
   city: string | null;
   state: string | null;
   zip: string | null;

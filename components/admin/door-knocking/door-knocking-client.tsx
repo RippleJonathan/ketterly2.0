@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 export function DoorKnockingClient() {
   const { data: user } = useCurrentUser();
   const { data: userLocation } = useUserLocation();
+  const [showOnlyMyPins, setShowOnlyMyPins] = useState(false);
   const { data: pins, isLoading } = useDoorKnockPins(user?.data?.company_id || '', {});
   
   const createPin = useCreateDoorKnockPin();
@@ -27,6 +28,11 @@ export function DoorKnockingClient() {
   const [selectedPin, setSelectedPin] = useState<DoorKnockPinWithUser | undefined>();
   const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [leadFormPin, setLeadFormPin] = useState<DoorKnockPinWithUser | undefined>();
+
+  // Filter pins based on user selection
+  const filteredPins = showOnlyMyPins
+    ? (pins || []).filter(pin => pin.created_by === user?.data?.id)
+    : (pins || []);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     setSelectedCoordinates({ lat, lng });
@@ -84,9 +90,9 @@ export function DoorKnockingClient() {
   }
 
   return (
-    <div className="relative h-[calc(100vh-64px)] m-2">
+    <div className="relative h-[100dvh] md:h-[calc(100vh-64px)] m-0.5">
       <GoogleMapComponent
-        pins={pins || []}
+        pins={filteredPins}
         userLocation={userLocation ? {
           lat: userLocation.coords.latitude,
           lng: userLocation.coords.longitude,
@@ -94,6 +100,18 @@ export function DoorKnockingClient() {
         onMapClick={handleMapClick}
         onPinClick={handlePinClick}
       />
+
+      {/* Pin Filter Toggle - Top Right */}
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <Button
+          variant={showOnlyMyPins ? "default" : "secondary"}
+          size="sm"
+          className="shadow-lg"
+          onClick={() => setShowOnlyMyPins(!showOnlyMyPins)}
+        >
+          {showOnlyMyPins ? 'My Pins' : 'All Pins'}
+        </Button>
+      </div>
 
       {/* Legend Button - Top Left */}
       <div className="absolute top-4 left-4 z-10">

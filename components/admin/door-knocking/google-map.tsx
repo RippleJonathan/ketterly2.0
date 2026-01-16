@@ -25,6 +25,7 @@ export function GoogleMapComponent({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const [userMarker, setUserMarker] = useState<google.maps.Marker | null>(null);
+  const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
     const initMap = async () => {
@@ -94,10 +95,15 @@ export function GoogleMapComponent({
 
     setUserMarker(marker);
 
+    // Auto-center if tracking is enabled
+    if (isTracking) {
+      map.panTo(userLocation);
+    }
+
     return () => {
       marker.setMap(null);
     };
-  }, [map, userLocation]);
+  }, [map, userLocation, isTracking]);
 
   useEffect(() => {
     if (!map) return;
@@ -133,12 +139,14 @@ export function GoogleMapComponent({
     };
   }, [map, pins, onPinClick]);
 
-  const centerOnUser = useCallback(() => {
-    if (map && userLocation) {
+  const toggleTracking = useCallback(() => {
+    if (!isTracking && map && userLocation) {
+      // When enabling tracking, center and zoom first
       map.panTo(userLocation);
       map.setZoom(17);
     }
-  }, [map, userLocation]);
+    setIsTracking(!isTracking);
+  }, [isTracking, map, userLocation]);
 
   return (
     <div className="relative w-full h-full">
@@ -146,9 +154,13 @@ export function GoogleMapComponent({
       
       {userLocation && (
         <button
-          onClick={centerOnUser}
-          className="absolute bottom-6 left-6 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-shadow"
-          title="Center on my location"
+          onClick={toggleTracking}
+          className={`absolute bottom-6 left-6 rounded-full p-3 shadow-lg hover:shadow-xl transition-all ${
+            isTracking 
+              ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
+              : 'bg-white text-blue-600'
+          }`}
+          title={isTracking ? 'Stop following location' : 'Follow my location'}
         >
           <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />

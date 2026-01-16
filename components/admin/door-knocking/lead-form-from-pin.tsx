@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { reverseGeocode } from '@/lib/utils/geocoding';
 import { LeadForm } from '@/components/admin/leads/lead-form';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { useUserLocations } from '@/lib/hooks/use-location-users';
 import type { DoorKnockPinWithUser } from '@/lib/types/door-knock';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,13 +18,29 @@ interface LeadFormFromPinProps {
 }
 
 export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) {
+  const { data: userData } = useCurrentUser();
+  const user = userData?.data;
+  const { data: userLocationsData } = useUserLocations(user?.id);
+  const userLocations = userLocationsData?.data || [];
+  
   const [geocoding, setGeocoding] = useState(false);
   const [prefilledLead, setPrefilledLead] = useState<Partial<Lead> | null>(null);
 
   // Geocode address when pin is provided
   useEffect(() => {
-    if (isOpen && pin) {
+    if (isOpen && pin && user) {
       setGeocoding(true);
+      
+      // Get user's primary location (first assigned location)
+      const primaryLocation = userLocations.length > 0 ? userLocations[0].location_id : undefined;
+      
+      // Determine role assignments based on user role
+      // Sales reps and marketing reps: get both roles (self-generated)
+      // Everyone else: only gets sales_rep_id
+      const isSalesOrMarketing = user.role === 'sales' || user.role === 'marketing';
+      const roleAssignments = isSalesOrMarketing
+        ? { sales_rep_id: user.id, marketing_rep_id: user.id }
+        : { sales_rep_id: user.id };
       
       reverseGeocode(pin.latitude, pin.longitude)
         .then(result => {
@@ -37,6 +55,8 @@ export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) 
               status: 'new',
               priority: 'medium',
               notes: pin.notes || '',
+              location_id: primaryLocation,
+              ...roleAssignments,
             } as Partial<Lead>);
           } else {
             setPrefilledLead({
@@ -45,6 +65,8 @@ export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) 
               status: 'new',
               priority: 'medium',
               notes: pin.notes || '',
+              location_id: primaryLocation,
+              ...roleAssignments,
             } as Partial<Lead>);
           }
         })
@@ -57,13 +79,15 @@ export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) 
             status: 'new',
             priority: 'medium',
             notes: pin.notes || '',
+            location_id: primaryLocation,
+            ...roleAssignments,
           } as Partial<Lead>);
         })
         .finally(() => setGeocoding(false));
     } else {
       setPrefilledLead(null);
     }
-  }, [isOpen, pin]);
+  }, [isOpen, pin, user, userLocations]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

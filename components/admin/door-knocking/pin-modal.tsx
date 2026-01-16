@@ -45,7 +45,7 @@ export function PinModal({
       reverseGeocode(coordinates.lat, coordinates.lng)
         .then(result => {
           if (result) {
-            setAddress(result.formattedAddress);
+            setAddress(result.formatted_address || result.address || 'Unknown location');
           }
         })
         .finally(() => setGeocoding(false));
@@ -172,12 +172,7 @@ export function PinModal({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            {mode === 'edit' && existingPin && pinType === DoorKnockPinType.LEAD_CREATED && onConvertToLead && (
-              <Button onClick={handleConvertToLead} disabled={loading}>
-                View Lead
-              </Button>
-            )}
-            {mode === 'edit' && existingPin && pinType !== DoorKnockPinType.LEAD_CREATED && onConvertToLead && (
+            {mode === 'edit' && existingPin && pinType === DoorKnockPinType.APPOINTMENT_SET && onConvertToLead && (
               <Button onClick={handleConvertToLead} disabled={loading}>
                 Convert to Lead
               </Button>

@@ -28,9 +28,30 @@ export async function GET(request: NextRequest) {
 
     if (data.status === 'OK' && data.results.length > 0) {
       const result = data.results[0];
+      const addressComponents = result.address_components || [];
+      
+      let city = null;
+      let state = null;
+      let zip = null;
+
+      for (const component of addressComponents) {
+        const types = component.types;
+        
+        if (types.includes('locality')) {
+          city = component.long_name;
+        } else if (types.includes('administrative_area_level_1')) {
+          state = component.short_name;
+        } else if (types.includes('postal_code')) {
+          zip = component.long_name;
+        }
+      }
+      
       return NextResponse.json({
         address: result.formatted_address,
-        addressComponents: result.address_components,
+        city,
+        state,
+        zip,
+        formatted_address: result.formatted_address,
       });
     } else {
       return NextResponse.json(

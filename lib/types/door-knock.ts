@@ -5,9 +5,7 @@ export enum DoorKnockPinType {
   NOT_INTERESTED = 'not_interested',
   FOLLOW_UP = 'follow_up',
   APPOINTMENT_SET = 'appointment_set',
-  LEAD_CREATED = 'lead_created',
-  EXISTING_CUSTOMER = 'existing_customer',
-  CALLBACK_REQUESTED = 'callback_requested',
+  UNQUALIFIED = 'unqualified',
   DO_NOT_CONTACT = 'do_not_contact',
 }
 
@@ -140,27 +138,15 @@ export const PIN_TYPE_CONFIG: Record<DoorKnockPinType, {
   },
   [DoorKnockPinType.APPOINTMENT_SET]: {
     label: 'Appointment Set',
-    color: '#3B82F6', // blue-500
+    color: '#10B981', // green-500
     icon: 'calendar',
     description: 'Appointment has been scheduled',
   },
-  [DoorKnockPinType.LEAD_CREATED]: {
-    label: 'Lead Created',
-    color: '#10B981', // green-500
-    icon: 'user-plus',
-    description: 'Converted to a lead in the system',
-  },
-  [DoorKnockPinType.EXISTING_CUSTOMER]: {
-    label: 'Existing Customer',
-    color: '#8B5CF6', // violet-500
-    icon: 'star',
-    description: 'Already a customer',
-  },
-  [DoorKnockPinType.CALLBACK_REQUESTED]: {
-    label: 'Callback Requested',
-    color: '#EC4899', // pink-500
-    icon: 'phone',
-    description: 'Asked to be called back later',
+  [DoorKnockPinType.UNQUALIFIED]: {
+    label: 'Unqualified',
+    color: '#6B7280', // gray-500
+    icon: 'minus-circle',
+    description: 'Does not meet qualification criteria',
   },
   [DoorKnockPinType.DO_NOT_CONTACT]: {
     label: 'Do Not Contact',

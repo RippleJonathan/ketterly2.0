@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, Suspense } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,9 +12,12 @@ import { useUsers } from '@/lib/hooks/use-users';
 import { Loader2, Calendar, TrendingUp, Users, DollarSign } from 'lucide-react';
 import { format, startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 
+// Force dynamic rendering to avoid prerendering issues
+export const dynamic = 'force-dynamic';
+
 type DateRange = 'today' | 'week' | 'month' | 'year' | 'all';
 
-function DoorKnockingAnalyticsContent() {
+export default function DoorKnockingAnalyticsPage() {
   const { data: company } = useCurrentCompany();
   const { data: usersData } = useUsers(company?.data?.id || '');
   const users = usersData?.data || [];
@@ -205,22 +208,10 @@ function DoorKnockingAnalyticsContent() {
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
-            <AnalyticsTable data={stats} totals={totals ?? null} />
+            <AnalyticsTable data={stats} totals={totals || null} />
           )}
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-export default function DoorKnockingAnalyticsPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    }>
-      <DoorKnockingAnalyticsContent />
-    </Suspense>
   );
 }

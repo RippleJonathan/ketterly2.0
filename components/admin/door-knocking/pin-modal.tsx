@@ -30,12 +30,23 @@ export function PinModal({
   onDelete,
   onConvertToLead,
 }: PinModalProps) {
-  const [pinType, setPinType] = useState<DoorKnockPinType>(
-    existingPin?.pin_type as DoorKnockPinType || DoorKnockPinType.NOT_HOME
-  );
-  const [notes, setNotes] = useState(existingPin?.notes || '');
-  const [address, setAddress] = useState(existingPin?.address || '');
+  const [pinType, setPinType] = useState<DoorKnockPinType>(DoorKnockPinType.NOT_HOME);
+  const [notes, setNotes] = useState('');
+  const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Update state when existingPin changes
+  useEffect(() => {
+    if (existingPin) {
+      setPinType(existingPin.pin_type as DoorKnockPinType);
+      setNotes(existingPin.notes || '');
+      setAddress(existingPin.address || '');
+    } else {
+      setPinType(DoorKnockPinType.NOT_HOME);
+      setNotes('');
+      setAddress('');
+    }
+  }, [existingPin, isOpen]);
 
   const handleSave = async () => {
     setLoading(true);

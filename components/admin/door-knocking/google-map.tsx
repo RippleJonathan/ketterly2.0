@@ -147,7 +147,7 @@ export function GoogleMapComponent({
       {userLocation && (
         <button
           onClick={centerOnUser}
-          className="absolute bottom-6 right-6 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-shadow"
+          className="absolute bottom-6 left-6 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-shadow"
           title="Center on my location"
         >
           <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

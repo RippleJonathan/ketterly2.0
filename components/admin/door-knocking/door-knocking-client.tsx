@@ -84,7 +84,7 @@ export function DoorKnockingClient() {
   }
 
   return (
-    <div className="relative h-[calc(100vh-4rem)] m-2">
+    <div className="relative h-[calc(100vh-64px)] m-2">
       <GoogleMapComponent
         pins={pins || []}
         userLocation={userLocation ? {

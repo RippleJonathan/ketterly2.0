@@ -66,6 +66,7 @@ export const LEAD_SOURCES = {
   THUMBTACK: 'thumbtack',
   YELP: 'yelp',
   DIRECT: 'direct',
+  DOOR_KNOCKING: 'door_knocking',
   OTHER: 'other',
 } as const
 
@@ -82,6 +83,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   thumbtack: 'Thumbtack',
   yelp: 'Yelp',
   direct: 'Direct',
+  door_knocking: 'Door Knocking',
   other: 'Other',
 }
 
@@ -96,6 +98,7 @@ export const LEAD_SOURCE_ICONS: Record<LeadSource, string> = {
   thumbtack: '📌',
   yelp: '⭐',
   direct: '📞',
+  door_knocking: '🚪',
   other: '❓',
 }
 

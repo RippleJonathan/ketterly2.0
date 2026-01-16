@@ -96,43 +96,41 @@ export function PinModal({
             </div>
           )}
 
-              <div className="space-y-2">
-                <Label htmlFor="pin-type">Pin Type *</Label>
-                <Select value={pinType} onValueChange={(value) => setPinType(value as DoorKnockPinType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PIN_TYPE_CONFIG).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <span style={{ color: config.color }}>● </span>
-                        {config.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {PIN_TYPE_CONFIG[pinType]?.description}
-                </p>
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="pin-type">Pin Type *</Label>
+            <Select value={pinType} onValueChange={(value) => setPinType(value as DoorKnockPinType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PIN_TYPE_CONFIG).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>
+                    <span style={{ color: config.color }}>● </span>
+                    {config.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {PIN_TYPE_CONFIG[pinType]?.description}
+            </p>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add any notes about this interaction..."
-                  rows={3}
-                />
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add any notes about this interaction..."
+              rows={3}
+            />
+          </div>
 
-              {mode === 'edit' && existingPin && (
-                <div className="text-xs text-muted-foreground">
-                  Created {new Date(existingPin.created_at).toLocaleString()}
-                </div>
-              )}
-            </>
+          {mode === 'edit' && existingPin && (
+            <div className="text-xs text-muted-foreground">
+              Created {new Date(existingPin.created_at).toLocaleString()}
+            </div>
           )}
         </div>
 

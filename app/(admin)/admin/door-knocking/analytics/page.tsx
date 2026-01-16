@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import { format, startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay } 
 
 type DateRange = 'today' | 'week' | 'month' | 'year' | 'all';
 
-export default function DoorKnockingAnalyticsPage() {
+function DoorKnockingAnalyticsContent() {
   const { data: company } = useCurrentCompany();
   const { data: usersData } = useUsers(company?.data?.id || '');
   const users = usersData?.data || [];
@@ -205,10 +205,22 @@ export default function DoorKnockingAnalyticsPage() {
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
-            <AnalyticsTable data={stats} totals={totals} />
+            <AnalyticsTable data={stats} totals={totals ?? null} />
           )}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function DoorKnockingAnalyticsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    }>
+      <DoorKnockingAnalyticsContent />
+    </Suspense>
   );
 }

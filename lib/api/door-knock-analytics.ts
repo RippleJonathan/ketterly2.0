@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
+
+const supabase = createClient();
 
 export interface DoorKnockUserStats {
   user_id: string;
@@ -90,7 +92,7 @@ export async function getDoorKnockAnalytics(
     const userStatsMap = new Map<string, DoorKnockUserStats>();
 
     // Process pins
-    pins?.forEach((pin) => {
+    pins?.forEach((pin: any) => {
       const userId = pin.created_by;
       const userName = (pin.users as any)?.full_name || 'Unknown User';
 
@@ -116,7 +118,7 @@ export async function getDoorKnockAnalytics(
     });
 
     // Process leads and quotes
-    leads?.forEach((lead) => {
+    leads?.forEach((lead: any) => {
       const userId = lead.sales_rep_id;
       if (!userId) return;
 

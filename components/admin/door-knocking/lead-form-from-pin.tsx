@@ -35,11 +35,13 @@ export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) 
       const primaryLocation = userLocations.length > 0 ? userLocations[0].location_id : undefined;
       
       // Determine role assignments based on user role
-      // Sales reps and marketing reps: get both roles (self-generated)
+      // Sales reps: get both sales_rep_id AND marketing_rep_id (self-generated)
+      // Marketing reps: get only marketing_rep_id
       // Everyone else: only gets sales_rep_id
-      const isSalesOrMarketing = user.role === 'sales' || user.role === 'marketing';
-      const roleAssignments = isSalesOrMarketing
+      const roleAssignments = user.role === 'sales'
         ? { sales_rep_id: user.id, marketing_rep_id: user.id }
+        : user.role === 'marketing'
+        ? { marketing_rep_id: user.id }
         : { sales_rep_id: user.id };
       
       reverseGeocode(pin.latitude, pin.longitude)

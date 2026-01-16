@@ -101,20 +101,8 @@ export function DoorKnockingClient() {
         onPinClick={handlePinClick}
       />
 
-      {/* Pin Filter Toggle - Top Right */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <Button
-          variant={showOnlyMyPins ? "default" : "secondary"}
-          size="sm"
-          className="shadow-lg"
-          onClick={() => setShowOnlyMyPins(!showOnlyMyPins)}
-        >
-          {showOnlyMyPins ? 'My Pins' : 'All Pins'}
-        </Button>
-      </div>
-
-      {/* Legend Button - Top Left */}
-      <div className="absolute top-4 left-4 z-10">
+      {/* Pin Legend Modal & Filter Toggle - Top Left */}
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="secondary" size="sm" className="shadow-lg">

@@ -50,14 +50,15 @@ export function GoogleMapComponent({
         center: defaultCenter,
         zoom,
         mapTypeId: 'roadmap',
-        mapTypeControl: true,
+        mapTypeControl: true,         // Keep map/satellite toggle
         mapTypeControlOptions: {
           style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
           position: google.maps.ControlPosition.TOP_RIGHT,
         },
-        zoomControl: true,
-        streetViewControl: false,
-        fullscreenControl: true,
+        zoomControl: false,            // Remove + and - buttons
+        streetViewControl: false,      // Remove street view pegman
+        fullscreenControl: false,      // Remove fullscreen button
+        rotateControl: false,          // Remove rotate 90° button
       });
 
       mapInstance.addListener('click', (e: google.maps.MapMouseEvent) => {

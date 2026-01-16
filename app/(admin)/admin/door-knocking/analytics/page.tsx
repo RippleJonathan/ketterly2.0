@@ -66,6 +66,11 @@ export default function DoorKnockingAnalyticsPage() {
     filters
   );
 
+  console.log('[Analytics Page] Company ID:', company?.data?.id);
+  console.log('[Analytics Page] Filters:', filters);
+  console.log('[Analytics Page] Analytics data:', analyticsData);
+  console.log('[Analytics Page] Is loading:', isLoading);
+
   const stats = analyticsData?.data || [];
   const totals = analyticsData?.totals;
 

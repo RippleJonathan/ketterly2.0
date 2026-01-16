@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
 
-const supabase = createClient();
-
 export interface DoorKnockUserStats {
   user_id: string;
   user_name: string;
@@ -26,6 +24,8 @@ export async function getDoorKnockAnalytics(
   companyId: string,
   filters: DoorKnockAnalyticsFilters = {}
 ) {
+  console.log('[Analytics] Starting with filters:', filters);
+  const supabase = createClient();
   try {
     const { startDate, endDate, userId } = filters;
 
@@ -56,7 +56,12 @@ export async function getDoorKnockAnalytics(
     }
 
     const { data: pins, error: pinsError } = await pinsQuery;
-    if (pinsError) throw pinsError;
+    if (pinsError) {
+      console.error('[Analytics] Pins query error:', pinsError);
+      throw pinsError;
+    }
+
+    console.log('[Analytics] Pins fetched:', pins?.length || 0, pins);
 
     // Build the query for leads from door knocking
     let leadsQuery = supabase
@@ -86,7 +91,12 @@ export async function getDoorKnockAnalytics(
     }
 
     const { data: leads, error: leadsError } = await leadsQuery;
-    if (leadsError) throw leadsError;
+    if (leadsError) {
+      console.error('[Analytics] Leads query error:', leadsError);
+      throw leadsError;
+    }
+
+    console.log('[Analytics] Leads fetched:', leads?.length || 0, leads);
 
     // Aggregate stats by user
     const userStatsMap = new Map<string, DoorKnockUserStats>();
@@ -164,6 +174,9 @@ export async function getDoorKnockAnalytics(
       totals.appointment_rate = (totals.appointment_pins / totals.total_pins) * 100;
     }
 
+    console.log('[Analytics] Final user stats:', userStats.length, 'users');
+    console.log('[Analytics] Totals:', totals);
+
     return {
       data: userStats,
       totals,
@@ -186,6 +199,7 @@ export async function getDoorKnockActivity(
   companyId: string,
   filters: DoorKnockAnalyticsFilters = {}
 ) {
+  const supabase = createClient();
   try {
     const { startDate, endDate, userId } = filters;
 

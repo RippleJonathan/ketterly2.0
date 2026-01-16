@@ -28,6 +28,7 @@ export function DoorKnockingClient() {
   const [selectedPin, setSelectedPin] = useState<DoorKnockPinWithUser | undefined>();
   const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [leadFormPin, setLeadFormPin] = useState<DoorKnockPinWithUser | undefined>();
+  const [controlsOpen, setControlsOpen] = useState(false);
 
   // Filter pins based on user selection
   const filteredPins = showOnlyMyPins
@@ -90,7 +91,7 @@ export function DoorKnockingClient() {
   }
 
   return (
-    <div className="relative h-[calc(100dvh-4rem)] md:h-[calc(100vh-8rem)] m-0.5">
+    <div className="relative h-full w-full">
       <GoogleMapComponent
         pins={filteredPins}
         userLocation={userLocation ? {
@@ -101,73 +102,89 @@ export function DoorKnockingClient() {
         onPinClick={handlePinClick}
       />
 
-      {/* Pin Legend Modal & Filter Toggle - Top Left */}
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
-        <Dialog>
+      {/* Unified Controls Button - Top Left (mobile), After Sidebar (desktop) */}
+      <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
+        <Dialog open={controlsOpen} onOpenChange={setControlsOpen}>
           <DialogTrigger asChild>
             <Button variant="secondary" size="sm" className="shadow-lg">
-              <MapPin className="w-4 h-4 mr-2" />
-              Pin Legend
+              <Info className="w-4 h-4 mr-2" />
+              Controls
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Door Knock Pin Types</DialogTitle>
+              <DialogTitle>Map Controls</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#10b981' }}></div>
+            <div className="space-y-4 py-4">
+              {/* Pin Filter Toggle */}
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Appointment Set</p>
-                  <p className="text-xs text-muted-foreground">Scheduled appointment with homeowner</p>
+                  <p className="font-medium">Pin Filter</p>
+                  <p className="text-sm text-muted-foreground">Show only your pins or all location pins</p>
                 </div>
+                <Button
+                  variant={showOnlyMyPins ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowOnlyMyPins(!showOnlyMyPins)}
+                >
+                  {showOnlyMyPins ? 'My Pins' : 'All Pins'}
+                </Button>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#3b82f6' }}></div>
-                <div>
-                  <p className="font-medium">Follow Up</p>
-                  <p className="text-xs text-muted-foreground">Needs follow-up contact</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
-                <div>
-                  <p className="font-medium">Not Home</p>
-                  <p className="text-xs text-muted-foreground">No one answered</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#ef4444' }}></div>
-                <div>
-                  <p className="font-medium">Not Interested</p>
-                  <p className="text-xs text-muted-foreground">Declined service</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
-                <div>
-                  <p className="font-medium">Unqualified</p>
-                  <p className="text-xs text-muted-foreground">Does not meet criteria</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#000000' }}></div>
-                <div>
-                  <p className="font-medium">Do Not Contact</p>
-                  <p className="text-xs text-muted-foreground">Requested no further contact</p>
+
+              {/* Divider */}
+              <div className="border-t" />
+
+              {/* Pin Legend */}
+              <div>
+                <p className="font-medium mb-3">Pin Legend</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#10b981' }}></div>
+                    <div>
+                      <p className="font-medium text-sm">Appointment Set</p>
+                      <p className="text-xs text-muted-foreground">Scheduled appointment</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#3b82f6' }}></div>
+                    <div>
+                      <p className="font-medium text-sm">Follow Up</p>
+                      <p className="text-xs text-muted-foreground">Needs follow-up</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+                    <div>
+                      <p className="font-medium text-sm">Not Home</p>
+                      <p className="text-xs text-muted-foreground">No answer</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#ef4444' }}></div>
+                    <div>
+                      <p className="font-medium text-sm">Not Interested</p>
+                      <p className="text-xs text-muted-foreground">Declined service</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+                    <div>
+                      <p className="font-medium text-sm">Unqualified</p>
+                      <p className="text-xs text-muted-foreground">Doesn't meet criteria</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#000000' }}></div>
+                    <div>
+                      <p className="font-medium text-sm">Do Not Contact</p>
+                      <p className="text-xs text-muted-foreground">No further contact</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </DialogContent>
         </Dialog>
-        <Button
-          variant={showOnlyMyPins ? "default" : "secondary"}
-          size="sm"
-          className="shadow-lg"
-          onClick={() => setShowOnlyMyPins(!showOnlyMyPins)}
-        >
-          {showOnlyMyPins ? 'My Pins' : 'All Pins'}
-        </Button>
       </div>
 
       <PinModal

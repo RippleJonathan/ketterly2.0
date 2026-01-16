@@ -6,7 +6,7 @@ import { PinModal } from './pin-modal';
 import { LeadFormFromPin } from './lead-form-from-pin';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Info } from 'lucide-react';
+import { Info, MapPin } from 'lucide-react';
 import { useDoorKnockPins, useCreateDoorKnockPin, useUpdateDoorKnockPin, useDeleteDoorKnockPin, useUserLocation } from '@/lib/hooks/use-door-knock';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
@@ -90,7 +90,7 @@ export function DoorKnockingClient() {
   }
 
   return (
-    <div className="relative h-[100dvh] md:h-[calc(100vh-64px)] m-0.5">
+    <div className="relative h-[calc(100dvh-4rem)] md:h-[calc(100vh-8rem)] m-0.5">
       <GoogleMapComponent
         pins={filteredPins}
         userLocation={userLocation ? {
@@ -106,7 +106,7 @@ export function DoorKnockingClient() {
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="secondary" size="sm" className="shadow-lg">
-              <Info className="w-4 h-4 mr-2" />
+              <MapPin className="w-4 h-4 mr-2" />
               Pin Legend
             </Button>
           </DialogTrigger>
@@ -160,6 +160,14 @@ export function DoorKnockingClient() {
             </div>
           </DialogContent>
         </Dialog>
+        <Button
+          variant={showOnlyMyPins ? "default" : "secondary"}
+          size="sm"
+          className="shadow-lg"
+          onClick={() => setShowOnlyMyPins(!showOnlyMyPins)}
+        >
+          {showOnlyMyPins ? 'My Pins' : 'All Pins'}
+        </Button>
       </div>
 
       <PinModal

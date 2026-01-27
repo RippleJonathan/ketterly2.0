@@ -88,6 +88,8 @@ export async function createLeadAction(
         type: 'user',
         priority: 'high',
         locationId: (data as any).location_id || undefined,
+        referenceType: 'lead',
+        referenceId: data.id,
         pushUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${data.id}`,
         pushData: {
           leadId: data.id,

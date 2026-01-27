@@ -139,12 +139,13 @@ const settingsNavigation: NavItem[] = [
     icon: MapPin,
     roles: ['admin', 'super_admin', 'office'] // Office users can manage their location pricing
   },
-  { 
-    name: 'Role Permissions', 
-    href: '/admin/settings/role-permissions', 
-    icon: Shield,
-    roles: ['admin', 'super_admin'] // Company-wide only
-  },
+  // Removed: Role Permissions (not needed currently)
+  // { 
+  //   name: 'Role Permissions', 
+  //   href: '/admin/settings/role-permissions', 
+  //   icon: Shield,
+  //   roles: ['admin', 'super_admin'] // Company-wide only
+  // },
 ]
 
 // Navigation Item Component with Permission Checking

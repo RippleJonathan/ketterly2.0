@@ -98,6 +98,7 @@ export async function getDashboardStats(
   const totalLeads = leads?.length || 0
   const newLeadsToday = leads?.filter(l => l.created_at >= startOfToday).length || 0
   const newLeadsThisWeek = leads?.filter(l => l.created_at >= startOfWeek).length || 0
+  const totalLeadsThisMonth = leads?.filter(l => l.created_at >= startOfMonth).length || 0
   const activeLeads = leads?.filter(l => 
     l.status !== 'CLOSED' && l.sub_status !== 'LOST'
   ).length || 0
@@ -117,24 +118,46 @@ export async function getDashboardStats(
   const quoteWinRate = totalQuotes > 0 ? (approvedQuotes / totalQuotes) * 100 : 0
 
   // Financial Metrics - Use customer_invoices table
-  const { data: invoices, error: invoicesError } = await supabase
+  // Match leaderboard logic: only count invoices with assigned sales reps
+  const { data: invoicesWithReps, error: invoicesError } = await supabase
     .from('customer_invoices')
-    .select('id, status, total, due_date, created_at')
+    .select(`
+      id,
+      status,
+      total,
+      due_date,
+      created_at,
+      lead_id,
+      leads!inner (
+        sales_rep_id,
+        deleted_at
+      )
+    `)
     .eq('company_id', companyId)
     .is('deleted_at', null)
+    .is('leads.deleted_at', null)
+    .not('leads.sales_rep_id', 'is', null)
 
   if (invoicesError) {
     console.error('❌ customer_invoices query error:', invoicesError)
   }
 
+  // Cast to simple invoice type for calculations
+  const invoices = invoicesWithReps as any[] || []
+
   const totalRevenue = invoices
     ?.filter(i => i.status === 'paid' || i.status === 'completed')
     .reduce((sum, i) => sum + (i.total || 0), 0) || 0
 
-  // Revenue this month from all invoices created this month
+  // Revenue this month from ALL invoices created this month (shows sales made, not money collected)
+  // Only counting invoices with assigned sales reps (matches leaderboard)
   const revenueThisMonth = invoices
     ?.filter(i => i.created_at >= startOfMonth)
     .reduce((sum, i) => sum + (i.total || 0), 0) || 0
+  
+  const signedContractsThisMonthCount = invoices
+    ?.filter(i => i.created_at >= startOfMonth)
+    .length || 0
 
   const outstandingInvoices = invoices?.filter(i => 
     i.status === 'sent' || i.status === 'overdue'
@@ -238,6 +261,7 @@ export async function getDashboardStats(
 
   return {
     totalLeads,
+    totalLeadsThisMonth,
     newLeadsToday,
     newLeadsThisWeek,
     activeLeads,
@@ -245,7 +269,7 @@ export async function getDashboardStats(
     pendingQuotes,
     quotesThisWeek,
     quoteWinRate,
-    signedContractsThisMonth,
+    signedContractsThisMonth: signedContractsThisMonthCount,
     totalRevenue,
     revenueThisMonth,
     outstandingInvoices,

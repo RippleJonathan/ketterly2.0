@@ -78,6 +78,8 @@ export async function createActivityWithNotifications(
               message: `${activity.title}${activity.description ? ': ' + activity.description.substring(0, 100) : ''}`,
               type: 'user',
               priority: 'low',
+              referenceType: 'lead',
+              referenceId: activity.entity_id,
               pushUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/leads/${activity.entity_id}`,
               preferenceKey: 'new_note',
             })

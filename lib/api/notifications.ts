@@ -3,15 +3,31 @@ import { ApiResponse, createErrorResponse, createSuccessResponse } from '@/lib/t
 
 export type NotificationType = 'company' | 'location' | 'user' | 'system'
 export type NotificationPriority = 'low' | 'medium' | 'high'
+export type NotificationReferenceType = 
+  | 'lead'
+  | 'quote'
+  | 'invoice'
+  | 'calendar_event'
+  | 'project'
+  | 'customer'
+  | 'user'
+  | 'location'
+  | 'commission'
+  | 'material_order'
+  | 'work_order'
+  | 'door_knock_pin'
 
 export interface Notification {
   id: string
   company_id: string
+  user_id?: string
   title: string
   message: string
   type: NotificationType
   priority: NotificationPriority
   location_id?: string
+  reference_type?: NotificationReferenceType
+  reference_id?: string
   created_by?: string
   created_at: string
   deleted_at?: string
@@ -24,6 +40,8 @@ export interface CreateNotificationParams {
   type: NotificationType
   priority?: NotificationPriority
   location_id?: string
+  reference_type?: NotificationReferenceType
+  reference_id?: string
 }
 
 /**
@@ -58,6 +76,7 @@ export async function getUserNotifications(): Promise<ApiResponse<Notification[]
       `)
       .eq('user_notification_reads.user_id', user.id)
       .eq('company_id', companyId)
+      .or(`user_id.eq.${user.id},user_id.is.null`)  // Only notifications for this user or company-wide
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
@@ -74,6 +93,7 @@ export async function getUserNotifications(): Promise<ApiResponse<Notification[]
       .from('notifications')
       .select('*')
       .eq('company_id', companyId)
+      .or(`user_id.eq.${user.id},user_id.is.null`)  // Only notifications for this user or company-wide
       .is('deleted_at', null)
       .not('id', 'in', `(${notificationsWithReadStatus.map(n => n.id).join(',')})`)
       .order('created_at', { ascending: false })

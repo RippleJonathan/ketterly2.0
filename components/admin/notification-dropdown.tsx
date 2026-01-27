@@ -13,11 +13,45 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useNotifications, useMarkNotificationRead, useDeleteNotification } from '@/lib/hooks/use-notifications'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import type { NotificationType, Notification, NotificationReferenceType } from '@/lib/api/notifications'
+
+// Helper to determine navigation URL based on notification reference
+function getNotificationUrl(notification: Notification): string {
+  // If notification has a reference, navigate to that entity
+  if (notification.reference_type && notification.reference_id) {
+    const refMap: Record<NotificationReferenceType, string> = {
+      lead: `/admin/leads/${notification.reference_id}`,
+      quote: `/admin/leads`, // Quotes are in lead detail page
+      invoice: `/admin/leads`, // Invoices are in lead detail page
+      calendar_event: `/admin/calendar`,
+      project: `/admin/leads`, // Projects are in lead detail page
+      customer: `/admin/customers`,
+      user: `/admin/settings/users`,
+      location: `/admin/settings/locations`,
+      commission: `/admin/profile`,
+      material_order: `/admin/leads`,
+      work_order: `/admin/leads`,
+      door_knock_pin: `/admin/door-knocking`,
+    }
+    return refMap[notification.reference_type] || '/admin/notifications'
+  }
+  
+  // Fallback to type-based navigation
+  const urlMap: Record<NotificationType, string> = {
+    company: '/admin/dashboard',
+    location: '/admin/settings/locations',
+    user: '/admin/notifications',
+    system: '/admin/notifications',
+  }
+  return urlMap[notification.type] || '/admin/notifications'
+}
 
 export function NotificationDropdown() {
   const { data: notificationsResponse, isLoading } = useNotifications()
   const markRead = useMarkNotificationRead()
   const deleteNotification = useDeleteNotification()
+  const router = useRouter()
 
   const notifications = notificationsResponse?.data || []
 
@@ -97,7 +131,23 @@ export function NotificationDropdown() {
               {notifications.slice(0, 10).map((notification) => (
                 <div
                   key={notification.id}
-                  className={`px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
+                  onClick={() => {
+                    if (!notification.is_read) {
+                      handleMarkAsRead(notification.id)
+                    }
+                    console.log('🔔 Notification clicked:', {
+                      id: notification.id,
+                      type: notification.type,
+                      reference_type: notification.reference_type,
+                      reference_id: notification.reference_id,
+                      title: notification.title
+                    })
+                    const url = getNotificationUrl(notification)
+                    console.log('🔔 Navigating to:', url)
+                    setIsOpen(false)
+                    router.push(url)
+                  }}
+                  className={`px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer ${
                     !notification.is_read ? 'bg-blue-50' : ''
                   }`}
                 >
@@ -125,7 +175,10 @@ export function NotificationDropdown() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleMarkAsRead(notification.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleMarkAsRead(notification.id)
+                          }}
                           className="h-6 w-6 p-0 hover:bg-gray-200"
                           disabled={markRead.isPending}
                         >
@@ -135,7 +188,10 @@ export function NotificationDropdown() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(notification.id)
+                        }}
                         className="h-6 w-6 p-0 hover:bg-gray-200 text-gray-400 hover:text-gray-600"
                         disabled={deleteNotification.isPending}
                       >

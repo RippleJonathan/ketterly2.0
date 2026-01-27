@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useNotifications, useMarkNotificationRead, useDeleteNotification } from '@/lib/hooks/use-notifications'
+import { useRouter } from 'next/navigation'
+import type { NotificationType, Notification, NotificationReferenceType } from '@/lib/api/notifications'
 
 const notificationTypes = {
   lead: { label: 'Leads', color: 'bg-blue-100 text-blue-800' },
@@ -31,10 +33,42 @@ const priorityColors = {
   low: 'bg-gray-100 text-gray-800'
 }
 
+// Helper to determine navigation URL based on notification reference
+function getNotificationUrl(notification: Notification): string {
+  // If notification has a reference, navigate to that entity
+  if (notification.reference_type && notification.reference_id) {
+    const refMap: Record<NotificationReferenceType, string> = {
+      lead: `/admin/leads/${notification.reference_id}`,
+      quote: `/admin/leads`, // Quotes are in lead detail page
+      invoice: `/admin/leads`, // Invoices are in lead detail page
+      calendar_event: `/admin/calendar`,
+      project: `/admin/leads`, // Projects are in lead detail page
+      customer: `/admin/customers`,
+      user: `/admin/settings/users`,
+      location: `/admin/settings/locations`,
+      commission: `/admin/profile`,
+      material_order: `/admin/leads`,
+      work_order: `/admin/leads`,
+      door_knock_pin: `/admin/door-knocking`,
+    }
+    return refMap[notification.reference_type] || '/admin/notifications'
+  }
+  
+  // Fallback to type-based navigation
+  const urlMap: Record<NotificationType, string> = {
+    company: '/admin/dashboard',
+    location: '/admin/settings/locations',
+    user: '/admin/notifications',
+    system: '/admin/notifications',
+  }
+  return urlMap[notification.type] || '/admin/notifications'
+}
+
 export default function NotificationsPage() {
   const { data: notificationsResponse, isLoading } = useNotifications()
   const markRead = useMarkNotificationRead()
   const deleteNotification = useDeleteNotification()
+  const router = useRouter()
 
   const notifications = notificationsResponse?.data || []
 
@@ -163,7 +197,17 @@ export default function NotificationsPage() {
           </Card>
         ) : (
           sortedNotifications.map((notification) => (
-            <Card key={notification.id} className={`transition-colors ${!notification.is_read ? 'bg-blue-50 border-blue-200' : ''}`}>
+            <Card 
+              key={notification.id} 
+              onClick={() => {
+                if (!notification.is_read) {
+                  markAsRead(notification.id)
+                }
+                const url = getNotificationUrl(notification)
+                router.push(url)
+              }}
+              className={`transition-colors cursor-pointer hover:shadow-md ${!notification.is_read ? 'bg-blue-50 border-blue-200' : ''}`}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -200,7 +244,10 @@ export default function NotificationsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => markAsRead(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          markAsRead(notification.id)
+                        }}
                         disabled={markRead.isPending}
                         className="h-8 w-8 p-0"
                       >
@@ -210,7 +257,10 @@ export default function NotificationsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeNotification(notification.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeNotification(notification.id)
+                      }}
                       disabled={deleteNotification.isPending}
                       className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
                     >

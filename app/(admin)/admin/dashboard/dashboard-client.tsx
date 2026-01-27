@@ -89,19 +89,6 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Send Message Button - Coming Soon */}
-      {(isAdmin || isOffice) && (
-        <Button
-          variant="outline"
-          className="w-full"
-          disabled
-          title="Send company-wide or location-wide message (coming soon)"
-        >
-          <FileText className="h-5 w-5 mr-2" />
-          Send Message (Coming Soon)
-        </Button>
-      )}
-
       {/* This Month Stats */}
       <Card>
         <CardHeader>
@@ -114,7 +101,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <div className="text-3xl font-bold text-blue-600">
-                {isLoading ? '...' : stats?.totalLeads || 0}
+                {isLoading ? '...' : stats?.totalLeadsThisMonth || 0}
               </div>
               <div className="text-sm text-gray-600 mt-1">Total Leads</div>
             </div>

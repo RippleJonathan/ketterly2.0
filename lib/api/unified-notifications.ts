@@ -58,6 +58,19 @@ async function shouldSendEmailNotification(
 
 export type UnifiedNotificationType = 'company' | 'location' | 'user' | 'system'
 export type UnifiedNotificationPriority = 'low' | 'medium' | 'high'
+export type UnifiedNotificationReferenceType = 
+  | 'lead'
+  | 'quote'
+  | 'invoice'
+  | 'calendar_event'
+  | 'project'
+  | 'customer'
+  | 'user'
+  | 'location'
+  | 'commission'
+  | 'material_order'
+  | 'work_order'
+  | 'door_knock_pin'
 
 export interface UnifiedNotificationParams {
   // Who receives this notification
@@ -71,6 +84,10 @@ export interface UnifiedNotificationParams {
   type: UnifiedNotificationType
   priority?: UnifiedNotificationPriority
   locationId?: string
+  
+  // Reference for navigation
+  referenceType?: UnifiedNotificationReferenceType
+  referenceId?: string
   
   // Push notification extras
   pushUrl?: string // URL to open when notification is clicked
@@ -137,25 +154,35 @@ export async function createUnifiedNotification(params: UnifiedNotificationParam
     // Step 1: Create in-app notifications for all users
     const notificationInserts = params.userIds.map(userId => ({
       company_id: companyId,
+      user_id: userId,  // Assign notification to specific user
       title: params.title,
       message: params.message,
       type: params.type,
       priority: params.priority || 'medium',
       location_id: params.locationId || null,
+      reference_type: params.referenceType || null,
+      reference_id: params.referenceId || null,
       created_by: user.id,
     }))
+
+    console.log('🔔 Creating notifications with data:', {
+      count: notificationInserts.length,
+      sample: notificationInserts[0],
+      referenceType: params.referenceType,
+      referenceId: params.referenceId
+    })
 
     const { data: createdNotifications, error: createError } = await supabase
       .from('notifications')
       .insert(notificationInserts)
-      .select('id')
+      .select('id, reference_type, reference_id')
 
     if (createError) {
       console.error('Failed to create in-app notifications:', createError)
       errors.push(`In-app notifications failed: ${createError.message}`)
     } else if (createdNotifications) {
       inAppNotificationIds.push(...createdNotifications.map(n => n.id))
-      console.log(`✅ Created ${createdNotifications.length} in-app notifications`)
+      console.log(`✅ Created ${createdNotifications.length} in-app notifications`, createdNotifications)
     }
 
     // Step 2: Create user_notification_reads entries (initially unread)
@@ -468,6 +495,8 @@ export async function notifyLeadAssignedUsers(params: {
       type: 'user',
       priority: params.priority || 'medium',
       locationId: lead.location_id || undefined,
+      referenceType: 'lead',
+      referenceId: lead.id,
       pushUrl: params.pushUrl,
       pushData: params.pushData,
       icon: company?.logo_url || undefined,

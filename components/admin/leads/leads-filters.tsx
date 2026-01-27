@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, X, Filter, Users } from 'lucide-react'
+import { Search, X, Users } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -125,7 +125,8 @@ export function LeadsFilters({
   const activeFilterCount = columnFilters.length + (globalFilter ? 1 : 0)
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+      {/* Search Input Row */}
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Search Input */}
         <div className="flex-1 relative">
@@ -148,34 +149,6 @@ export function LeadsFilters({
             </button>
           )}
         </div>
-
-        {/* Status Filter */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="min-w-[120px]">
-              <Filter className="h-4 w-4 mr-2" />
-              Status
-              {statusFilter.length > 0 && (
-                <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs">
-                  {statusFilter.length}
-                </span>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {LEAD_FILTER_OPTIONS.statuses.map((option: { value: string; label: string }) => (
-              <DropdownMenuCheckboxItem
-                key={option.value}
-                checked={statusFilter.includes(option.value)}
-                onCheckedChange={() => toggleStatusFilter(option.value)}
-              >
-                {option.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
 
         {/* Rep Filter */}
         <DropdownMenu>
@@ -216,6 +189,31 @@ export function LeadsFilters({
             Clear ({activeFilterCount})
           </Button>
         )}
+      </div>
+
+      {/* Status Toggle Bar */}
+      <div className="flex flex-wrap gap-2">
+        <span className="text-sm font-medium text-gray-700 flex items-center mr-2">
+          Status:
+        </span>
+        {LEAD_FILTER_OPTIONS.statuses.map((option: { value: string; label: string }) => {
+          const isSelected = statusFilter.includes(option.value)
+          return (
+            <Button
+              key={option.value}
+              variant={isSelected ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => toggleStatusFilter(option.value)}
+              className={`transition-all ${
+                isSelected
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              {option.label}
+            </Button>
+          )
+        })}
       </div>
     </div>
   )

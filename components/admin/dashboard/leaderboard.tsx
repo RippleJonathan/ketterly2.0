@@ -48,6 +48,7 @@ export function Leaderboard({ limit = 5 }: { limit?: number }) {
       const startOfPeriod = startDate.toISOString()
 
       // Get all invoices this period with their lead's sales rep
+      // Count ALL invoices to show sales made (not just money collected)
       const { data: invoices } = await supabase
         .from('customer_invoices')
         .select(`

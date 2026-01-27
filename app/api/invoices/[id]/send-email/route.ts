@@ -35,14 +35,14 @@ export async function POST(
       )
     }
 
-    // Get invoice with all relations
-    const { data: invoice, error: fetchError } = await supabase
+    // Get invoice with all relations including location
+    const { data: invoice, error: invoiceError } = await supabase
       .from('customer_invoices')
       .select(
         `
         *,
         companies (*),
-        lead:leads!customer_invoices_lead_id_fkey(full_name, email, phone, address, city, state, zip),
+        leads:leads!customer_invoices_lead_id_fkey(full_name, email, phone, address, city, state, zip, location_id, locations(id, name, address, city, state, zip, phone, email)),
         quotes (*),
         invoice_line_items (*)
       `
@@ -50,7 +50,7 @@ export async function POST(
       .eq('id', id)
       .single()
 
-    if (fetchError || !invoice) {
+    if (invoiceError || !invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
 
@@ -229,8 +229,9 @@ export async function POST(
     })
   } catch (error) {
     console.error('Error sending invoice email:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'Failed to send invoice email' },
+      { error: 'Failed to send invoice email', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

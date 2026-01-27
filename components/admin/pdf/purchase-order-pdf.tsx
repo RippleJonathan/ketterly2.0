@@ -173,9 +173,29 @@ interface PurchaseOrderPDFProps {
     contact_phone?: string | null
     contact_email?: string | null
   }
+  location?: {
+    id: string
+    name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
 }
 
-export function PurchaseOrderPDF({ order, company }: PurchaseOrderPDFProps) {
+export function PurchaseOrderPDF({ order, company, location }: PurchaseOrderPDFProps) {
+  // Use location data with fallback to company data
+  const businessName = location?.name || company?.name || 'Company Name'
+  const businessLogo = company?.logo_url // Logo stays at company level
+  const businessAddress = location?.address || company?.address || ''
+  const businessCity = location?.city || company?.city || ''
+  const businessState = location?.state || company?.state || ''
+  const businessZip = location?.zip || company?.zip || ''
+  const businessPhone = location?.phone || company?.contact_phone || ''
+  const businessEmail = location?.email || company?.contact_email || ''
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -197,25 +217,25 @@ export function PurchaseOrderPDF({ order, company }: PurchaseOrderPDFProps) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header with Company Info */}
+        {/* Header with Company/Location Info */}
         <View style={styles.header}>
-          {company.logo_url && (
-            <Image src={company.logo_url} style={styles.companyLogo} />
+          {businessLogo && (
+            <Image src={businessLogo} style={styles.companyLogo} />
           )}
-          <Text style={styles.companyName}>{company.name}</Text>
-          {company.address && (
+          <Text style={styles.companyName}>{businessName}</Text>
+          {businessAddress && (
             <Text style={styles.companyInfo}>
-              {company.address}
-              {company.city && `, ${company.city}`}
-              {company.state && `, ${company.state}`}
-              {company.zip && ` ${company.zip}`}
+              {businessAddress}
+              {businessCity && `, ${businessCity}`}
+              {businessState && `, ${businessState}`}
+              {businessZip && ` ${businessZip}`}
             </Text>
           )}
-          {company.contact_phone && (
-            <Text style={styles.companyInfo}>Phone: {company.contact_phone}</Text>
+          {businessPhone && (
+            <Text style={styles.companyInfo}>Phone: {businessPhone}</Text>
           )}
-          {company.contact_email && (
-            <Text style={styles.companyInfo}>Email: {company.contact_email}</Text>
+          {businessEmail && (
+            <Text style={styles.companyInfo}>Email: {businessEmail}</Text>
           )}
         </View>
 
@@ -358,7 +378,7 @@ export function PurchaseOrderPDF({ order, company }: PurchaseOrderPDFProps) {
         {/* Footer */}
         <View style={styles.footer}>
           <Text>
-            This is a computer-generated purchase order from {company.name}
+            This is a computer-generated purchase order from {businessName}
           </Text>
           <Text>
             Generated on {new Date().toLocaleDateString('en-US', {

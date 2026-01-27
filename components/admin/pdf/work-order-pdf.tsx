@@ -177,9 +177,28 @@ interface WorkOrderPDFProps {
     contact_phone?: string | null
     contact_email?: string | null
   }
+  location?: {
+    id: string
+    name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
 }
 
-export function WorkOrderPDF({ workOrder, company }: WorkOrderPDFProps) {
+export function WorkOrderPDF({ workOrder, company, location }: WorkOrderPDFProps) {
+  // Use location data with fallback to company data
+  const businessName = location?.name || company?.name || 'Company Name'
+  const businessLogo = company?.logo_url // Logo stays at company level
+  const businessAddress = location?.address || company?.address || ''
+  const businessCity = location?.city || company?.city || ''
+  const businessState = location?.state || company?.state || ''
+  const businessZip = location?.zip || company?.zip || ''
+  const businessPhone = location?.phone || company?.contact_phone || ''
+  const businessEmail = location?.email || company?.contact_email || ''
   const formatCurrency = (amount: number) => {
     return `$${amount.toFixed(2)}`
   }
@@ -194,23 +213,23 @@ export function WorkOrderPDF({ workOrder, company }: WorkOrderPDFProps) {
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
-          {company.logo_url && (
-            <Image src={company.logo_url} style={styles.companyLogo} />
+          {businessLogo && (
+            <Image src={businessLogo} style={styles.companyLogo} />
           )}
-          <Text style={styles.companyName}>{company.name}</Text>
-          {company.address && (
-            <Text style={styles.companyInfo}>{company.address}</Text>
+          <Text style={styles.companyName}>{businessName}</Text>
+          {businessAddress && (
+            <Text style={styles.companyInfo}>{businessAddress}</Text>
           )}
-          {(company.city || company.state) && (
+          {(businessCity || businessState) && (
             <Text style={styles.companyInfo}>
-              {company.city}, {company.state} {company.zip}
+              {businessCity}, {businessState} {businessZip}
             </Text>
           )}
-          {company.contact_phone && (
-            <Text style={styles.companyInfo}>Phone: {company.contact_phone}</Text>
+          {businessPhone && (
+            <Text style={styles.companyInfo}>Phone: {businessPhone}</Text>
           )}
-          {company.contact_email && (
-            <Text style={styles.companyInfo}>Email: {company.contact_email}</Text>
+          {businessEmail && (
+            <Text style={styles.companyInfo}>Email: {businessEmail}</Text>
           )}
         </View>
 

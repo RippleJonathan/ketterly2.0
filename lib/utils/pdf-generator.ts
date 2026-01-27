@@ -161,6 +161,16 @@ interface GeneratePurchaseOrderPDFOptions {
     contact_phone?: string | null
     contact_email?: string | null
   }
+  location?: {
+    id: string
+    name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
 }
 
 /**
@@ -172,6 +182,7 @@ export async function generatePurchaseOrderPDF(options: GeneratePurchaseOrderPDF
     const doc = createElement(PurchaseOrderPDF, {
       order: options.order,
       company: options.company,
+      location: options.location,
     })
     
     // Generate the blob
@@ -200,6 +211,7 @@ export async function generatePurchaseOrderBlob(options: GeneratePurchaseOrderPD
     const doc = createElement(PurchaseOrderPDF, {
       order: options.order,
       company: options.company,
+      location: options.location,
     })
     
     return await pdf(doc).toBlob()
@@ -236,6 +248,16 @@ interface GenerateWorkOrderPDFOptions {
     contact_phone?: string | null
     contact_email?: string | null
   }
+  location?: {
+    id: string
+    name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
 }
 
 /**
@@ -247,6 +269,7 @@ export async function generateWorkOrderPDF(options: GenerateWorkOrderPDFOptions)
     const doc = createElement(WorkOrderPDF, {
       workOrder: options.workOrder,
       company: options.company,
+      location: options.location,
     })
     
     // Generate the blob
@@ -275,6 +298,7 @@ export async function generateWorkOrderBlob(options: GenerateWorkOrderPDFOptions
     const doc = createElement(WorkOrderPDF, {
       workOrder: options.workOrder,
       company: options.company,
+      location: options.location,
     })
     
     return await pdf(doc).toBlob()

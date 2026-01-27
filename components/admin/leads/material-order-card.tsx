@@ -202,6 +202,9 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
 
     setIsGeneratingPDF(true)
     try {
+      // Extract location from order's lead relationship (if available)
+      const location = (order as any)?.lead?.locations || null
+      
       await generatePurchaseOrderPDF({
         order,
         company: {
@@ -214,6 +217,7 @@ export function MaterialOrderCard({ order, onUpdate }: MaterialOrderCardProps) {
           contact_phone: company.contact_phone,
           contact_email: company.contact_email,
         },
+        location: location,
       })
       toast.success('PDF downloaded successfully')
     } catch (error) {

@@ -5,6 +5,7 @@ export type SupplierType = 'material_supplier' | 'subcontractor' | 'both'
 export interface Supplier {
   id: string
   company_id: string
+  location_id: string | null
   
   // Basic info
   name: string
@@ -25,6 +26,12 @@ export interface Supplier {
   notes: string | null
   is_active: boolean
   
+  // Relationships
+  locations?: {
+    id: string
+    name: string
+  } | null
+  
   // Metadata
   created_at: string
   updated_at: string
@@ -33,6 +40,7 @@ export interface Supplier {
 
 export interface SupplierInsert {
   company_id: string
+  location_id?: string | null
   name: string
   type: SupplierType
   contact_name?: string | null
@@ -47,6 +55,7 @@ export interface SupplierInsert {
 }
 
 export interface SupplierUpdate {
+  location_id?: string | null
   name?: string
   type?: SupplierType
   contact_name?: string | null
@@ -64,4 +73,5 @@ export interface SupplierFilters {
   type?: SupplierType
   is_active?: boolean
   search?: string
+  location_id?: string
 }

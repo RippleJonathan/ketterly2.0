@@ -118,6 +118,16 @@ function generateLineItemsTable(lineItems: any[], primaryColor: string): string 
 export function generateInvoicePDF(invoice: any): string {
   const company = invoice.companies
   const lead = invoice.leads
+  const location = (lead as any)?.locations || null
+
+  // Use location data if available, otherwise fall back to company data
+  const businessName = location?.name || company?.name || 'Company Name'
+  const businessAddress = location?.address || company?.address || ''
+  const businessCity = location?.city || company?.city || ''
+  const businessState = location?.state || company?.state || ''
+  const businessZip = location?.zip || company?.zip || ''
+  const businessPhone = location?.phone || company?.contact_phone || ''
+  const businessEmail = location?.email || company?.contact_email || ''
 
   // Format dates
   const invoiceDate = format(new Date(invoice.invoice_date), 'MMMM d, yyyy')
@@ -396,12 +406,12 @@ export function generateInvoicePDF(invoice: any): string {
   <!-- Header -->
   <div class="header">
     <div class="company-info">
-      <div class="company-name">${company?.name || 'Company Name'}</div>
+      <div class="company-name">${businessName}</div>
       <div class="company-details">
-        ${company?.address ? `${company.address}<br>` : ''}
-        ${company?.city && company?.state ? `${company.city}, ${company.state} ${company.zip || ''}<br>` : ''}
-        ${company?.contact_phone ? `Phone: ${company.contact_phone}<br>` : ''}
-        ${company?.contact_email ? `Email: ${company.contact_email}` : ''}
+        ${businessAddress ? `${businessAddress}<br>` : ''}
+        ${businessCity && businessState ? `${businessCity}, ${businessState} ${businessZip}<br>` : ''}
+        ${businessPhone ? `Phone: ${businessPhone}<br>` : ''}
+        ${businessEmail ? `Email: ${businessEmail}` : ''}
       </div>
     </div>
     <div class="invoice-title">

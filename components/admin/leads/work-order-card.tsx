@@ -184,6 +184,9 @@ export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
 
     setIsGeneratingPDF(true)
     try {
+      // Extract location from work order's lead relationship (if available)
+      const location = (workOrder as any)?.leads?.locations || null
+      
       await generateWorkOrderPDF({
         workOrder,
         company: {
@@ -196,6 +199,7 @@ export function WorkOrderCard({ workOrder, onUpdate }: WorkOrderCardProps) {
           contact_phone: company.contact_phone,
           contact_email: company.contact_email,
         },
+        location: location,
       })
       toast.success('PDF downloaded successfully')
     } catch (error) {

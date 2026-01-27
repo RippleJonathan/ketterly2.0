@@ -18,7 +18,7 @@ export async function getSuppliers(
     const supabase = createClient()
     let query = supabase
       .from('suppliers')
-      .select('*')
+      .select('*, locations(id, name)')
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .order('name', { ascending: true })
@@ -34,6 +34,11 @@ export async function getSuppliers(
 
     if (filters?.search) {
       query = query.or(`name.ilike.%${filters.search}%,contact_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
+    }
+
+    // Filter by location: show suppliers assigned to this location OR company-wide (null location_id)
+    if (filters?.location_id) {
+      query = query.or(`location_id.eq.${filters.location_id},location_id.is.null`)
     }
 
     const { data, error, count } = await query
@@ -57,7 +62,7 @@ export async function getSupplier(
     const supabase = createClient()
     const { data, error } = await supabase
       .from('suppliers')
-      .select('*')
+      .select('*, locations(id, name)')
       .eq('id', supplierId)
       .eq('company_id', companyId)
       .is('deleted_at', null)

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useSuppliers, useDeleteSupplier } from '@/lib/hooks/use-suppliers'
+import { useLocations } from '@/lib/hooks/use-locations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -28,19 +29,29 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Search, Edit, Trash2, Mail, Phone, MapPin } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Mail, Phone, MapPin, FileText } from 'lucide-react'
 import { SupplierType } from '@/lib/types/suppliers'
 import { SupplierDialog } from './supplier-dialog'
+import { SupplierDocumentsDialog } from './supplier-documents-dialog'
 
 export function SuppliersSettings() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<SupplierType | 'all'>('all')
+  const [locationFilter, setLocationFilter] = useState<string>('all')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null)
+  const [documentsDialogSupplier, setDocumentsDialogSupplier] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+
+  const { data: locationsResponse } = useLocations(true)
+  const locations = locationsResponse?.data || []
 
   const { data: suppliersResponse, isLoading } = useSuppliers({
     search: search || undefined,
     type: typeFilter !== 'all' ? typeFilter : undefined,
+    location_id: locationFilter !== 'all' ? locationFilter : undefined,
     is_active: true,
   })
 
@@ -111,6 +122,22 @@ export function SuppliersSettings() {
                 <SelectItem value="both">Both</SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              value={locationFilter}
+              onValueChange={(value) => setLocationFilter(value)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Locations</SelectItem>
+                {locations.map((location) => (
+                  <SelectItem key={location.id} value={location.id}>
+                    {location.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Table */}
@@ -127,11 +154,11 @@ export function SuppliersSettings() {
               </div>
               <h3 className="mt-4 text-lg font-semibold">No suppliers found</h3>
               <p className="text-muted-foreground mt-2">
-                {search || typeFilter !== 'all'
+                {search || typeFilter !== 'all' || locationFilter !== 'all'
                   ? 'Try adjusting your filters'
                   : 'Get started by adding your first supplier'}
               </p>
-              {!search && typeFilter === 'all' && (
+              {!search && typeFilter === 'all' && locationFilter === 'all' && (
                 <Button className="mt-4" onClick={() => setIsCreateDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Supplier
@@ -193,17 +220,30 @@ export function SuppliersSettings() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {supplier.city && supplier.state ? (
+                        {supplier.locations ? (
                           <span className="flex items-center gap-1 text-sm">
                             <MapPin className="h-3 w-3 text-muted-foreground" />
-                            {supplier.city}, {supplier.state}
+                            {supplier.locations.name}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground text-sm">All Locations</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setDocumentsDialogSupplier({
+                                id: supplier.id,
+                                name: supplier.name,
+                              })
+                            }
+                            title="View Documents"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -241,6 +281,16 @@ export function SuppliersSettings() {
           isOpen={!!editingSupplierId}
           onClose={() => setEditingSupplierId(null)}
           supplierId={editingSupplierId}
+        />
+      )}
+
+      {/* Documents Dialog */}
+      {documentsDialogSupplier && (
+        <SupplierDocumentsDialog
+          isOpen={!!documentsDialogSupplier}
+          onClose={() => setDocumentsDialogSupplier(null)}
+          supplierId={documentsDialogSupplier.id}
+          supplierName={documentsDialogSupplier.name}
         />
       )}
     </div>

@@ -37,7 +37,7 @@ export async function getMaterialOrders(
       .from('material_orders')
       .select(`
         *,
-        lead:leads(id, full_name),
+        lead:leads(id, full_name, location_id, locations(id, name, address, city, state, zip, phone, email)),
         supplier:suppliers(*),
         items:material_order_items(*),
         invoices:order_invoices(*)
@@ -98,7 +98,7 @@ export async function getMaterialOrder(
       .from('material_orders')
       .select(`
         *,
-        lead:leads(id, full_name),
+        lead:leads(id, full_name, location_id, locations(id, name, address, city, state, zip, phone, email)),
         supplier:suppliers(*),
         items:material_order_items(*),
         invoices:order_invoices(*)

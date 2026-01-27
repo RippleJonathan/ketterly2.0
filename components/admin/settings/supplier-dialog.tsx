@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSupplier, useCreateSupplier, useUpdateSupplier } from '@/lib/hooks/use-suppliers'
+import { useLocations } from '@/lib/hooks/use-locations'
 import {
   Dialog,
   DialogContent,
@@ -33,12 +34,16 @@ export function SupplierDialog({ isOpen, onClose, supplierId }: SupplierDialogPr
   const isEditing = !!supplierId
   
   const { data: supplierResponse } = useSupplier(supplierId!)
+  const { data: locationsResponse } = useLocations(true) // Only active locations
   const createSupplier = useCreateSupplier()
   const updateSupplier = useUpdateSupplier()
+
+  const locations = locationsResponse?.data || []
 
   const [formData, setFormData] = useState({
     name: '',
     type: 'material_supplier' as SupplierType,
+    location_id: 'company-wide', // Special value for company-wide
     contact_name: '',
     email: '',
     phone: '',
@@ -56,6 +61,7 @@ export function SupplierDialog({ isOpen, onClose, supplierId }: SupplierDialogPr
       setFormData({
         name: supplier.name,
         type: supplier.type,
+        location_id: supplier.location_id || 'company-wide', // null → 'company-wide'
         contact_name: supplier.contact_name || '',
         email: supplier.email || '',
         phone: supplier.phone || '',
@@ -74,6 +80,7 @@ export function SupplierDialog({ isOpen, onClose, supplierId }: SupplierDialogPr
       setFormData({
         name: '',
         type: 'material_supplier',
+        location_id: 'company-wide', // Default to company-wide
         contact_name: '',
         email: '',
         phone: '',
@@ -89,14 +96,20 @@ export function SupplierDialog({ isOpen, onClose, supplierId }: SupplierDialogPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Convert 'company-wide' to null for location_id
+    const dataToSubmit = {
+      ...formData,
+      location_id: formData.location_id === 'company-wide' ? null : formData.location_id,
+    }
+
     if (isEditing) {
       await updateSupplier.mutateAsync({
         supplierId: supplierId!,
-        updates: formData,
+        updates: dataToSubmit,
       })
     } else {
       await createSupplier.mutateAsync({
-        ...formData,
+        ...dataToSubmit,
         company_id: '', // Will be set by the hook
       })
     }
@@ -157,6 +170,32 @@ export function SupplierDialog({ isOpen, onClose, supplierId }: SupplierDialogPr
                     <SelectItem value="both">Both</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Select
+                  value={formData.location_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, location_id: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="company-wide">All Locations (Company-Wide)</SelectItem>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Leave as "All Locations" to make this supplier available across all locations,
+                  or select a specific location to restrict availability.
+                </p>
               </div>
             </div>
           </div>

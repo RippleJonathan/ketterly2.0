@@ -23,7 +23,8 @@ export async function getWorkOrders(
       .select(`
         *,
         subcontractor:suppliers(*),
-        line_items:work_order_line_items(*)
+        line_items:work_order_line_items(*),
+        leads(location_id, locations(id, name, address, city, state, zip, phone, email))
       `)
       .eq('company_id', companyId)
       .is('deleted_at', null)
@@ -79,7 +80,8 @@ export async function getWorkOrder(
       .select(`
         *,
         subcontractor:suppliers(*),
-        line_items:work_order_line_items(*)
+        line_items:work_order_line_items(*),
+        leads(location_id, locations(id, name, address, city, state, zip, phone, email))
       `)
       .eq('id', workOrderId)
       .eq('company_id', companyId)

@@ -21,14 +21,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get invoice with all relations
+    // Get invoice with all relations including location
     const { data: invoice, error } = await supabase
       .from('customer_invoices')
       .select(
         `
         *,
         companies (*),
-        leads:leads!customer_invoices_lead_id_fkey(full_name, email, phone, address, city, state, zip),
+        leads:leads!customer_invoices_lead_id_fkey(full_name, email, phone, address, city, state, zip, location_id, locations(id, name, address, city, state, zip, phone, email)),
         quotes (*),
         invoice_line_items (*)
       `
@@ -51,8 +51,9 @@ export async function GET(
     })
   } catch (error) {
     console.error('Error generating invoice PDF:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'Failed to generate invoice PDF' },
+      { error: 'Failed to generate invoice PDF', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

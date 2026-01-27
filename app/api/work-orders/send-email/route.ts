@@ -42,12 +42,13 @@ export async function POST(request: NextRequest) {
     const primaryEmail = recipientEmails[0]
     const ccEmails = recipientEmails.slice(1)
 
-    // Fetch work order with all details
+    // Fetch work order with all details including lead location
     const { data: workOrder, error: orderError } = await supabase
       .from('work_orders')
       .select(`
         *,
-        line_items:work_order_line_items(*)
+        line_items:work_order_line_items(*),
+        leads(location_id, locations(id, name, address, city, state, zip, phone, email))
       `)
       .eq('id', workOrderId)
       .eq('company_id', companyId)
@@ -68,7 +69,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    // Generate PDF buffer
+    // Generate PDF buffer with location data
+    const location = (workOrder as any)?.leads?.locations || null
     const pdfBuffer = await generateWorkOrderBuffer({
       workOrder,
       company: {
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
         contact_phone: company.contact_phone,
         contact_email: company.contact_email,
       },
+      location: location,
     })
 
     // Fetch material orders if requested
@@ -96,7 +99,8 @@ export async function POST(request: NextRequest) {
           items:material_order_items(
             *,
             material:materials(name, unit)
-          )
+          ),
+          lead:leads(location_id, locations(id, name, address, city, state, zip, phone, email))
         `)
         .in('id', materialOrderIds)
         .eq('company_id', companyId)
@@ -105,6 +109,7 @@ export async function POST(request: NextRequest) {
       if (!materialOrdersError && materialOrders) {
         // Generate PDFs for each material order
         for (const materialOrder of materialOrders) {
+          const orderLocation = (materialOrder as any)?.lead?.locations || null
           const pdfBuffer = await generatePurchaseOrderBuffer({
             order: materialOrder,
             company: {
@@ -117,6 +122,7 @@ export async function POST(request: NextRequest) {
               contact_phone: company.contact_phone,
               contact_email: company.contact_email,
             },
+            location: orderLocation,
           })
           
           materialOrderPdfs.push({

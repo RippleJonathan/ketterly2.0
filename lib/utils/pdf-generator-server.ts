@@ -18,6 +18,16 @@ interface GeneratePurchaseOrderPDFOptions {
     contact_phone?: string | null
     contact_email?: string | null
   }
+  location?: {
+    id: string
+    name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
 }
 
 /**
@@ -28,6 +38,7 @@ export async function generatePurchaseOrderBuffer(options: GeneratePurchaseOrder
     const doc = createElement(PurchaseOrderPDF, {
       order: options.order,
       company: options.company,
+      location: options.location,
     })
     
     return await renderToBuffer(doc)
@@ -49,6 +60,16 @@ interface GenerateWorkOrderPDFOptions {
     contact_phone?: string | null
     contact_email?: string | null
   }
+  location?: {
+    id: string
+    name?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    zip?: string | null
+    phone?: string | null
+    email?: string | null
+  } | null
 }
 
 /**
@@ -59,6 +80,7 @@ export async function generateWorkOrderBuffer(options: GenerateWorkOrderPDFOptio
     const doc = createElement(WorkOrderPDF, {
       workOrder: options.workOrder,
       company: options.company,
+      location: options.location,
     })
     
     return await renderToBuffer(doc)

@@ -187,8 +187,9 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (emailInsertError) {
+      console.error('Failed to create email record:', emailInsertError)
       return NextResponse.json(
-        { error: 'Failed to create email record' },
+        { error: 'Failed to create email record', details: emailInsertError.message },
         { status: 500 }
       )
     }
@@ -301,6 +302,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Send email error:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

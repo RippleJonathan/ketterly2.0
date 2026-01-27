@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { GoogleMapComponent } from './google-map';
 import { PinModal } from './pin-modal';
 import { LeadFormFromPin } from './lead-form-from-pin';
+import { AddressSearch } from './address-search';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Info, MapPin } from 'lucide-react';
@@ -29,6 +30,7 @@ export function DoorKnockingClient() {
   const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [leadFormPin, setLeadFormPin] = useState<DoorKnockPinWithUser | undefined>();
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [zoomToLocation, setZoomToLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Filter pins based on user selection
   const filteredPins = showOnlyMyPins
@@ -82,6 +84,12 @@ export function DoorKnockingClient() {
     setLeadFormPin(undefined);
   };
 
+  const handleAddressSelect = (lat: number, lng: number, address: string) => {
+    setZoomToLocation({ lat, lng });
+    // Reset after zoom to allow re-zooming to same location
+    setTimeout(() => setZoomToLocation(null), 100);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -100,10 +108,26 @@ export function DoorKnockingClient() {
         } : null}
         onMapClick={handleMapClick}
         onPinClick={handlePinClick}
+        zoomToLocation={zoomToLocation}
       />
 
-      {/* Unified Controls Button - Top Left (mobile), After Sidebar (desktop) */}
-      <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
+      {/* Address Search - Desktop: Top Center, Mobile: Top Right - Hidden when modals open */}
+      {!modalOpen && !leadFormOpen && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 hidden lg:block">
+          <AddressSearch onAddressSelect={handleAddressSelect} />
+        </div>
+      )}
+
+      {/* Address Search Button - Mobile Only - Hidden when modals open */}
+      {!modalOpen && !leadFormOpen && (
+        <div className="absolute top-4 right-4 z-10 lg:hidden">
+          <AddressSearch onAddressSelect={handleAddressSelect} isMobile />
+        </div>
+      )}
+
+      {/* Controls Button - Fixed to bottom-left corner of map - Hidden when modals open */}
+      {!modalOpen && !leadFormOpen && (
+        <div className="absolute bottom-6 left-4 lg:left-72 z-10">
         <Dialog open={controlsOpen} onOpenChange={setControlsOpen}>
           <DialogTrigger asChild>
             <Button variant="secondary" size="sm" className="shadow-lg">
@@ -185,7 +209,8 @@ export function DoorKnockingClient() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
+      )}
 
       <PinModal
         isOpen={modalOpen}

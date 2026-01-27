@@ -56,6 +56,14 @@ export async function POST(
 
     // Get company info
     const company = invoice.companies
+    
+    // Extract location data for location-first fallback
+    const lead = invoice.leads as any
+    const location = lead?.locations || null
+    
+    // Use location-first fallback for contact info in email
+    const contactPhone = location?.phone || company?.contact_phone || ''
+    const contactEmail = location?.email || company?.contact_email || ''
 
     // Generate PDF HTML
     const invoiceHtml = generateInvoicePDF(invoice as any)
@@ -163,8 +171,8 @@ export async function POST(
     
     <p>If you have any questions about this invoice, please contact us at:</p>
     <p>
-      ${company?.contact_phone ? `<strong>Phone:</strong> ${company.contact_phone}<br>` : ''}
-      ${company?.contact_email ? `<strong>Email:</strong> ${company.contact_email}` : ''}
+      ${contactPhone ? `<strong>Phone:</strong> ${contactPhone}<br>` : ''}
+      ${contactEmail ? `<strong>Email:</strong> ${contactEmail}` : ''}
     </p>
     
     <p>Thank you for your business!</p>
@@ -186,7 +194,7 @@ export async function POST(
     // Send email using Resend
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'invoices@ketterly.com',
-      replyTo: company?.contact_email || undefined,
+      replyTo: contactEmail || undefined,
       to: Array.isArray(to) ? to : [to],
       cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
       subject: subject || `Invoice ${invoice.invoice_number} from ${company?.name || 'Your Company'}`,

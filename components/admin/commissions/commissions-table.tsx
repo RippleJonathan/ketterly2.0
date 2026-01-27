@@ -208,7 +208,7 @@ export function CommissionsTable() {
         const statusConfig = {
           pending: { label: 'Pending', variant: 'secondary' as const, icon: '⏳' },
           eligible: { label: 'Eligible', variant: 'default' as const, icon: '✓' },
-          approved: { label: 'Approved', variant: 'success' as const, icon: '✅' },
+          approved: { label: 'Approved', variant: 'default' as const, icon: '✅' },
           paid: { label: 'Paid', variant: 'outline' as const, icon: '💰' },
           voided: { label: 'Voided', variant: 'destructive' as const, icon: '❌' },
           cancelled: { label: 'Cancelled', variant: 'destructive' as const, icon: '🚫' },

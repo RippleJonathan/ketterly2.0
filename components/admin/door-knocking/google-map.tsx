@@ -11,6 +11,7 @@ interface GoogleMapProps {
   onPinClick: (pin: DoorKnockPinWithUser) => void;
   center?: { lat: number; lng: number };
   zoom?: number;
+  zoomToLocation?: { lat: number; lng: number } | null;
 }
 
 export function GoogleMapComponent({
@@ -20,12 +21,21 @@ export function GoogleMapComponent({
   onPinClick,
   center,
   zoom = 15,
+  zoomToLocation,
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const [userMarker, setUserMarker] = useState<google.maps.Marker | null>(null);
   const [isTracking, setIsTracking] = useState(false);
+
+  // Zoom to location when address search is used
+  useEffect(() => {
+    if (!map || !zoomToLocation) return;
+
+    map.panTo(zoomToLocation);
+    map.setZoom(19); // Closer zoom for address search
+  }, [map, zoomToLocation]);
 
   useEffect(() => {
     const initMap = async () => {

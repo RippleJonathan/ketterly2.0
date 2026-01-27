@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { reverseGeocode } from '@/lib/utils/geocoding';
+import { lookupPropertyOwner } from '@/lib/utils/property-lookup';
 import { LeadForm } from '@/components/admin/leads/lead-form';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { useUserLocations } from '@/lib/hooks/use-location-users';
@@ -45,9 +46,26 @@ export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) 
         : { sales_rep_id: user.id };
       
       reverseGeocode(pin.latitude, pin.longitude)
-        .then(result => {
+        .then(async (result) => {
           if (result) {
+            // Look up property owner information
+            let ownerName = '';
+            if (result.street_address && result.city && result.state && result.zip) {
+              const propertyData = await lookupPropertyOwner(
+                result.street_address,
+                result.city,
+                result.state,
+                result.zip
+              );
+              
+              if (propertyData?.ownerName) {
+                ownerName = propertyData.ownerName;
+                toast.success(`Found homeowner: ${ownerName}`);
+              }
+            }
+            
             setPrefilledLead({
+              full_name: ownerName || '', // Auto-populate owner name
               address: result.street_address || result.address || '',
               city: result.city || '',
               state: result.state || '',
@@ -101,7 +119,7 @@ export function LeadFormFromPin({ isOpen, onClose, pin }: LeadFormFromPinProps) 
         {geocoding ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-8 h-8 animate-spin mr-3" />
-            <span className="text-muted-foreground">Loading address information...</span>
+            <span className="text-muted-foreground">Looking up homeowner and address...</span>
           </div>
         ) : prefilledLead ? (
           <LeadForm mode="create" lead={prefilledLead as Lead} />

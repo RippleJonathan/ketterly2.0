@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AnalyticsTable } from '@/components/admin/door-knocking/analytics-table';
 import { useDoorKnockAnalytics } from '@/lib/hooks/use-door-knock-analytics';
 import { useCurrentCompany } from '@/lib/hooks/use-current-company';
-import { useUsers } from '@/lib/hooks/use-users';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Loader2, Calendar, TrendingUp, Users, DollarSign } from 'lucide-react';
 import { format, startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 
@@ -19,11 +19,14 @@ type DateRange = 'today' | 'week' | 'month' | 'year' | 'all';
 
 export default function DoorKnockingAnalyticsPage() {
   const { data: company } = useCurrentCompany();
-  const { data: usersData } = useUsers(company?.data?.id || '');
-  const users = usersData?.data || [];
+  const { data: currentUser } = useCurrentUser();
 
   const [dateRange, setDateRange] = useState<DateRange>('month');
-  const [selectedUser, setSelectedUser] = useState<string>('all');
+
+  // Office users should see only their location data
+  const userRole = currentUser?.data?.role;
+  const userLocationId = currentUser?.data?.location_id;
+  const isOfficeUser = userRole === 'office';
 
   // Calculate date filters
   const filters = useMemo(() => {
@@ -57,16 +60,16 @@ export default function DoorKnockingAnalyticsPage() {
     return {
       startDate,
       endDate,
-      userId: selectedUser === 'all' ? undefined : selectedUser,
+      locationId: isOfficeUser ? userLocationId : undefined, // Office users see only their location
     };
-  }, [dateRange, selectedUser]);
+  }, [dateRange, isOfficeUser, userLocationId]);
 
   const { data: analyticsData, isLoading } = useDoorKnockAnalytics(
-    company?.data?.id || '',
+    company?.id || '',
     filters
   );
 
-  console.log('[Analytics Page] Company ID:', company?.data?.id);
+  console.log('[Analytics Page] Company ID:', company?.id);
   console.log('[Analytics Page] Filters:', filters);
   console.log('[Analytics Page] Analytics data:', analyticsData);
   console.log('[Analytics Page] Is loading:', isLoading);
@@ -97,39 +100,20 @@ export default function DoorKnockingAnalyticsPage() {
           <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date-range">Date Range</Label>
-              <Select value={dateRange} onValueChange={(value) => setDateRange(value as DateRange)}>
-                <SelectTrigger id="date-range">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="year">This Year</SelectItem>
-                  <SelectItem value="all">All Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="user-filter">Filter by Rep</Label>
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger id="user-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Reps</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="date-range">Date Range</Label>
+            <Select value={dateRange} onValueChange={(value) => setDateRange(value as DateRange)}>
+              <SelectTrigger id="date-range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
+                <SelectItem value="all">All Time</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -154,13 +138,13 @@ export default function DoorKnockingAnalyticsPage() {
             <CardHeader className="pb-3">
               <CardDescription className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                Appointments Set
+                Leads Created
               </CardDescription>
-              <CardTitle className="text-3xl">{totals.appointment_pins}</CardTitle>
+              <CardTitle className="text-3xl">{totals.leads_created}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm font-semibold text-green-600">
-                {totals.appointment_rate.toFixed(1)}% conversion rate
+              <p className="text-sm text-muted-foreground">
+                {totals.total_pins > 0 ? ((totals.leads_created / totals.total_pins) * 100).toFixed(1) : 0}% knock-to-lead rate
               </p>
             </CardContent>
           </Card>

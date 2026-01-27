@@ -109,7 +109,6 @@ const officeNavigation: NavItem[] = [
     href: '/admin/reports', 
     icon: BarChart3,
     // No permission check for now - everyone can see reports
-    comingSoon: true
   },
 ]
 

@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -17,11 +24,13 @@ import {
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { getRevenueCollectionsData, type RevenueCollectionsFilters } from "@/lib/api/revenue-report";
 import { useCurrentCompany } from "@/lib/hooks/use-current-company";
+import { useLocations } from "@/lib/hooks/use-locations";
 import { Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
 
 export default function RevenueCollectionsPage() {
   const { data: company } = useCurrentCompany();
+  const { data: locationsData } = useLocations();
   const [filters, setFilters] = useState<RevenueCollectionsFilters>({
     startDate: format(new Date(new Date().setMonth(new Date().getMonth() - 6)), "yyyy-MM-dd"),
     endDate: format(new Date(), "yyyy-MM-dd"),
@@ -32,6 +41,8 @@ export default function RevenueCollectionsPage() {
     queryFn: () => getRevenueCollectionsData(company!.id, filters),
     enabled: !!company?.id,
   });
+
+  const locations = locationsData?.data || [];
 
   const handleExport = () => {
     if (!revenueData) return;
@@ -109,6 +120,27 @@ export default function RevenueCollectionsPage() {
                 id="endDate"
                 type="date"
                 value={filters.endDate || ""}
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Select
+                value={filters.locationId || "all"}
+                onValueChange={(value) => 
+                  setFilters({ ...filters, locationId: value === "all" ? undefined : value })
+                }
+              >
+                <SelectTrigger id="location">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               />
             </div>

@@ -11,7 +11,8 @@ interface GoogleMapProps {
   onPinClick: (pin: DoorKnockPinWithUser) => void;
   center?: { lat: number; lng: number };
   zoom?: number;
-  zoomToLocation?: { lat: number; lng: number } | null;
+  isTracking?: boolean;
+  onMapLoad?: (map: google.maps.Map) => void;
 }
 
 export function GoogleMapComponent({
@@ -21,7 +22,8 @@ export function GoogleMapComponent({
   onPinClick,
   center,
   zoom = 15,
-  zoomToLocation,
+  isTracking = false,
+  onMapLoad,
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -78,6 +80,7 @@ export function GoogleMapComponent({
       });
 
       setMap(mapInstance);
+      onMapLoad?.(mapInstance);
     };
 
     initMap();
@@ -106,9 +109,10 @@ export function GoogleMapComponent({
 
     setUserMarker(marker);
 
-    // Auto-center if tracking is enabled
+    // Auto-center and zoom if tracking is enabled
     if (isTracking) {
       map.panTo(userLocation);
+      map.setZoom(18);
     }
 
     return () => {

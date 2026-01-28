@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMapComponent } from './google-map';
 import { PinModal } from './pin-modal';
 import { LeadFormFromPin } from './lead-form-from-pin';
-import { AddressSearch } from './address-search';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Info, MapPin } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Info, MapPin, Navigation, Search } from 'lucide-react';
 import { useDoorKnockPins, useCreateDoorKnockPin, useUpdateDoorKnockPin, useDeleteDoorKnockPin, useUserLocation } from '@/lib/hooks/use-door-knock';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function DoorKnockingClient() {
   const { data: user } = useCurrentUser();
@@ -30,7 +32,13 @@ export function DoorKnockingClient() {
   const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [leadFormPin, setLeadFormPin] = useState<DoorKnockPinWithUser | undefined>();
   const [controlsOpen, setControlsOpen] = useState(false);
-  const [zoomToLocation, setZoomToLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isTracking, setIsTracking] = useState(false);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+  
+  // Address search state
+  const [addressSearch, setAddressSearch] = useState('');
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   // Filter pins based on user selection
   const filteredPins = showOnlyMyPins
@@ -84,10 +92,48 @@ export function DoorKnockingClient() {
     setLeadFormPin(undefined);
   };
 
-  const handleAddressSelect = (lat: number, lng: number, address: string) => {
-    setZoomToLocation({ lat, lng });
-    // Reset after zoom to allow re-zooming to same location
-    setTimeout(() => setZoomToLocation(null), 100);
+  // Initialize Google Places Autocomplete
+  useEffect(() => {
+    if (!addressInputRef.current || !window.google?.maps?.places) return;
+
+    autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' },
+    });
+
+    autocompleteRef.current.addListener('place_changed', () => {
+      const place = autocompleteRef.current?.getPlace();
+      if (place?.geometry?.location) {
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        
+        if (mapInstance) {
+          mapInstance.panTo({ lat, lng });
+          mapInstance.setZoom(18);
+        }
+        
+        setAddressSearch(place.formatted_address || '');
+        toast.success('Location found');
+      }
+    });
+
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+    };
+  }, [mapInstance]);
+
+  const handleLocationToggle = () => {
+    if (!isTracking && mapInstance && userLocation) {
+      // When enabling tracking, center and zoom in
+      mapInstance.panTo({
+        lat: userLocation.coords.latitude,
+        lng: userLocation.coords.longitude,
+      });
+      mapInstance.setZoom(18);
+    }
+    setIsTracking(!isTracking);
   };
 
   if (isLoading) {
@@ -108,59 +154,110 @@ export function DoorKnockingClient() {
         } : null}
         onMapClick={handleMapClick}
         onPinClick={handlePinClick}
-        zoomToLocation={zoomToLocation}
+        isTracking={isTracking}
+        onMapLoad={setMapInstance}
       />
 
-      {/* Address Search - Desktop: Top Center, Mobile: Top Right - Hidden when modals open */}
-      {!modalOpen && !leadFormOpen && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 hidden lg:block">
-          <AddressSearch onAddressSelect={handleAddressSelect} />
-        </div>
-      )}
-
-      {/* Address Search Button - Mobile Only - Hidden when modals open */}
-      {!modalOpen && !leadFormOpen && (
-        <div className="absolute top-4 right-4 z-10 lg:hidden">
-          <AddressSearch onAddressSelect={handleAddressSelect} isMobile />
-        </div>
-      )}
-
-      {/* Controls Button - Fixed to bottom-left corner of map - Hidden when modals open */}
-      {!modalOpen && !leadFormOpen && (
-        <div className="absolute bottom-6 left-4 lg:left-72 z-10">
-        <Dialog open={controlsOpen} onOpenChange={setControlsOpen}>
-          <DialogTrigger asChild>
+      {/* Unified Controls Sheet - Mobile Optimized */}
+      <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
+        <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
+          <SheetTrigger asChild>
             <Button variant="secondary" size="sm" className="shadow-lg">
               <Info className="w-4 h-4 mr-2" />
               Controls
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Map Controls</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {/* Pin Filter Toggle */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">Pin Filter</p>
-                  <p className="text-sm text-muted-foreground">Show only your pins or all location pins</p>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[90vw] sm:w-[400px] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Map Controls</SheetTitle>
+            </SheetHeader>
+            <div className="space-y-6 py-4">
+              {/* Address Search */}
+              <div className="space-y-2">
+                <Label htmlFor="address-search" className="text-base font-semibold">
+                  <Search className="w-4 h-4 inline mr-2" />
+                  Search Address
+                </Label>
+                <Input
+                  id="address-search"
+                  ref={addressInputRef}
+                  type="text"
+                  placeholder="Enter an address..."
+                  value={addressSearch}
+                  onChange={(e) => setAddressSearch(e.target.value)}
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Start typing to see suggestions
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t" />
+
+              {/* Location Tracking */}
+              {userLocation && (
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">
+                    <Navigation className="w-4 h-4 inline mr-2" />
+                    My Location
+                  </Label>
+                  <Button
+                    variant={isTracking ? "default" : "outline"}
+                    size="sm"
+                    onClick={handleLocationToggle}
+                    className="w-full"
+                  >
+                    {isTracking ? (
+                      <>
+                        <Navigation className="w-4 h-4 mr-2 animate-pulse" />
+                        Following Location
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-4 h-4 mr-2" />
+                        Follow My Location
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {isTracking 
+                      ? 'Map will follow your location and zoom in' 
+                      : 'Enable to center map on your location'}
+                  </p>
                 </div>
+              )}
+
+              {/* Divider */}
+              <div className="border-t" />
+
+              {/* Pin Filter Toggle */}
+              <div className="space-y-2">
+              {/* Pin Filter Toggle */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">
+                  <MapPin className="w-4 h-4 inline mr-2" />
+                  Pin Filter
+                </Label>
                 <Button
                   variant={showOnlyMyPins ? "default" : "outline"}
                   size="sm"
                   onClick={() => setShowOnlyMyPins(!showOnlyMyPins)}
+                  className="w-full"
                 >
-                  {showOnlyMyPins ? 'My Pins' : 'All Pins'}
+                  {showOnlyMyPins ? 'Showing My Pins Only' : 'Showing All Pins'}
                 </Button>
+                <p className="text-xs text-muted-foreground">
+                  Toggle to {showOnlyMyPins ? 'show all team pins' : 'show only your pins'}
+                </p>
               </div>
 
               {/* Divider */}
               <div className="border-t" />
 
               {/* Pin Legend */}
-              <div>
-                <p className="font-medium mb-3">Pin Legend</p>
+              <div className="space-y-2">
+                <Label className="text-base font-semibold mb-3 block">Pin Legend</Label>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-full" style={{ backgroundColor: '#10b981' }}></div>
@@ -207,10 +304,9 @@ export function DoorKnockingClient() {
                 </div>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
-        </div>
-      )}
+          </SheetContent>
+        </Sheet>
+      </div>
 
       <PinModal
         isOpen={modalOpen}

@@ -52,7 +52,7 @@ export async function getWorkInProgressData(
       sub_status,
       location_id,
       created_at,
-      quotes!inner (
+      quotes (
         id,
         total_price,
         material_cost,
@@ -62,13 +62,30 @@ export async function getWorkInProgressData(
     `)
     .eq('company_id', companyId)
     .eq('status', 'production')
-    .eq('quotes.status', 'accepted')
     .is('deleted_at', null);
 
   if (locationId) query = query.eq('location_id', locationId);
   if (subStatus) query = query.eq('sub_status', subStatus);
 
-  const { data: leads, error } = await query;
+  const { data: leadsData, error } = await query;
+
+  if (error) {
+    console.error('Error fetching WIP data:', error);
+    return {
+      totalProjects: 0,
+      averageDaysInProduction: 0,
+      totalValue: 0,
+      totalMaterialCosts: 0,
+      projectsByStage: [],
+      projects: [],
+    };
+  }
+
+  // Filter for leads with accepted quotes
+  const leads = leadsData?.filter((lead: any) => {
+    const quotes = lead.quotes || [];
+    return quotes.some((quote: any) => quote.status === 'accepted');
+  }) || [];
 
   if (error) {
     console.error('Error fetching WIP data:', error);

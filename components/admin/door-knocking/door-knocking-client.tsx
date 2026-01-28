@@ -384,7 +384,6 @@ export function DoorKnockingClient() {
             </div>
           </SheetContent>
         </Sheet>
-      </div>
 
       <PinModal
         isOpen={modalOpen}

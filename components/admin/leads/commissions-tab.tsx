@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -224,7 +224,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
     })
   }
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
       // Auto-create/update commissions for all assigned users
@@ -283,7 +283,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
     } finally {
       setIsRefreshing(false)
     }
-  }
+  }, [company?.id, lead.id, lead.sales_rep_id, lead.marketing_rep_id, lead.sales_manager_id, lead.production_manager_id, currentUser?.data?.id, refetchCommissions, refetchSummary])
 
   // Auto-refresh commissions when tab is first opened
   useEffect(() => {
@@ -292,7 +292,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
       hasAutoRefreshed.current = true
       handleRefresh()
     }
-  }, [company?.id, lead.id])
+  }, [company?.id, lead.id, handleRefresh])
 
   return (
     <div className="space-y-6">

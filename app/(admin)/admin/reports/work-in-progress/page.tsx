@@ -21,14 +21,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { getWorkInProgressData, type WIPFilters } from "@/lib/api/wip-report";
 import { useCurrentCompany } from "@/lib/hooks/use-current-company";
+import { useLocations } from "@/lib/hooks/use-locations";
 import { Loader2, Download } from "lucide-react";
 import { format } from "date-fns";
 
 export default function WorkInProgressPage() {
   const { data: company } = useCurrentCompany();
+  const { data: locations = [] } = useLocations();
   const [filters, setFilters] = useState<WIPFilters>({});
 
   const { data: wipData, isLoading } = useQuery({
@@ -41,11 +42,10 @@ export default function WorkInProgressPage() {
     if (!wipData) return;
 
     const csv = [
-      ["Customer", "Address", "Stage", "Days in Production", "Total Value", "Material Costs", "Completion %"],
+      ["Customer", "Address", "Days in Production", "Total Value", "Material Costs", "Completion %"],
       ...wipData.projects.map((project) => [
         project.customer_name,
         project.address,
-        project.sub_status,
         project.days_in_production,
         project.total_value,
         project.material_costs,
@@ -91,28 +91,26 @@ export default function WorkInProgressPage() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="subStatus">Production Stage</Label>
-              <Select
-                value={filters.subStatus || "all"}
-                onValueChange={(value) => 
-                  setFilters({ ...filters, subStatus: value === "all" ? undefined : value })
-                }
-              >
-                <SelectTrigger id="subStatus">
-                  <SelectValue placeholder="All Stages" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stages</SelectItem>
-                  <SelectItem value="materials_ordered">Materials Ordered</SelectItem>
-                  <SelectItem value="materials_received">Materials Received</SelectItem>
-                  <SelectItem value="crew_assigned">Crew Assigned</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="final_inspection">Final Inspection</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="location">Location</Label>
+            <Select
+              value={filters.locationId || "all"}
+              onValueChange={(value) => 
+                setFilters({ ...filters, locationId: value === "all" ? undefined : value })
+              }
+            >
+              <SelectTrigger id="location">
+                <SelectValue placeholder="All Locations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Locations</SelectItem>
+                {locations.map((location) => (
+                  <SelectItem key={location.id} value={location.id}>
+                    {location.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -158,26 +156,6 @@ export default function WorkInProgressPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Projects by Stage</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={wipData?.projectsByStage || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="stage" />
-              <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-              <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-              <Tooltip />
-              <Legend />
-              <Bar yAxisId="left" dataKey="count" fill="#8884d8" name="Project Count" />
-              <Bar yAxisId="right" dataKey="avgDays" fill="#82ca9d" name="Avg Days" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Active Projects</CardTitle>
         </CardHeader>
         <CardContent>
@@ -186,7 +164,6 @@ export default function WorkInProgressPage() {
               <TableRow>
                 <TableHead>Customer</TableHead>
                 <TableHead>Address</TableHead>
-                <TableHead>Stage</TableHead>
                 <TableHead>Days</TableHead>
                 <TableHead>Value</TableHead>
                 <TableHead>Completion</TableHead>
@@ -197,11 +174,6 @@ export default function WorkInProgressPage() {
                 <TableRow key={project.id}>
                   <TableCell className="font-medium">{project.customer_name}</TableCell>
                   <TableCell className="text-sm">{project.address}</TableCell>
-                  <TableCell>
-                    <span className="px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">
-                      {project.sub_status.replace(/_/g, " ")}
-                    </span>
-                  </TableCell>
                   <TableCell>{project.days_in_production}</TableCell>
                   <TableCell>${project.total_value.toLocaleString()}</TableCell>
                   <TableCell>

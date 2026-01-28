@@ -141,13 +141,13 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
         >
           <Phone className="h-6 w-6" />
         </a>
-        <button
-          disabled
-          className="flex-1 flex items-center justify-center px-4 py-3 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
-          title="SMS feature coming soon"
+        <a
+          href={`sms:${lead.phone}`}
+          className="flex-1 flex items-center justify-center px-4 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+          title="Text"
         >
           <MessageSquare className="h-6 w-6" />
-        </button>
+        </a>
         <a
           href={`mailto:${lead.email}`}
           className="flex-1 flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"

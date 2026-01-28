@@ -211,12 +211,13 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDownloadPDF(quote.id)}
                       disabled={isGenerating}
+                      className="w-full"
                     >
                       <Download className="h-4 w-4 mr-2" />
                       {isGenerating ? 'Generating...' : 'Download PDF'}
@@ -226,6 +227,7 @@ export function FilesTab({ leadId, leadName }: FilesTabProps) {
                       size="sm"
                       onClick={() => handleEmailSignedContract(quote.id)}
                       disabled={emailingSigned[quote.id]}
+                      className="w-full"
                     >
                       <Mail className="h-4 w-4 mr-2" />
                       {emailingSigned[quote.id] ? 'Sending...' : 'Email PDF'}

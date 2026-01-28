@@ -138,9 +138,10 @@ export function useUpdateLeadStatus() {
       return result
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['leads', company?.id] })
-      queryClient.invalidateQueries({ queryKey: ['leads', company?.id, variables.leadId] })
-      queryClient.invalidateQueries({ queryKey: ['activities', 'lead', variables.leadId] })
+      // Invalidate all related queries to update UI immediately
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['activities'] })
+      queryClient.invalidateQueries({ queryKey: ['checklist'] })
       toast.success('Status updated successfully')
     },
     onError: (error: Error) => {

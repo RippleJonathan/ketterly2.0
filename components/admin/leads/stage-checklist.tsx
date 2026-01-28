@@ -2,9 +2,8 @@
 
 import { useLeadChecklist, useToggleChecklistItem } from '@/lib/hooks/use-checklist'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { LEAD_STAGE_LABELS, STAGE_CHECKLIST_ITEMS, getStageCompletionPercentage } from '@/lib/constants/pipeline'
+import { LEAD_STAGE_LABELS, PIPELINE_STAGE_ORDER } from '@/lib/constants/pipeline'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CheckCircle2, Circle } from 'lucide-react'
 import { format } from 'date-fns'
@@ -20,22 +19,20 @@ export function StageChecklist({ leadId, currentStage }: StageChecklistProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
+      <div className="space-y-3">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
       </div>
     )
   }
 
   if (!checklistItems || checklistItems.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8">
-          <p className="text-center text-muted-foreground">
-            No checklist items for this stage yet.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="bg-gray-50 rounded-lg p-8 text-center">
+        <p className="text-muted-foreground">
+          No checklist items for this stage yet.
+        </p>
+      </div>
     )
   }
 
@@ -48,85 +45,96 @@ export function StageChecklist({ leadId, currentStage }: StageChecklistProps) {
     return acc
   }, {} as Record<string, typeof checklistItems>)
 
+  // Sort stages by pipeline order
+  const sortedStages = PIPELINE_STAGE_ORDER.filter(stage => itemsByStage[stage])
+
   return (
-    <div className="space-y-4">
-      {Object.entries(itemsByStage).map(([stage, items]) => {
+    <div className="space-y-3">
+      {sortedStages.map((stage) => {
+        const items = itemsByStage[stage] || []
         const completedItems = items.filter(item => item.is_completed).length
         const totalItems = items.length
         const percentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
         const isCurrentStage = stage === currentStage
 
         return (
-          <Card key={stage} className={isCurrentStage ? 'border-primary' : ''}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
+          <div
+            key={stage}
+            className={`bg-white border rounded-lg p-4 ${
+              isCurrentStage ? 'border-blue-500 shadow-sm' : 'border-gray-200'
+            }`}
+          >
+            {/* Stage Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-gray-900">
                   {LEAD_STAGE_LABELS[stage as keyof typeof LEAD_STAGE_LABELS] || stage}
-                  {isCurrentStage && (
-                    <Badge variant="default" className="ml-2">Current</Badge>
-                  )}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    {completedItems}/{totalItems} complete
-                  </span>
-                  <Badge variant="outline">{percentage}%</Badge>
-                </div>
+                </h3>
+                {isCurrentStage && (
+                  <Badge variant="default" className="text-xs">Current</Badge>
+                )}
               </div>
-              {/* Progress bar */}
-              <div className="w-full bg-muted rounded-full h-2 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {completedItems}/{totalItems}
+                </span>
+                <Badge variant="outline" className="text-xs">{percentage}%</Badge>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
+              <div
+                className="bg-blue-600 h-1.5 rounded-full transition-all"
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+
+            {/* Checklist Items */}
+            <div className="space-y-2">
+              {items.map((item) => (
                 <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <Checkbox
-                      id={item.id}
-                      checked={item.is_completed}
-                      onCheckedChange={(checked) => {
-                        toggleItem.mutate({
-                          itemId: item.id,
-                          isCompleted: checked === true,
-                          leadId,
-                          itemLabel: item.item_label,
-                          stage: item.stage,
-                        })
-                      }}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <label
-                        htmlFor={item.id}
-                        className={`text-sm font-medium cursor-pointer ${
-                          item.is_completed ? 'line-through text-muted-foreground' : ''
-                        }`}
-                      >
-                        {item.item_label}
-                      </label>
-                      {item.is_completed && item.completed_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Completed {format(new Date(item.completed_at), 'MMM d, yyyy')}
-                        </p>
-                      )}
-                    </div>
-                    {item.is_completed ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-muted-foreground" />
+                  key={item.id}
+                  className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-gray-50 transition-colors"
+                >
+                  <Checkbox
+                    id={item.id}
+                    checked={item.is_completed}
+                    onCheckedChange={(checked) => {
+                      toggleItem.mutate({
+                        itemId: item.id,
+                        isCompleted: checked === true,
+                        leadId,
+                        itemLabel: item.item_label,
+                        stage: item.stage,
+                      })
+                    }}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <label
+                      htmlFor={item.id}
+                      className={`text-sm cursor-pointer block ${
+                        item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'
+                      }`}
+                    >
+                      {item.item_label}
+                    </label>
+                    {item.is_completed && item.completed_at && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {format(new Date(item.completed_at), 'MMM d, yyyy')}
+                      </p>
                     )}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  {item.is_completed ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )
       })}
     </div>

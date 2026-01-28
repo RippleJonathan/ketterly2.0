@@ -174,7 +174,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
 
       {/* Tab Navigation */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <nav className="flex overflow-x-auto" aria-label="Tabs">
+        <nav className="flex flex-wrap" aria-label="Tabs">
           {tabs.map((tabItem) => {
             const isActive = tab === tabItem.id
             const Icon = tabItem.icon

@@ -114,10 +114,10 @@ export function useCreateUser() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       // Invalidate location users for filtered user list
       queryClient.invalidateQueries({ queryKey: ['all-location-users', company?.id] })
-      toast.success('User created successfully')
+      toast.success('Invitation sent! User will receive an email to set their password.')
     },
     onError: (error: Error) => {
-      toast.error(`Failed to create user: ${error.message}`)
+      toast.error(`Failed to send invitation: ${error.message}`)
     },
   })
 }

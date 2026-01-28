@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, password, full_name, role, phone, commission_plan_id, role_template_id, default_location_id } = body
+    const { email, full_name, role, phone, commission_plan_id, role_template_id, default_location_id } = body
 
     // Additional validation for office users
     if (currentUser.role === 'office') {
@@ -51,18 +51,18 @@ export async function POST(request: NextRequest) {
     // Create admin client with service role
     const adminClient = createAdminClient()
 
-    // Step 1: Create auth user
-    const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
+    // Step 1: Invite user by email (sends invitation email)
+    const { data: authData, error: createError } = await adminClient.auth.admin.inviteUserByEmail(
       email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name,
-      },
-    })
+      {
+        data: {
+          full_name,
+        },
+      }
+    )
 
     if (createError) {
-      console.error('Failed to create auth user:', createError)
+      console.error('Failed to invite user:', createError)
       return NextResponse.json({ error: createError.message }, { status: 400 })
     }
 

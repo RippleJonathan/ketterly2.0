@@ -42,7 +42,6 @@ import { getLocationRoleFromCompanyRole } from '@/lib/utils/location-roles'
 const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['admin', 'office', 'sales_manager', 'sales', 'production', 'marketing']),
   phone: z.string().optional(),
   location_id: z.string().optional(),
@@ -93,7 +92,6 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     defaultValues: {
       email: '',
       full_name: '',
-      password: '',
       phone: '',
       role: 'sales',
       location_id: getDefaultLocationId(),
@@ -143,9 +141,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
+          <DialogTitle>Invite New User</DialogTitle>
           <DialogDescription>
-            Create a new user account and assign roles and permissions
+            Send an email invitation to create a new user account. They'll set their own password when they accept the invite.
           </DialogDescription>
         </DialogHeader>
 
@@ -176,21 +174,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                     <FormControl>
                       <Input type="email" placeholder="john@example.com" {...field} />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormDescription>Minimum 8 characters</FormDescription>
+                    <FormDescription>
+                      An invitation email will be sent to this address
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -296,7 +282,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                 Cancel
               </Button>
               <Button type="submit" disabled={createUser.isPending}>
-                {createUser.isPending ? 'Creating...' : 'Create User'}
+                {createUser.isPending ? 'Sending Invite...' : 'Send Invitation'}
               </Button>
             </DialogFooter>
           </form>

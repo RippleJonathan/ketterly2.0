@@ -94,7 +94,8 @@ export function FinancialsTab({ leadId }: FinancialsTabProps) {
       return <Badge variant="outline">No Quote Yet</Badge>
     }
     
-    const margin = summary.has_invoice ? summary.actual_margin : summary.estimated_margin
+    // Always use estimated_margin since it's based on contract value vs costs
+    const margin = summary.estimated_margin
     
     if (margin >= 40) {
       return <Badge className="bg-green-600">Great! ({margin.toFixed(1)}%)</Badge>

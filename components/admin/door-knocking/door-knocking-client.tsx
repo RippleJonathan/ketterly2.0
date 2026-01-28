@@ -210,7 +210,7 @@ export function DoorKnockingClient() {
 
       {/* Map Controls - Top Left */}
       {!controlsOpen && (
-        <div className="absolute top-4 left-4 lg:left-72 z-[1000] flex items-center gap-2">
+        <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
           {/* Settings Gear */}
           <Button 
             variant="secondary" 

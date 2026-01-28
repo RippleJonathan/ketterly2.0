@@ -121,9 +121,16 @@ export async function getWorkInProgressData(
   const today = new Date();
   const projects: WIPProject[] = leads?.map(lead => {
     const quote = (lead.quotes as any)?.[0];
+    
+    console.log('WIP Debug - Lead:', lead.full_name);
+    console.log('WIP Debug - Lead sub_status:', lead.sub_status);
+    console.log('WIP Debug - Quote data:', quote);
+    console.log('WIP Debug - Quote total:', quote?.total);
+    console.log('WIP Debug - Quote subtotal:', quote?.subtotal);
+    
     const totalValue = quote?.total || 0;
-    // Estimate material costs as 40% of total (or could query line items separately)
-    const materialCosts = quote?.subtotal ? quote.subtotal * 0.4 : 0;
+    // Use subtotal for total costs (includes labor + materials)
+    const materialCosts = quote?.subtotal || 0;
     
     // Use quote updated_at as production start (when quote was accepted)
     const startDate = new Date(quote?.updated_at || lead.created_at || new Date());

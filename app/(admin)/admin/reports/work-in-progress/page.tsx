@@ -104,7 +104,7 @@ export default function WorkInProgressPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                {locations.map((location) => (
+                {Array.isArray(locations) && locations.map((location) => (
                   <SelectItem key={location.id} value={location.id}>
                     {location.name}
                   </SelectItem>

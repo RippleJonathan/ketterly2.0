@@ -48,16 +48,21 @@ export async function getWorkInProgressData(
       address,
       city,
       state,
+      status,
       sub_status,
       location_id,
+      created_at,
       quotes!inner (
         id,
         total_price,
-        material_cost
+        material_cost,
+        status,
+        updated_at
       )
     `)
     .eq('company_id', companyId)
-    .eq('status', 'PRODUCTION')
+    .eq('status', 'production')
+    .eq('quotes.status', 'accepted')
     .is('deleted_at', null);
 
   if (locationId) query = query.eq('location_id', locationId);
@@ -78,11 +83,13 @@ export async function getWorkInProgressData(
   }
 
   const completionPercentages: Record<string, number> = {
-    'materials_ordered': 20,
-    'materials_received': 40,
-    'crew_assigned': 60,
-    'in_progress': 75,
-    'final_inspection': 90,
+    'contract_signed': 10,
+    'scheduled': 20,
+    'materials_ordered': 30,
+    'in_progress': 60,
+    'completed': 90,
+    'inspection_needed': 85,
+    'inspection_passed': 95,
   };
 
   const today = new Date();
@@ -91,10 +98,11 @@ export async function getWorkInProgressData(
     const totalValue = quote?.total_price || 0;
     const materialCosts = quote?.material_cost || 0;
     
-    const startDate = new Date(lead.created_at || new Date());
+    // Use quote updated_at as production start (when quote was accepted)
+    const startDate = new Date(quote?.updated_at || lead.created_at || new Date());
     const daysInProduction = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    const completion = completionPercentages[lead.sub_status || ''] || 0;
+    const completion = completionPercentages[lead.sub_status || ''] || 5;
 
     return {
       id: lead.id,
@@ -102,7 +110,7 @@ export async function getWorkInProgressData(
       customer_name: lead.full_name,
       address: `${lead.address || ''}, ${lead.city || ''}, ${lead.state || ''}`,
       sub_status: lead.sub_status || 'Unknown',
-      start_date: lead.created_at || '',
+      start_date: quote?.updated_at || lead.created_at || '',
       days_in_production: daysInProduction,
       total_value: totalValue,
       material_costs: materialCosts,

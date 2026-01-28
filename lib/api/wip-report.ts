@@ -57,7 +57,12 @@ export async function getWorkInProgressData(
         total,
         subtotal,
         status,
-        updated_at
+        updated_at,
+        quote_line_items (
+          estimated_cost,
+          actual_cost,
+          quantity
+        )
       )
     `)
     .eq('company_id', companyId)
@@ -113,9 +118,16 @@ export async function getWorkInProgressData(
   const projects: WIPProject[] = leads?.map(lead => {
     const quote = (lead.quotes as any)?.[0];
     
-    // Use subtotal for both total value and costs (total field is often 0)
+    // Use subtotal for total value (what customer pays)
     const totalValue = quote?.subtotal || 0;
-    const materialCosts = quote?.subtotal || 0;
+    
+    // Calculate actual costs from line items (what we spend)
+    const lineItems = quote?.quote_line_items || [];
+    const materialCosts = lineItems.reduce((sum: number, item: any) => {
+      // Use actual_cost if available, otherwise estimated_cost
+      const cost = item.actual_cost || item.estimated_cost || 0;
+      return sum + cost;
+    }, 0);
     
     // Use quote updated_at as production start (when quote was accepted)
     const startDate = new Date(quote?.updated_at || lead.created_at || new Date());

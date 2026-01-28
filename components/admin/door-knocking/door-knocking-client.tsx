@@ -35,6 +35,7 @@ export function DoorKnockingClient() {
   const [isTracking, setIsTracking] = useState(false);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('satellite');
+  const [searchOpen, setSearchOpen] = useState(false);
   
   // Address search state
   const [addressSearch, setAddressSearch] = useState('');
@@ -93,9 +94,9 @@ export function DoorKnockingClient() {
     setLeadFormPin(undefined);
   };
 
-  // Initialize Google Places Autocomplete when drawer opens and Google is loaded
+  // Initialize Google Places Autocomplete when search opens and Google is loaded
   useEffect(() => {
-    if (!controlsOpen || !addressInputRef.current) return;
+    if (!searchOpen || !addressInputRef.current) return;
     
     // Wait for Google Maps to be fully loaded
     const initAutocomplete = () => {
@@ -146,7 +147,7 @@ export function DoorKnockingClient() {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
     };
-  }, [controlsOpen, mapInstance]);
+  }, [searchOpen, mapInstance]);
 
   // Set z-index for autocomplete dropdown when it appears
   useEffect(() => {
@@ -207,9 +208,10 @@ export function DoorKnockingClient() {
         onMapLoad={setMapInstance}
       />
 
-      {/* Unified Controls Sheet - Mobile Optimized */}
+      {/* Map Controls - Top Left */}
       {!controlsOpen && (
-        <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
+        <div className="absolute top-4 left-4 lg:left-72 z-[1000] flex items-center gap-2">
+          {/* Settings Gear */}
           <Button 
             variant="secondary" 
             size="icon" 
@@ -218,6 +220,43 @@ export function DoorKnockingClient() {
           >
             <Settings className="w-5 h-5" />
           </Button>
+
+          {/* Address Search - Expandable */}
+          {!searchOpen ? (
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="shadow-lg h-9 w-9"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="w-5 h-5" />
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2 bg-background rounded-md shadow-lg p-2">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <Input
+                ref={addressInputRef}
+                type="text"
+                placeholder="Search address..."
+                value={addressSearch}
+                onChange={(e) => setAddressSearch(e.target.value)}
+                className="w-64 h-7 text-sm"
+                autoFocus
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setAddressSearch('');
+                }}
+              >
+                <span className="sr-only">Close search</span>
+                ×
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -230,29 +269,6 @@ export function DoorKnockingClient() {
               </SheetDescription>
             </SheetHeader>
             <div className="space-y-6 py-4">
-              {/* Address Search */}
-              <div className="space-y-2">
-                <Label htmlFor="address-search" className="text-base font-semibold">
-                  <Search className="w-4 h-4 inline mr-2" />
-                  Search Address
-                </Label>
-                <Input
-                  id="address-search"
-                  ref={addressInputRef}
-                  type="text"
-                  placeholder="Enter an address..."
-                  value={addressSearch}
-                  onChange={(e) => setAddressSearch(e.target.value)}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Start typing to see suggestions
-                </p>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t" />
-
               {/* Map Type Toggle */}
               <div className="space-y-2">
                 <Label className="text-base font-semibold">

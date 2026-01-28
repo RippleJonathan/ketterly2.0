@@ -45,8 +45,8 @@ export function StageChecklist({ leadId, currentStage }: StageChecklistProps) {
     return acc
   }, {} as Record<string, typeof checklistItems>)
 
-  // Sort stages by pipeline order
-  const sortedStages = PIPELINE_STAGE_ORDER.filter(stage => itemsByStage[stage])
+  // Show all pipeline stages in order (even if no items exist)
+  const sortedStages = PIPELINE_STAGE_ORDER
 
   return (
     <div className="space-y-3">
@@ -92,47 +92,53 @@ export function StageChecklist({ leadId, currentStage }: StageChecklistProps) {
 
             {/* Checklist Items */}
             <div className="space-y-2">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-gray-50 transition-colors"
-                >
-                  <Checkbox
-                    id={item.id}
-                    checked={item.is_completed}
-                    onCheckedChange={(checked) => {
-                      toggleItem.mutate({
-                        itemId: item.id,
-                        isCompleted: checked === true,
-                        leadId,
-                        itemLabel: item.item_label,
-                        stage: item.stage,
-                      })
-                    }}
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <label
-                      htmlFor={item.id}
-                      className={`text-sm cursor-pointer block ${
-                        item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'
-                      }`}
-                    >
-                      {item.item_label}
-                    </label>
-                    {item.is_completed && item.completed_at && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {format(new Date(item.completed_at), 'MMM d, yyyy')}
-                      </p>
+              {items.length > 0 ? (
+                items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-gray-50 transition-colors"
+                  >
+                    <Checkbox
+                      id={item.id}
+                      checked={item.is_completed}
+                      onCheckedChange={(checked) => {
+                        toggleItem.mutate({
+                          itemId: item.id,
+                          isCompleted: checked === true,
+                          leadId,
+                          itemLabel: item.item_label,
+                          stage: item.stage,
+                        })
+                      }}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <label
+                        htmlFor={item.id}
+                        className={`text-sm cursor-pointer block ${
+                          item.is_completed ? 'line-through text-gray-500' : 'text-gray-900'
+                        }`}
+                      >
+                        {item.item_label}
+                      </label>
+                      {item.is_completed && item.completed_at && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {format(new Date(item.completed_at), 'MMM d, yyyy')}
+                        </p>
+                      )}
+                    </div>
+                    {item.is_completed ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     )}
                   </div>
-                  {item.is_completed ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  )}
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 italic py-2">
+                  No checklist items for this stage yet.
+                </p>
+              )}
             </div>
           </div>
         )

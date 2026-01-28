@@ -1,19 +1,23 @@
 'use client'
 
 import { PIPELINE_STAGE_ORDER, LEAD_STAGE_LABELS } from '@/lib/constants/pipeline'
-import { useUpdateLeadStatus } from '@/lib/hooks/use-leads'
+import { useUpdateLeadStatus, useLead } from '@/lib/hooks/use-leads'
 import { Check } from 'lucide-react'
 
 interface PipelineProgressProps {
   leadId: string
-  currentStatus: string
+  currentStatus?: string  // Optional - will fetch from lead if not provided
   compact?: boolean
 }
 
 const PIPELINE_STAGES = PIPELINE_STAGE_ORDER
 
-export function PipelineProgress({ leadId, currentStatus, compact = false }: PipelineProgressProps) {
+export function PipelineProgress({ leadId, currentStatus: initialStatus, compact = false }: PipelineProgressProps) {
   const updateStatus = useUpdateLeadStatus()
+  const { data: leadResponse } = useLead(leadId)
+  
+  // Use fetched lead status (reactive to cache) or fall back to initial prop
+  const currentStatus = leadResponse?.data?.status || initialStatus || 'new'
   const currentIndex = PIPELINE_STAGES.indexOf(currentStatus as any)
 
   const handleStageClick = async (status: string) => {

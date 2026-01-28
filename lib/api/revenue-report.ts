@@ -37,8 +37,8 @@ export async function getRevenueCollectionsData(
   const supabase = createClient();
   const { startDate, endDate, locationId } = filters;
 
-  // Fetch invoices with their payments
-  let query = supabase
+  // Fetch invoices
+  let invoiceQuery = supabase
     .from('customer_invoices')
     .select(`
       id,
@@ -52,12 +52,6 @@ export async function getRevenueCollectionsData(
         full_name,
         location_id,
         deleted_at
-      ),
-      invoice_payments (
-        id,
-        amount,
-        cleared_date,
-        status
       )
     `)
     .eq('company_id', companyId)
@@ -66,14 +60,14 @@ export async function getRevenueCollectionsData(
     // CRITICAL: Only include sent/partial/paid invoices, NOT drafts
     .in('status', ['sent', 'partial', 'paid', 'completed', 'overdue']);
 
-  if (startDate) query = query.gte('created_at', startDate);
-  if (endDate) query = query.lte('created_at', endDate);
-  if (locationId) query = query.eq('leads.location_id', locationId);
+  if (startDate) invoiceQuery = invoiceQuery.gte('created_at', startDate);
+  if (endDate) invoiceQuery = invoiceQuery.lte('created_at', endDate);
+  if (locationId) invoiceQuery = invoiceQuery.eq('leads.location_id', locationId);
 
-  const { data: invoices, error } = await query;
+  const { data: invoices, error: invoiceError } = await invoiceQuery;
 
-  if (error) {
-    console.error('Error fetching revenue data:', error);
+  if (invoiceError) {
+    console.error('Error fetching invoice data:', invoiceError);
     return {
       totalRevenue: 0,
       paidRevenue: 0,
@@ -91,6 +85,29 @@ export async function getRevenueCollectionsData(
     };
   }
 
+  // Fetch all payments for the leads with invoices
+  const leadIds = invoices?.map(inv => inv.lead_id).filter(Boolean) || [];
+  let paymentsData: any[] = [];
+  
+  if (leadIds.length > 0) {
+    const { data: payments } = await supabase
+      .from('payments')
+      .select('id, lead_id, amount, cleared, cleared_date')
+      .in('lead_id', leadIds)
+      .is('deleted_at', null);
+    
+    paymentsData = payments || [];
+  }
+
+  // Group payments by lead_id
+  const paymentsByLead: Record<string, any[]> = {};
+  paymentsData.forEach(payment => {
+    if (!paymentsByLead[payment.lead_id]) {
+      paymentsByLead[payment.lead_id] = [];
+    }
+    paymentsByLead[payment.lead_id].push(payment);
+  });
+
   const today = new Date();
 
   // Calculate totals using ACTUAL payment data
@@ -102,10 +119,9 @@ export async function getRevenueCollectionsData(
   invoices?.forEach(inv => {
     totalRevenue += inv.total || 0;
 
-    // Calculate actual paid amount from cleared payments
-    const clearedPayments = (inv.invoice_payments as any[])?.filter(
-      p => p.status === 'cleared' || p.status === 'pending'
-    ) || [];
+    // Get all cleared payments for this lead
+    const leadPayments = paymentsByLead[inv.lead_id] || [];
+    const clearedPayments = leadPayments.filter(p => p.cleared === true);
     const paidAmount = clearedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const remainingBalance = (inv.total || 0) - paidAmount;
 
@@ -138,9 +154,8 @@ export async function getRevenueCollectionsData(
       monthlyData[monthKey].revenue += invoice.total || 0;
       
       // Calculate paid amount from payments
-      const clearedPayments = (invoice.invoice_payments as any[])?.filter(
-        p => p.status === 'cleared' || p.status === 'pending'
-      ) || [];
+      const leadPayments = paymentsByLead[invoice.lead_id] || [];
+      const clearedPayments = leadPayments.filter(p => p.cleared === true);
       const paidAmount = clearedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
       const remainingBalance = (invoice.total || 0) - paidAmount;
 
@@ -155,10 +170,9 @@ export async function getRevenueCollectionsData(
 
   const outstandingInvoices = invoices
     ?.map(inv => {
-      // Calculate actual paid and remaining balance
-      const clearedPayments = (inv.invoice_payments as any[])?.filter(
-        p => p.status === 'cleared' || p.status === 'pending'
-      ) || [];
+      // Get all cleared payments for this lead
+      const leadPayments = paymentsByLead[inv.lead_id] || [];
+      const clearedPayments = leadPayments.filter(p => p.cleared === true);
       const paidAmount = clearedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
       const remainingBalance = (inv.total || 0) - paidAmount;
 

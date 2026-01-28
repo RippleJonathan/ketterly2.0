@@ -120,6 +120,9 @@ export default function RevenueCollectionsPage() {
                 id="endDate"
                 type="date"
                 value={filters.endDate || ""}
+                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              />
+            </div>
             <div>
               <Label htmlFor="location">Location</Label>
               <Select

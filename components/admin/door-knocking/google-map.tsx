@@ -52,12 +52,8 @@ export function GoogleMapComponent({
       const mapInstance = new google.maps.Map(mapRef.current, {
         center: defaultCenter,
         zoom,
-        mapTypeId: 'roadmap',
-        mapTypeControl: true,         // Keep map/satellite toggle
-        mapTypeControlOptions: {
-          style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-          position: google.maps.ControlPosition.TOP_RIGHT,
-        },
+        mapTypeId: 'satellite',        // Default to satellite view
+        mapTypeControl: false,         // Hide map/satellite toggle (moved to drawer)
         zoomControl: false,            // Remove + and - buttons
         streetViewControl: false,      // Remove street view pegman
         fullscreenControl: false,      // Remove fullscreen button
@@ -145,35 +141,9 @@ export function GoogleMapComponent({
     };
   }, [map, pins, onPinClick]);
 
-  const toggleTracking = useCallback(() => {
-    if (!isTracking && map && userLocation) {
-      // When enabling tracking, center and zoom first
-      map.panTo(userLocation);
-      map.setZoom(17);
-    }
-    setIsTracking(!isTracking);
-  }, [isTracking, map, userLocation]);
-
   return (
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
-      
-      {userLocation && (
-        <button
-          onClick={toggleTracking}
-          className={`absolute bottom-6 left-6 rounded-full p-3 shadow-lg hover:shadow-xl transition-all ${
-            isTracking 
-              ? 'bg-blue-600 text-white ring-2 ring-blue-400' 
-              : 'bg-white text-blue-600'
-          }`}
-          title={isTracking ? 'Stop following location' : 'Follow my location'}
-        >
-          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
-      )}
     </div>
   );
 }

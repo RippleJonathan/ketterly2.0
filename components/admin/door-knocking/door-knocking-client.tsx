@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Info, MapPin, Navigation, Search } from 'lucide-react';
+import { Settings, MapPin, Navigation, Search, Map } from 'lucide-react';
 import { useDoorKnockPins, useCreateDoorKnockPin, useUpdateDoorKnockPin, useDeleteDoorKnockPin, useUserLocation } from '@/lib/hooks/use-door-knock';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { DoorKnockPinWithUser, DoorKnockPinInsert } from '@/lib/types/door-knock';
@@ -34,6 +34,7 @@ export function DoorKnockingClient() {
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+  const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('satellite');
   
   // Address search state
   const [addressSearch, setAddressSearch] = useState('');
@@ -136,6 +137,14 @@ export function DoorKnockingClient() {
     setIsTracking(!isTracking);
   };
 
+  const handleMapTypeToggle = () => {
+    const newType = mapType === 'roadmap' ? 'satellite' : 'roadmap';
+    setMapType(newType);
+    if (mapInstance) {
+      mapInstance.setMapTypeId(newType);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -162,9 +171,8 @@ export function DoorKnockingClient() {
       <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
         <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
           <SheetTrigger asChild>
-            <Button variant="secondary" size="sm" className="shadow-lg">
-              <Info className="w-4 h-4 mr-2" />
-              Controls
+            <Button variant="secondary" size="icon" className="shadow-lg h-9 w-9">
+              <Settings className="w-5 h-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[90vw] sm:w-[400px] overflow-y-auto">
@@ -189,6 +197,28 @@ export function DoorKnockingClient() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Start typing to see suggestions
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t" />
+
+              {/* Map Type Toggle */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">
+                  <Map className="w-4 h-4 inline mr-2" />
+                  Map View
+                </Label>
+                <Button
+                  variant={mapType === 'satellite' ? "default" : "outline"}
+                  size="sm"
+                  onClick={handleMapTypeToggle}
+                  className="w-full"
+                >
+                  {mapType === 'satellite' ? 'Satellite View' : 'Road Map View'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Switch between {mapType === 'satellite' ? 'road map' : 'satellite'} view
                 </p>
               </div>
 

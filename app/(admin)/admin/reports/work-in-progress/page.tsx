@@ -115,7 +115,7 @@ export default function WorkInProgressPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -139,16 +139,6 @@ export default function WorkInProgressPage() {
           <CardContent>
             <div className="text-2xl font-bold">
               ${((wipData?.totalValue || 0) / 1000).toFixed(1)}k
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Material Costs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${((wipData?.totalMaterialCosts || 0) / 1000).toFixed(1)}k
             </div>
           </CardContent>
         </Card>

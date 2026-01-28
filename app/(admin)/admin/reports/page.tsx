@@ -29,13 +29,6 @@ const reports: ReportCard[] = [
     color: "text-blue-600",
   },
   {
-    title: "Sales Pipeline",
-    description: "Monitor leads through each stage of your sales funnel with conversion rates and stage metrics.",
-    icon: BarChart3,
-    href: "/admin/reports/sales-pipeline",
-    color: "text-green-600",
-  },
-  {
     title: "Revenue & Collections",
     description: "View revenue trends, outstanding invoices, aging reports, and payment collection metrics.",
     icon: DollarSign,
@@ -48,13 +41,6 @@ const reports: ReportCard[] = [
     icon: TrendingUp,
     href: "/admin/reports/work-in-progress",
     color: "text-orange-600",
-  },
-  {
-    title: "Team Performance",
-    description: "Analyze individual and team metrics including conversion rates, revenue, and response times.",
-    icon: Users,
-    href: "/admin/reports/team-performance",
-    color: "text-purple-600",
   },
   {
     title: "Commission Reports",

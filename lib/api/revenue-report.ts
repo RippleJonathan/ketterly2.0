@@ -11,7 +11,7 @@ export interface RevenueCollectionsData {
     lead_id: string;
     lead_name: string;
     total: number;
-    due_date: string;
+    due_date: string | null;
     days_overdue: number;
     status: string;
   }[];
@@ -53,7 +53,9 @@ export async function getRevenueCollectionsData(
       )
     `)
     .eq('company_id', companyId)
-    .is('deleted_at', null);
+    .is('deleted_at', null)
+    // CRITICAL: Only include sent/partial/paid invoices, NOT drafts
+    .in('status', ['sent', 'partial', 'paid', 'completed', 'overdue']);
 
   if (startDate) query = query.gte('created_at', startDate);
   if (endDate) query = query.lte('created_at', endDate);
@@ -121,8 +123,24 @@ export async function getRevenueCollectionsData(
 
   const today = new Date();
   const outstandingInvoices = invoices
-    ?.filter(inv => inv.status !== 'paid' && inv.status !== 'completed' && inv.status !== 'cancelled')
+    ?.filter(inv => {
+      // Only include sent/partial/overdue invoices (not paid, completed, cancelled, or draft)
+      return inv.status === 'sent' || inv.status === 'partial' || inv.status === 'overdue';
+    })
     .map(inv => {
+      // Handle null/undefined due dates
+      if (!inv.due_date) {
+        return {
+          id: inv.id,
+          lead_id: inv.lead_id,
+          lead_name: (inv.leads as any)?.full_name || 'Unknown',
+          total: inv.total || 0,
+          due_date: null,
+          days_overdue: 0,
+          status: inv.status,
+        };
+      }
+
       const dueDate = new Date(inv.due_date);
       const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
       

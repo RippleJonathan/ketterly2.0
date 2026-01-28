@@ -216,14 +216,17 @@ export default function RevenueCollectionsPage() {
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">{invoice.lead_name}</TableCell>
                   <TableCell>${invoice.total.toLocaleString()}</TableCell>
-                  <TableCell>{format(new Date(invoice.due_date), "MMM dd, yyyy")}</TableCell>
+                  <TableCell>
+                    {invoice.due_date ? format(new Date(invoice.due_date), "MMM dd, yyyy") : "No due date"}
+                  </TableCell>
                   <TableCell className={invoice.days_overdue > 0 ? "text-red-600 font-semibold" : ""}>
                     {invoice.days_overdue > 0 ? invoice.days_overdue : "Current"}
                   </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs ${
                       invoice.status === "overdue" ? "bg-red-100 text-red-800" :
-                      invoice.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                      invoice.status === "partial" ? "bg-yellow-100 text-yellow-800" :
+                      invoice.status === "sent" ? "bg-blue-100 text-blue-800" :
                       "bg-gray-100 text-gray-800"
                     }`}>
                       {invoice.status}

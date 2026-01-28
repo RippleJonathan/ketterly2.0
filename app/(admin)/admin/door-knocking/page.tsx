@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export default function DoorKnockingPage() {
   return (
-    <div className="absolute inset-0 top-16">
+    <div className="fixed inset-0 top-16 left-0 md:left-64">
       <Suspense fallback={
-        <div className="flex items-center justify-center h-screen">
+        <div className="flex items-center justify-center h-full w-full">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       }>

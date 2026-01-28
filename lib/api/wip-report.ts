@@ -81,11 +81,20 @@ export async function getWorkInProgressData(
     };
   }
 
+  console.log('WIP Debug - Raw leads fetched:', leadsData?.length || 0);
+  console.log('WIP Debug - Sample lead:', leadsData?.[0]);
+
   // Filter for leads with accepted quotes
   const leads = leadsData?.filter((lead: any) => {
     const quotes = lead.quotes || [];
-    return quotes.some((quote: any) => quote.status === 'accepted');
+    const hasAcceptedQuote = quotes.some((quote: any) => quote.status === 'accepted');
+    if (!hasAcceptedQuote && quotes.length > 0) {
+      console.log('WIP Debug - Lead filtered out. Quote statuses:', quotes.map((q: any) => q.status));
+    }
+    return hasAcceptedQuote;
   }) || [];
+
+  console.log('WIP Debug - Leads after filtering:', leads.length);
 
   if (error) {
     console.error('Error fetching WIP data:', error);

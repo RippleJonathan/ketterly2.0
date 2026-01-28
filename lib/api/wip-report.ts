@@ -81,20 +81,11 @@ export async function getWorkInProgressData(
     };
   }
 
-  console.log('WIP Debug - Raw leads fetched:', leadsData?.length || 0);
-  console.log('WIP Debug - Sample lead:', leadsData?.[0]);
-
   // Filter for leads with accepted quotes
   const leads = leadsData?.filter((lead: any) => {
     const quotes = lead.quotes || [];
-    const hasAcceptedQuote = quotes.some((quote: any) => quote.status === 'accepted');
-    if (!hasAcceptedQuote && quotes.length > 0) {
-      console.log('WIP Debug - Lead filtered out. Quote statuses:', quotes.map((q: any) => q.status));
-    }
-    return hasAcceptedQuote;
+    return quotes.some((quote: any) => quote.status === 'accepted');
   }) || [];
-
-  console.log('WIP Debug - Leads after filtering:', leads.length);
 
   if (error) {
     console.error('Error fetching WIP data:', error);
@@ -122,14 +113,8 @@ export async function getWorkInProgressData(
   const projects: WIPProject[] = leads?.map(lead => {
     const quote = (lead.quotes as any)?.[0];
     
-    console.log('WIP Debug - Lead:', lead.full_name);
-    console.log('WIP Debug - Lead sub_status:', lead.sub_status);
-    console.log('WIP Debug - Quote data:', quote);
-    console.log('WIP Debug - Quote total:', quote?.total);
-    console.log('WIP Debug - Quote subtotal:', quote?.subtotal);
-    
-    const totalValue = quote?.total || 0;
-    // Use subtotal for total costs (includes labor + materials)
+    // Use subtotal for both total value and costs (total field is often 0)
+    const totalValue = quote?.subtotal || 0;
     const materialCosts = quote?.subtotal || 0;
     
     // Use quote updated_at as production start (when quote was accepted)

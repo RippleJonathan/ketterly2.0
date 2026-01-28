@@ -233,8 +233,6 @@ export function DoorKnockingClient() {
 
               {/* Pin Filter Toggle */}
               <div className="space-y-2">
-              {/* Pin Filter Toggle */}
-              <div className="space-y-2">
                 <Label className="text-base font-semibold">
                   <MapPin className="w-4 h-4 inline mr-2" />
                   Pin Filter

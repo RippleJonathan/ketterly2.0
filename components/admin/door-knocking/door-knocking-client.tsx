@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleMapComponent } from './google-map';
 import { PinModal } from './pin-modal';
 import { LeadFormFromPin } from './lead-form-from-pin';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -116,6 +116,12 @@ export function DoorKnockingClient() {
         fields: ['geometry', 'formatted_address'],
       });
 
+      // Set higher z-index for autocomplete dropdown to appear above sheet
+      const pacContainer = document.querySelector('.pac-container') as HTMLElement;
+      if (pacContainer) {
+        pacContainer.style.zIndex = '10000';
+      }
+
       autocompleteRef.current.addListener('place_changed', () => {
         const place = autocompleteRef.current?.getPlace();
         if (place?.geometry?.location) {
@@ -141,6 +147,23 @@ export function DoorKnockingClient() {
       }
     };
   }, [controlsOpen, mapInstance]);
+
+  // Set z-index for autocomplete dropdown when it appears
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const pacContainer = document.querySelector('.pac-container') as HTMLElement;
+      if (pacContainer) {
+        pacContainer.style.zIndex = '10000';
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: false,
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleLocationToggle = () => {
     if (!isTracking && mapInstance && userLocation) {
@@ -185,16 +208,26 @@ export function DoorKnockingClient() {
       />
 
       {/* Unified Controls Sheet - Mobile Optimized */}
-      <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
-        <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
-          <SheetTrigger asChild>
-            <Button variant="secondary" size="icon" className="shadow-lg h-9 w-9">
-              <Settings className="w-5 h-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[90vw] sm:w-[400px] overflow-y-auto">
+      {!controlsOpen && (
+        <div className="absolute top-4 left-4 lg:left-72 z-[1000]">
+          <Button 
+            variant="secondary" 
+            size="icon" 
+            className="shadow-lg h-9 w-9"
+            onClick={() => setControlsOpen(true)}
+          >
+            <Settings className="w-5 h-5" />
+          </Button>
+        </div>
+      )}
+
+      <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
+        <SheetContent side="left" className="w-[90vw] sm:w-[400px] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>Map Controls</SheetTitle>
+              <SheetDescription className="sr-only">
+                Control map settings including address search, location tracking, map view type, pin filters, and legend
+              </SheetDescription>
             </SheetHeader>
             <div className="space-y-6 py-4">
               {/* Address Search */}

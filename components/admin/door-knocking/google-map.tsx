@@ -4,6 +4,17 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { DoorKnockPinType, getPinColor } from '@/lib/types/door-knock';
 import type { DoorKnockPinWithUser } from '@/lib/types/door-knock';
 
+// Hide Google Maps camera controls with CSS
+if (typeof window !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = `
+    .gm-style-cc { display: none !important; }
+    .gmnoprint { display: none !important; }
+    .gm-style-mtc { display: none !important; }
+  `;
+  document.head.appendChild(style);
+}
+
 interface GoogleMapProps {
   pins: DoorKnockPinWithUser[];
   userLocation: { lat: number; lng: number } | null;
@@ -43,6 +54,18 @@ export function GoogleMapComponent({
         await new Promise((resolve) => {
           script.onload = resolve;
         });
+      }
+
+      // Hide Google Maps UI controls with CSS
+      const hideControlsStyle = document.createElement('style');
+      hideControlsStyle.textContent = `
+        .gm-style-cc { display: none !important; }
+        .gmnoprint:not(.gm-bundled-control) { display: none !important; }
+        .gm-style-mtc { display: none !important; }
+      `;
+      if (!document.getElementById('hide-gmaps-controls')) {
+        hideControlsStyle.id = 'hide-gmaps-controls';
+        document.head.appendChild(hideControlsStyle);
       }
 
       if (!mapRef.current) return;

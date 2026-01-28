@@ -21,12 +21,13 @@ export async function recalculateLeadCommissions(
   let updated = 0
 
   try {
-    // Get all active commissions for this lead
+    // Get all active commissions for this lead with assignment field
     const { data: commissions, error: fetchError } = await supabase
       .from('lead_commissions')
       .select(`
         id,
         user_id,
+        assignment_field,
         commission_plan_id,
         commission_type,
         commission_rate,
@@ -70,14 +71,61 @@ export async function recalculateLeadCommissions(
       try {
         let newCalculatedAmount = 0
         let newBaseAmount = 0
+        let updatedCommType = comm.commission_type
+        let updatedCommRate = comm.commission_rate
+        let updatedFlatAmt = comm.flat_amount
+
+        // Get user's current role-based commission settings if assignment_field exists
+        if (comm.assignment_field && comm.user_id) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select(`
+              sales_commission_type,
+              sales_commission_rate,
+              sales_flat_amount,
+              marketing_commission_type,
+              marketing_commission_rate,
+              marketing_flat_amount,
+              production_commission_type,
+              production_commission_rate,
+              production_flat_amount
+            `)
+            .eq('id', comm.user_id)
+            .single()
+
+          if (userData) {
+            // Map assignment_field to correct commission fields
+            const rolePrefix = comm.assignment_field.replace('_id', '') // 'sales_rep' | 'marketing_rep' | etc.
+            
+            if (rolePrefix === 'sales_rep' || rolePrefix === 'sales_manager') {
+              updatedCommType = userData.sales_commission_type || comm.commission_type
+              updatedCommRate = userData.sales_commission_rate || comm.commission_rate
+              updatedFlatAmt = userData.sales_flat_amount || comm.flat_amount
+            } else if (rolePrefix === 'marketing_rep') {
+              updatedCommType = userData.marketing_commission_type || comm.commission_type
+              updatedCommRate = userData.marketing_commission_rate || comm.commission_rate
+              updatedFlatAmt =|| // Always update base_amount if we have a new value
+          updatedCommType !== comm.commission_type ||
+          updatedCommRate !== comm.commission_rate ||
+          updatedFlatAmt !== comm.flat_amount
+        ) {
+          const { error: updateError } = await updateLeadCommission(comm.id, companyId, {
+            commission_type: updatedCommType,
+            commission_rate: updatedCommRate,
+            flat_amount: updatedFlatAmt,pe
+              updatedCommRate = userData.production_commission_rate || comm.commission_rate
+              updatedFlatAmt = userData.production_flat_amount || comm.flat_amount
+            }
+            
+            console.log(`   🔄 Updated ${rolePrefix} rate from stored ${comm.commission_rate}% to current ${updatedCommRate}%`)
+          }
+        }
 
         // Determine commission type and amount
-        // Prefer plan values over commission record values (plan is source of truth)
-        // BUT only if plan exists (office commissions don't have plans)
-        const plan = comm.commission_plans
-        const commType = plan ? plan.commission_type : comm.commission_type
-        const commRate = plan && plan.commission_rate !== null ? plan.commission_rate : comm.commission_rate
-        const flatAmt = plan && plan.flat_amount !== null ? plan.flat_amount : comm.flat_amount
+        // Use updated values from user's current settings
+        const commType = updatedCommType
+        const commRate = updatedCommRate
+        const flatAmt = updatedFlatAmt
 
         if (commType === 'flat_amount') {
           // Flat commission - use flat_amount directly

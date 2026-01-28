@@ -6,6 +6,7 @@ import { ActivityTimeline } from '@/components/admin/leads/activity-timeline'
 import { AddActivityForm } from '@/components/admin/leads/add-activity-form'
 import { NotesTab } from '@/components/admin/leads/notes-tab'
 import { StageChecklist } from '@/components/admin/leads/stage-checklist'
+import { PipelineProgress } from '@/components/admin/leads/pipeline-progress'
 import { EstimatesTab } from '@/components/admin/leads/estimates-tab'
 import { EventsTab } from '@/components/admin/leads/events-tab'
 import { FilesTab } from '@/components/admin/leads/files-tab'
@@ -108,7 +109,7 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   const allTabs = [
     { id: 'details', label: 'Details', icon: FileText, permission: 'can_view_lead_details' },
     { id: 'events', label: 'Events', icon: Calendar, permission: null }, // No specific permission - open to all
-    { id: 'checklist', label: 'Checklist', icon: CheckSquare, permission: 'can_view_lead_checklist' },
+    { id: 'checklist', label: 'Status', icon: CheckSquare, permission: 'can_view_lead_checklist' },
     { id: 'measurements', label: 'Measurements', icon: Ruler, permission: 'can_view_lead_measurements' },
     { id: 'estimates', label: 'Estimates', icon: DollarSign, permission: 'can_view_lead_estimates' },
     { id: 'work-orders', label: 'Orders', icon: ClipboardList, permission: 'can_view_lead_orders' },
@@ -172,8 +173,8 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
       <LeadSummaryCard lead={lead} leadId={id} />
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex flex-wrap gap-x-8 gap-y-2" aria-label="Tabs">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <nav className="flex overflow-x-auto" aria-label="Tabs">
           {tabs.map((tabItem) => {
             const isActive = tab === tabItem.id
             const Icon = tabItem.icon
@@ -182,16 +183,20 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
                 key={tabItem.id}
                 href={`/admin/leads/${id}?tab=${tabItem.id}`}
                 className={`
-                  flex items-center gap-2 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                  relative flex items-center justify-center gap-2 whitespace-nowrap px-6 py-4 font-medium text-sm
+                  transition-all duration-200
                   ${
                     isActive
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }
                 `}
               >
                 <Icon className="h-4 w-4" />
-                {tabItem.label}
+                <span className="hidden sm:inline">{tabItem.label}</span>
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
               </Link>
             )
           })}
@@ -418,6 +423,13 @@ function DetailsTab({ lead }: { lead: any }) {
 function ChecklistTab({ leadId, currentStage }: { leadId: string; currentStage: string }) {
   return (
     <div className="space-y-6">
+      {/* Pipeline Progress */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Pipeline Status</h2>
+        <PipelineProgress leadId={leadId} currentStatus={currentStage} />
+      </div>
+
+      {/* Stage Checklist */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Stage Checklist</h2>

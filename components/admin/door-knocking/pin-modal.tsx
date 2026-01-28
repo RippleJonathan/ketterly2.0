@@ -139,8 +139,11 @@ export function PinModal({
           </div>
 
           {mode === 'edit' && existingPin && (
-            <div className="text-xs text-muted-foreground">
-              Created {new Date(existingPin.created_at).toLocaleString()}
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div>Created {new Date(existingPin.created_at).toLocaleString()}</div>
+              {existingPin.created_by_user && (
+                <div>Dropped by {existingPin.created_by_user.full_name}</div>
+              )}
             </div>
           )}
         </div>

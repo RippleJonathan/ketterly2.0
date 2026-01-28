@@ -141,6 +141,78 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
   const quoteTotal = financialsData?.data?.summary?.quote_total || 0
   const changeOrdersTotal = financialsData?.data?.summary?.change_orders_total || 0
 
+  // Define handleRefresh callback BEFORE any conditional returns (React hooks rules)
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      // Auto-create/update commissions for all assigned users
+      if (company?.id) {
+        const assignedUsers = [
+          lead.sales_rep_id,
+          lead.marketing_rep_id,
+          lead.sales_manager_id,
+          lead.production_manager_id,
+        ].filter(Boolean)
+
+        // Create commissions for each assigned user with their respective roles
+        // Map users to their assignment fields to use correct commission rates
+        const userFieldMap: Array<{ userId: string, field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
+        
+        if (lead.sales_rep_id) userFieldMap.push({ userId: lead.sales_rep_id, field: 'sales_rep_id' })
+        if (lead.marketing_rep_id) userFieldMap.push({ userId: lead.marketing_rep_id, field: 'marketing_rep_id' })
+        if (lead.sales_manager_id) userFieldMap.push({ userId: lead.sales_manager_id, field: 'sales_manager_id' })
+        if (lead.production_manager_id) userFieldMap.push({ userId: lead.production_manager_id, field: 'production_manager_id' })
+        
+        // Create commissions for all assigned users (with skipCancelOthers=true)
+        if (userFieldMap.length > 0) {
+          const promises = userFieldMap.map(({ userId, field }) => 
+            autoCreateCommission(lead.id, userId, company.id, currentUser?.data?.id || null, field, true)
+              .catch(err => {
+                console.error(`Failed to auto-create commission for ${field}:`, err)
+                return { success: false }
+              })
+          )
+          await Promise.all(promises)
+        }
+        
+        // Create office/team lead commissions (separate call to avoid race conditions)
+        if (lead.sales_rep_id) {
+          const { createOfficeAndTeamCommissions } = await import('@/lib/utils/auto-commission')
+          await createOfficeAndTeamCommissions(lead.id, lead.sales_rep_id, company.id)
+        }
+        
+        // Recalculate all commission amounts based on current invoice
+        const { recalculateLeadCommissions } = await import('@/lib/utils/recalculate-commissions')
+        const result = await recalculateLeadCommissions(lead.id, company.id)
+        
+        if (!result.success && result.errors.length > 0) {
+          console.error('Recalculation errors:', result.errors)
+        }
+        
+        console.log(`✅ Recalculated ${result.updated} commission(s)`)
+      }
+
+      // Refresh the commission data
+      await Promise.all([refetchCommissions(), refetchSummary()])
+      toast.success('Commissions refreshed and updated')
+    } catch (error) {
+      console.error('Refresh error:', error)
+      toast.error('Failed to refresh commissions')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [company?.id, lead.id, lead.sales_rep_id, lead.marketing_rep_id, lead.sales_manager_id, lead.production_manager_id, currentUser?.data?.id, refetchCommissions, refetchSummary])
+
+  // Auto-refresh commissions when tab is first opened
+  // This useEffect must also be BEFORE conditional returns
+  useEffect(() => {
+    if (!hasAutoRefreshed.current && company?.id && lead.id) {
+      console.log('🔄 Auto-refreshing commissions on tab load')
+      hasAutoRefreshed.current = true
+      handleRefresh()
+    }
+  }, [company?.id, lead.id, handleRefresh])
+
   if (!canView) {
     return (
       <div className="text-center py-12">
@@ -223,76 +295,6 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
       return next
     })
   }
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true)
-    try {
-      // Auto-create/update commissions for all assigned users
-      if (company?.id) {
-        const assignedUsers = [
-          lead.sales_rep_id,
-          lead.marketing_rep_id,
-          lead.sales_manager_id,
-          lead.production_manager_id,
-        ].filter(Boolean)
-
-        // Create commissions for each assigned user with their respective roles
-        // Map users to their assignment fields to use correct commission rates
-        const userFieldMap: Array<{ userId: string, field: 'sales_rep_id' | 'marketing_rep_id' | 'sales_manager_id' | 'production_manager_id' }> = []
-        
-        if (lead.sales_rep_id) userFieldMap.push({ userId: lead.sales_rep_id, field: 'sales_rep_id' })
-        if (lead.marketing_rep_id) userFieldMap.push({ userId: lead.marketing_rep_id, field: 'marketing_rep_id' })
-        if (lead.sales_manager_id) userFieldMap.push({ userId: lead.sales_manager_id, field: 'sales_manager_id' })
-        if (lead.production_manager_id) userFieldMap.push({ userId: lead.production_manager_id, field: 'production_manager_id' })
-        
-        // Create commissions for all assigned users (with skipCancelOthers=true)
-        if (userFieldMap.length > 0) {
-          const promises = userFieldMap.map(({ userId, field }) => 
-            autoCreateCommission(lead.id, userId, company.id, currentUser?.data?.id || null, field, true)
-              .catch(err => {
-                console.error(`Failed to auto-create commission for ${field}:`, err)
-                return { success: false }
-              })
-          )
-          await Promise.all(promises)
-        }
-        
-        // Create office/team lead commissions (separate call to avoid race conditions)
-        if (lead.sales_rep_id) {
-          const { createOfficeAndTeamCommissions } = await import('@/lib/utils/auto-commission')
-          await createOfficeAndTeamCommissions(lead.id, lead.sales_rep_id, company.id)
-        }
-        
-        // Recalculate all commission amounts based on current invoice
-        const { recalculateLeadCommissions } = await import('@/lib/utils/recalculate-commissions')
-        const result = await recalculateLeadCommissions(lead.id, company.id)
-        
-        if (!result.success && result.errors.length > 0) {
-          console.error('Recalculation errors:', result.errors)
-        }
-        
-        console.log(`✅ Recalculated ${result.updated} commission(s)`)
-      }
-
-      // Refresh the commission data
-      await Promise.all([refetchCommissions(), refetchSummary()])
-      toast.success('Commissions refreshed and updated')
-    } catch (error) {
-      console.error('Refresh error:', error)
-      toast.error('Failed to refresh commissions')
-    } finally {
-      setIsRefreshing(false)
-    }
-  }, [company?.id, lead.id, lead.sales_rep_id, lead.marketing_rep_id, lead.sales_manager_id, lead.production_manager_id, currentUser?.data?.id, refetchCommissions, refetchSummary])
-
-  // Auto-refresh commissions when tab is first opened
-  useEffect(() => {
-    if (!hasAutoRefreshed.current && company?.id && lead.id) {
-      console.log('🔄 Auto-refreshing commissions on tab load')
-      hasAutoRefreshed.current = true
-      handleRefresh()
-    }
-  }, [company?.id, lead.id, handleRefresh])
 
   return (
     <div className="space-y-6">

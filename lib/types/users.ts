@@ -44,12 +44,15 @@ export interface User {
   sales_commission_type: 'percentage' | 'flat_amount' | null
   sales_commission_rate: number | null
   sales_flat_amount: number | null
+  sales_paid_when: 'when_deposit_paid' | 'when_job_completed' | 'when_final_payment' | 'custom' | null
   marketing_commission_type: 'percentage' | 'flat_amount' | null
   marketing_commission_rate: number | null
   marketing_flat_amount: number | null
+  marketing_paid_when: 'when_deposit_paid' | 'when_job_completed' | 'when_final_payment' | 'custom' | null
   production_commission_type: 'percentage' | 'flat_amount' | null
   production_commission_rate: number | null
   production_flat_amount: number | null
+  production_paid_when: 'when_deposit_paid' | 'when_job_completed' | 'when_final_payment' | 'custom' | null
   
   // Personal
   date_of_birth: string | null

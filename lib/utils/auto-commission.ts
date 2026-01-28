@@ -37,12 +37,15 @@ async function getUserCommissionConfig(
       sales_commission_type,
       sales_commission_rate,
       sales_flat_amount,
+      sales_paid_when,
       marketing_commission_type,
       marketing_commission_rate,
       marketing_flat_amount,
+      marketing_paid_when,
       production_commission_type,
       production_commission_rate,
-      production_flat_amount
+      production_flat_amount,
+      production_paid_when
     `)
     .eq('id', userId)
     .eq('company_id', companyId)
@@ -98,19 +101,23 @@ async function getUserCommissionConfig(
   let roleCommType: 'percentage' | 'flat_amount' | null = null
   let roleCommRate: number | null = null
   let roleFlatAmount: number | null = null
+  let rolePaidWhen: string = 'when_final_payment'
   
   if (rolePrefix === 'sales_rep' || rolePrefix === 'sales_manager') {
     roleCommType = user.sales_commission_type
     roleCommRate = user.sales_commission_rate
     roleFlatAmount = user.sales_flat_amount
+    rolePaidWhen = user.sales_paid_when || 'when_final_payment'
   } else if (rolePrefix === 'marketing_rep') {
     roleCommType = user.marketing_commission_type
     roleCommRate = user.marketing_commission_rate
     roleFlatAmount = user.marketing_flat_amount
+    rolePaidWhen = user.marketing_paid_when || 'when_final_payment'
   } else if (rolePrefix === 'production_manager') {
     roleCommType = user.production_commission_type
     roleCommRate = user.production_commission_rate
     roleFlatAmount = user.production_flat_amount
+    rolePaidWhen = user.production_paid_when || 'when_final_payment'
   }
   
   if (roleCommType && (roleCommRate || roleFlatAmount)) {
@@ -118,7 +125,7 @@ async function getUserCommissionConfig(
       commissionType: roleCommType,
       commissionRate: roleCommType === 'percentage' ? roleCommRate : null,
       flatAmount: roleCommType === 'flat_amount' ? roleFlatAmount : null,
-      paidWhen: 'when_final_payment', // Default
+      paidWhen: rolePaidWhen,
       source: 'role'
     }
   }

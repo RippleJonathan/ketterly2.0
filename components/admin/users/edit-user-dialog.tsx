@@ -43,12 +43,15 @@ const editUserSchema = z.object({
   sales_commission_type: z.enum(['percentage', 'flat_amount']).optional().nullable(),
   sales_commission_rate: z.number().min(0).max(100).optional().nullable(),
   sales_flat_amount: z.number().min(0).optional().nullable(),
+  sales_paid_when: z.enum(['when_deposit_paid', 'when_job_completed', 'when_final_payment', 'custom']).optional().nullable(),
   marketing_commission_type: z.enum(['percentage', 'flat_amount']).optional().nullable(),
   marketing_commission_rate: z.number().min(0).max(100).optional().nullable(),
   marketing_flat_amount: z.number().min(0).optional().nullable(),
+  marketing_paid_when: z.enum(['when_deposit_paid', 'when_job_completed', 'when_final_payment', 'custom']).optional().nullable(),
   production_commission_type: z.enum(['percentage', 'flat_amount']).optional().nullable(),
   production_commission_rate: z.number().min(0).max(100).optional().nullable(),
   production_flat_amount: z.number().min(0).optional().nullable(),
+  production_paid_when: z.enum(['when_deposit_paid', 'when_job_completed', 'when_final_payment', 'custom']).optional().nullable(),
 })
 
 type EditUserFormData = z.infer<typeof editUserSchema>
@@ -74,12 +77,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       sales_commission_type: user.sales_commission_type || null,
       sales_commission_rate: user.sales_commission_rate || null,
       sales_flat_amount: user.sales_flat_amount || null,
+      sales_paid_when: user.sales_paid_when || 'when_final_payment',
       marketing_commission_type: user.marketing_commission_type || null,
       marketing_commission_rate: user.marketing_commission_rate || null,
       marketing_flat_amount: user.marketing_flat_amount || null,
+      marketing_paid_when: user.marketing_paid_when || 'when_final_payment',
       production_commission_type: user.production_commission_type || null,
       production_commission_rate: user.production_commission_rate || null,
       production_flat_amount: user.production_flat_amount || null,
+      production_paid_when: user.production_paid_when || 'when_final_payment',
     },
   })
 
@@ -93,12 +99,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       sales_commission_type: user.sales_commission_type || null,
       sales_commission_rate: user.sales_commission_rate || null,
       sales_flat_amount: user.sales_flat_amount || null,
+      sales_paid_when: user.sales_paid_when || 'when_final_payment',
       marketing_commission_type: user.marketing_commission_type || null,
       marketing_commission_rate: user.marketing_commission_rate || null,
       marketing_flat_amount: user.marketing_flat_amount || null,
+      marketing_paid_when: user.marketing_paid_when || 'when_final_payment',
       production_commission_type: user.production_commission_type || null,
       production_commission_rate: user.production_commission_rate || null,
       production_flat_amount: user.production_flat_amount || null,
+      production_paid_when: user.production_paid_when || 'when_final_payment',
     })
   }, [user, form])
 
@@ -111,12 +120,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       sales_commission_type: data.sales_commission_type || null,
       sales_commission_rate: data.sales_commission_rate || null,
       sales_flat_amount: data.sales_flat_amount || null,
+      sales_paid_when: data.sales_paid_when || 'when_final_payment',
       marketing_commission_type: data.marketing_commission_type || null,
       marketing_commission_rate: data.marketing_commission_rate || null,
       marketing_flat_amount: data.marketing_flat_amount || null,
+      marketing_paid_when: data.marketing_paid_when || 'when_final_payment',
       production_commission_type: data.production_commission_type || null,
       production_commission_rate: data.production_commission_rate || null,
       production_flat_amount: data.production_flat_amount || null,
+      production_paid_when: data.production_paid_when || 'when_final_payment',
     }
 
     await updateUser.mutateAsync({ userId: user.id, updates })
@@ -239,7 +251,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
               {/* Sales Commission */}
               <div className="space-y-3">
                 <h4 className="font-medium">Sales Commission</h4>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="sales_commission_type"
@@ -309,13 +321,40 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="sales_paid_when"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Paid When</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || 'when_final_payment'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select timing" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="when_deposit_paid">First Deposit</SelectItem>
+                            <SelectItem value="when_job_completed">Job Completed</SelectItem>
+                            <SelectItem value="when_final_payment">Final Payment</SelectItem>
+                            <SelectItem value="custom">Custom</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 
               {/* Marketing Commission */}
               <div className="space-y-3">
                 <h4 className="font-medium">Marketing Commission</h4>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="marketing_commission_type"
@@ -385,13 +424,40 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="marketing_paid_when"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Paid When</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || 'when_final_payment'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select timing" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="when_deposit_paid">First Deposit</SelectItem>
+                            <SelectItem value="when_job_completed">Job Completed</SelectItem>
+                            <SelectItem value="when_final_payment">Final Payment</SelectItem>
+                            <SelectItem value="custom">Custom</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 
               {/* Production Commission */}
               <div className="space-y-3">
                 <h4 className="font-medium">Production Commission</h4>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="production_commission_type"
@@ -457,6 +523,33 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                             value={field.value || ''}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="production_paid_when"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Paid When</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || 'when_final_payment'}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select timing" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="when_deposit_paid">First Deposit</SelectItem>
+                            <SelectItem value="when_job_completed">Job Completed</SelectItem>
+                            <SelectItem value="when_final_payment">Final Payment</SelectItem>
+                            <SelectItem value="custom">Custom</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

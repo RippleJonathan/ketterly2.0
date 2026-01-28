@@ -74,6 +74,7 @@ export async function recalculateLeadCommissions(
         let updatedCommType = comm.commission_type
         let updatedCommRate = comm.commission_rate
         let updatedFlatAmt = comm.flat_amount
+        let updatedPaidWhen = comm.paid_when
 
         // Get user's current role-based commission settings if assignment_field exists
         if (comm.assignment_field && comm.user_id) {
@@ -83,12 +84,15 @@ export async function recalculateLeadCommissions(
               sales_commission_type,
               sales_commission_rate,
               sales_flat_amount,
+              sales_paid_when,
               marketing_commission_type,
               marketing_commission_rate,
               marketing_flat_amount,
+              marketing_paid_when,
               production_commission_type,
               production_commission_rate,
-              production_flat_amount
+              production_flat_amount,
+              production_paid_when
             `)
             .eq('id', comm.user_id)
             .single()
@@ -101,14 +105,17 @@ export async function recalculateLeadCommissions(
               updatedCommType = userData.sales_commission_type || comm.commission_type
               updatedCommRate = userData.sales_commission_rate || comm.commission_rate
               updatedFlatAmt = userData.sales_flat_amount || comm.flat_amount
+              updatedPaidWhen = userData.sales_paid_when || comm.paid_when
             } else if (rolePrefix === 'marketing_rep') {
               updatedCommType = userData.marketing_commission_type || comm.commission_type
               updatedCommRate = userData.marketing_commission_rate || comm.commission_rate
               updatedFlatAmt = userData.marketing_flat_amount || comm.flat_amount
+              updatedPaidWhen = userData.marketing_paid_when || comm.paid_when
             } else if (rolePrefix === 'production_manager') {
               updatedCommType = userData.production_commission_type || comm.commission_type
               updatedCommRate = userData.production_commission_rate || comm.commission_rate
               updatedFlatAmt = userData.production_flat_amount || comm.flat_amount
+              updatedPaidWhen = userData.production_paid_when || comm.paid_when
             }
             
             console.log(`   🔄 Updated ${rolePrefix} rate from stored ${comm.commission_rate}% to current ${updatedCommRate}%`)
@@ -148,12 +155,14 @@ export async function recalculateLeadCommissions(
           newBaseAmount !== 0 || // Always update base_amount if we have a new value
           updatedCommType !== comm.commission_type ||
           updatedCommRate !== comm.commission_rate ||
-          updatedFlatAmt !== comm.flat_amount
+          updatedFlatAmt !== comm.flat_amount ||
+          updatedPaidWhen !== comm.paid_when
         ) {
           const { error: updateError } = await updateLeadCommission(comm.id, companyId, {
             commission_type: updatedCommType,
             commission_rate: updatedCommRate,
             flat_amount: updatedFlatAmt,
+            paid_when: updatedPaidWhen,
             calculated_amount: newCalculatedAmount,
             base_amount: newBaseAmount,
             balance_owed: newBalanceOwed,

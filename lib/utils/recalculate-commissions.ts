@@ -104,15 +104,9 @@ export async function recalculateLeadCommissions(
             } else if (rolePrefix === 'marketing_rep') {
               updatedCommType = userData.marketing_commission_type || comm.commission_type
               updatedCommRate = userData.marketing_commission_rate || comm.commission_rate
-              updatedFlatAmt =|| // Always update base_amount if we have a new value
-          updatedCommType !== comm.commission_type ||
-          updatedCommRate !== comm.commission_rate ||
-          updatedFlatAmt !== comm.flat_amount
-        ) {
-          const { error: updateError } = await updateLeadCommission(comm.id, companyId, {
-            commission_type: updatedCommType,
-            commission_rate: updatedCommRate,
-            flat_amount: updatedFlatAmt,pe
+              updatedFlatAmt = userData.marketing_flat_amount || comm.flat_amount
+            } else if (rolePrefix === 'production_manager') {
+              updatedCommType = userData.production_commission_type || comm.commission_type
               updatedCommRate = userData.production_commission_rate || comm.commission_rate
               updatedFlatAmt = userData.production_flat_amount || comm.flat_amount
             }
@@ -151,9 +145,15 @@ export async function recalculateLeadCommissions(
         // Only update if values changed
         if (
           newCalculatedAmount !== comm.calculated_amount ||
-          newBaseAmount !== 0 // Always update base_amount if we have a new value
+          newBaseAmount !== 0 || // Always update base_amount if we have a new value
+          updatedCommType !== comm.commission_type ||
+          updatedCommRate !== comm.commission_rate ||
+          updatedFlatAmt !== comm.flat_amount
         ) {
           const { error: updateError } = await updateLeadCommission(comm.id, companyId, {
+            commission_type: updatedCommType,
+            commission_rate: updatedCommRate,
+            flat_amount: updatedFlatAmt,
             calculated_amount: newCalculatedAmount,
             base_amount: newBaseAmount,
             balance_owed: newBalanceOwed,

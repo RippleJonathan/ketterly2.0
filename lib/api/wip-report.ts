@@ -123,11 +123,16 @@ export async function getWorkInProgressData(
     
     // Calculate actual costs from line items (what we spend)
     const lineItems = quote?.quote_line_items || [];
-    const materialCosts = lineItems.reduce((sum: number, item: any) => {
+    let materialCosts = lineItems.reduce((sum: number, item: any) => {
       // Use actual_cost if available, otherwise estimated_cost
       const cost = item.actual_cost || item.estimated_cost || 0;
       return sum + cost;
     }, 0);
+    
+    // Fallback to subtotal if no cost data in line items
+    if (materialCosts === 0) {
+      materialCosts = quote?.subtotal || 0;
+    }
     
     // Use quote updated_at as production start (when quote was accepted)
     const startDate = new Date(quote?.updated_at || lead.created_at || new Date());

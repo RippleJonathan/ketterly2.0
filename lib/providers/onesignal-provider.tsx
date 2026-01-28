@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 
 export function OneSignalProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    // OneSignal is currently disabled
+    console.log('OneSignal: Push notifications are disabled')
+    /*
     const initOneSignal = async () => {
       const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
       
@@ -241,6 +244,7 @@ export function OneSignalProvider({ children }: { children: React.ReactNode }) {
     }
 
     initOneSignal()
+    */
   }, [])
 
   return <>{children}</>

@@ -32,7 +32,14 @@ export function DoorKnockingClient() {
   const [leadFormOpen, setLeadFormOpen] = useState(false);
   const [leadFormPin, setLeadFormPin] = useState<DoorKnockPinWithUser | undefined>();
   const [controlsOpen, setControlsOpen] = useState(false);
-  const [isTracking, setIsTracking] = useState(false);
+  const [isTracking, setIsTracking] = useState(() => {
+    // Load tracking state from localStorage on mount
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('doorKnocking_isTracking');
+      return saved === 'true';
+    }
+    return false;
+  });
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('satellite');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -129,6 +136,15 @@ export function DoorKnockingClient() {
           const lat = place.geometry.location.lat();
           const lng = place.geometry.location.lng();
           
+          // Disable location tracking when searching for an address
+          if (isTracking) {
+            setIsTracking(false);
+            localStorage.setItem('doorKnocking_isTracking', 'false');
+            if (mapInstance) {
+              mapInstance.setOptions({ draggable: true });
+            }
+          }
+          
           if (mapInstance) {
             mapInstance.panTo({ lat, lng });
             mapInstance.setZoom(18);
@@ -167,15 +183,26 @@ export function DoorKnockingClient() {
   }, []);
 
   const handleLocationToggle = () => {
-    if (!isTracking && mapInstance && userLocation) {
-      // When enabling tracking, center and zoom in
+    const newTrackingState = !isTracking;
+    
+    if (newTrackingState && mapInstance && userLocation) {
+      // When enabling tracking, center and zoom in, and lock the map
       mapInstance.panTo({
         lat: userLocation.coords.latitude,
         lng: userLocation.coords.longitude,
       });
       mapInstance.setZoom(18);
+      mapInstance.setOptions({ draggable: false }); // Lock map dragging
+      toast.success('Location tracking enabled - Map locked to your position');
+    } else if (!newTrackingState && mapInstance) {
+      // When disabling tracking, unlock the map
+      mapInstance.setOptions({ draggable: true });
+      toast.info('Location tracking disabled - Map unlocked');
     }
-    setIsTracking(!isTracking);
+    
+    setIsTracking(newTrackingState);
+    // Persist to localStorage
+    localStorage.setItem('doorKnocking_isTracking', String(newTrackingState));
   };
 
   const handleMapTypeToggle = () => {
@@ -210,52 +237,68 @@ export function DoorKnockingClient() {
 
       {/* Map Controls - Top Left */}
       {!controlsOpen && (
-        <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
-          {/* Settings Gear */}
-          <Button 
-            variant="secondary" 
-            size="icon" 
-            className="shadow-lg h-9 w-9"
-            onClick={() => setControlsOpen(true)}
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-
-          {/* Address Search - Expandable */}
-          {!searchOpen ? (
+        <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+          {/* Top Row: Settings Gear and Search */}
+          <div className="flex items-center gap-2">
+            {/* Settings Gear */}
             <Button 
               variant="secondary" 
               size="icon" 
               className="shadow-lg h-9 w-9"
-              onClick={() => setSearchOpen(true)}
+              onClick={() => setControlsOpen(true)}
             >
-              <Search className="w-5 h-5" />
+              <Settings className="w-5 h-5" />
             </Button>
-          ) : (
-            <div className="flex items-center gap-2 bg-background rounded-md shadow-lg p-2">
-              <Search className="w-4 h-4 text-muted-foreground" />
-              <Input
-                ref={addressInputRef}
-                type="text"
-                placeholder="Search address..."
-                value={addressSearch}
-                onChange={(e) => setAddressSearch(e.target.value)}
-                className="w-64 h-7 text-sm"
-                autoFocus
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => {
-                  setSearchOpen(false);
-                  setAddressSearch('');
-                }}
+
+            {/* Address Search - Expandable */}
+            {!searchOpen ? (
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                className="shadow-lg h-9 w-9"
+                onClick={() => setSearchOpen(true)}
               >
-                <span className="sr-only">Close search</span>
-                ×
+                <Search className="w-5 h-5" />
               </Button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-background rounded-md shadow-lg p-2">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <Input
+                  ref={addressInputRef}
+                  type="text"
+                  placeholder="Search address..."
+                  value={addressSearch}
+                  onChange={(e) => setAddressSearch(e.target.value)}
+                  className="w-64 h-7 text-sm"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setAddressSearch('');
+                  }}
+                >
+                  <span className="sr-only">Close search</span>
+                  ×
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Row: Location Tracking */}
+          {userLocation && (
+            <Button 
+              variant={isTracking ? "default" : "secondary"}
+              size="icon" 
+              className="shadow-lg h-9 w-9"
+              onClick={handleLocationToggle}
+              title={isTracking ? "Stop following your location" : "Follow your location"}
+            >
+              <Navigation className={`w-5 h-5 ${isTracking ? 'text-primary-foreground' : ''}`} />
+            </Button>
           )}
         </div>
       )}
@@ -287,42 +330,6 @@ export function DoorKnockingClient() {
                   Switch between {mapType === 'satellite' ? 'road map' : 'satellite'} view
                 </p>
               </div>
-
-              {/* Divider */}
-              <div className="border-t" />
-
-              {/* Location Tracking */}
-              {userLocation && (
-                <div className="space-y-2">
-                  <Label className="text-base font-semibold">
-                    <Navigation className="w-4 h-4 inline mr-2" />
-                    My Location
-                  </Label>
-                  <Button
-                    variant={isTracking ? "default" : "outline"}
-                    size="sm"
-                    onClick={handleLocationToggle}
-                    className="w-full"
-                  >
-                    {isTracking ? (
-                      <>
-                        <Navigation className="w-4 h-4 mr-2 animate-pulse" />
-                        Following Location
-                      </>
-                    ) : (
-                      <>
-                        <Navigation className="w-4 h-4 mr-2" />
-                        Follow My Location
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    {isTracking 
-                      ? 'Map will follow your location and zoom in' 
-                      : 'Enable to center map on your location'}
-                  </p>
-                </div>
-              )}
 
               {/* Divider */}
               <div className="border-t" />

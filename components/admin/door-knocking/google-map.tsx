@@ -58,6 +58,10 @@ export function GoogleMapComponent({
         streetViewControl: false,      // Remove street view pegman
         fullscreenControl: false,      // Remove fullscreen button
         rotateControl: false,          // Remove rotate 90° button
+        scaleControl: false,           // Remove scale control
+        keyboardShortcuts: false,      // Disable keyboard shortcuts
+        gestureHandling: 'greedy',     // Allow single-finger map movement
+        tilt: 0,                       // Disable tilt
       });
 
       mapInstance.addListener('click', (e: google.maps.MapMouseEvent) => {

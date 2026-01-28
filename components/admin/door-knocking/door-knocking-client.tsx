@@ -93,37 +93,54 @@ export function DoorKnockingClient() {
     setLeadFormPin(undefined);
   };
 
-  // Initialize Google Places Autocomplete
+  // Initialize Google Places Autocomplete when drawer opens and Google is loaded
   useEffect(() => {
-    if (!addressInputRef.current || !window.google?.maps?.places) return;
-
-    autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current, {
-      types: ['address'],
-      componentRestrictions: { country: 'us' },
-    });
-
-    autocompleteRef.current.addListener('place_changed', () => {
-      const place = autocompleteRef.current?.getPlace();
-      if (place?.geometry?.location) {
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        
-        if (mapInstance) {
-          mapInstance.panTo({ lat, lng });
-          mapInstance.setZoom(18);
-        }
-        
-        setAddressSearch(place.formatted_address || '');
-        toast.success('Location found');
+    if (!controlsOpen || !addressInputRef.current) return;
+    
+    // Wait for Google Maps to be fully loaded
+    const initAutocomplete = () => {
+      if (!window.google?.maps?.places) {
+        // Retry after a short delay if Google isn't loaded yet
+        setTimeout(initAutocomplete, 100);
+        return;
       }
-    });
+
+      // Clean up existing autocomplete if any
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
+
+      autocompleteRef.current = new google.maps.places.Autocomplete(addressInputRef.current!, {
+        types: ['address'],
+        componentRestrictions: { country: 'us' },
+        fields: ['geometry', 'formatted_address'],
+      });
+
+      autocompleteRef.current.addListener('place_changed', () => {
+        const place = autocompleteRef.current?.getPlace();
+        if (place?.geometry?.location) {
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          
+          if (mapInstance) {
+            mapInstance.panTo({ lat, lng });
+            mapInstance.setZoom(18);
+          }
+          
+          setAddressSearch(place.formatted_address || '');
+          toast.success('Location found');
+        }
+      });
+    };
+
+    initAutocomplete();
 
     return () => {
       if (autocompleteRef.current) {
         google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
     };
-  }, [mapInstance]);
+  }, [controlsOpen, mapInstance]);
 
   const handleLocationToggle = () => {
     if (!isTracking && mapInstance && userLocation) {

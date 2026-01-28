@@ -144,9 +144,6 @@ export default function RevenueCollectionsPage() {
                 </SelectContent>
               </Select>
             </div>
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              />
-            </div>
           </div>
         </CardContent>
       </Card>

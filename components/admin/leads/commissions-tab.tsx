@@ -414,7 +414,7 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
                 <TableHead className="w-8"></TableHead>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Plan</TableHead>
+                <TableHead>Commission Rate</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Paid When</TableHead>
@@ -463,16 +463,20 @@ export function CommissionsTab({ lead }: CommissionsTabProps) {
                       <TableCell>
                         <div>
                           <p className="font-medium">
-                            {commission.commission_plan?.name || (
-                              <span className="text-gray-400">None</span>
-                            )}
+                            {commission.commission_type === 'percentage'
+                              ? `${commission.commission_rate}% Commission`
+                              : commission.commission_type === 'flat_amount'
+                              ? `${formatCurrency(commission.flat_amount || 0)} Flat`
+                              : 'Custom'}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {commission.commission_type === 'percentage'
-                              ? `${commission.commission_rate}%`
-                              : commission.commission_type === 'flat_amount'
-                              ? 'Flat Amount'
-                              : 'Custom'}
+                            {commission.assignment_field === 'sales_rep_id' && 'Sales Rep Rate'}
+                            {commission.assignment_field === 'marketing_rep_id' && 'Marketing Rep Rate'}
+                            {commission.assignment_field === 'sales_manager_id' && 'Sales Manager Rate'}
+                            {commission.assignment_field === 'production_manager_id' && 'Production Manager Rate'}
+                            {commission.assignment_field === 'office_override' && 'Office Override'}
+                            {commission.assignment_field === 'team_lead_override' && 'Team Lead Override'}
+                            {!commission.assignment_field && 'Legacy/Manual'}
                           </p>
                         </div>
                       </TableCell>

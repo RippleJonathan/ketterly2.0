@@ -80,17 +80,17 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   // Use admin client to fetch lead
   const adminClient = createAdminClient()
   
-  // Query with explicit return type
+  // Query with explicit return type - use explicit FK names to avoid ambiguous relationships
   const leadQuery = await adminClient
     .from('leads')
     .select(`
       *,
-      location:location_id(id, name, address, city, state, zip),
-      sales_rep_user:sales_rep_id(id, full_name, email),
-      marketing_rep_user:marketing_rep_id(id, full_name, email),
-      sales_manager_user:sales_manager_id(id, full_name, email),
-      production_manager_user:production_manager_id(id, full_name, email),
-      created_user:created_by(id, full_name, email)
+      location:locations!leads_location_id_fkey(id, name, address, city, state, zip),
+      sales_rep_user:users!leads_sales_rep_id_fkey(id, full_name, email),
+      marketing_rep_user:users!leads_marketing_rep_id_fkey(id, full_name, email),
+      sales_manager_user:users!leads_sales_manager_id_fkey(id, full_name, email),
+      production_manager_user:users!leads_production_manager_id_fkey(id, full_name, email),
+      created_user:users!leads_created_by_fkey(id, full_name, email)
     `)
     .eq('id', id)
     .eq('company_id', userData.company_id)

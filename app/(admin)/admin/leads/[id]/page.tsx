@@ -99,7 +99,17 @@ export default async function LeadDetailPage({ params, searchParams }: LeadDetai
   
   const { data: leadData, error } = leadQuery
   
+  // Debug logging
+  console.log('Lead query result:', {
+    leadId: id,
+    companyId: userData.company_id,
+    foundLead: !!leadData,
+    error: error?.message,
+    errorDetails: error
+  })
+  
   if (error || !leadData) {
+    console.error('Lead not found - returning 404:', { leadId: id, error })
     notFound()
   }
 

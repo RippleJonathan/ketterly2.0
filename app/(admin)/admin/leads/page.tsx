@@ -60,11 +60,11 @@ export default async function LeadsPage() {
     .from('leads')
     .select(`
       *,
-      sales_rep_user:sales_rep_id(id, full_name, email),
-      marketing_rep_user:marketing_rep_id(id, full_name, email),
-      sales_manager_user:sales_manager_id(id, full_name, email),
-      production_manager_user:production_manager_id(id, full_name, email),
-      created_user:created_by(id, full_name, email)
+      sales_rep_user:users!leads_sales_rep_id_fkey(id, full_name, email),
+      marketing_rep_user:users!leads_marketing_rep_id_fkey(id, full_name, email),
+      sales_manager_user:users!leads_sales_manager_id_fkey(id, full_name, email),
+      production_manager_user:users!leads_production_manager_id_fkey(id, full_name, email),
+      created_user:users!leads_created_by_fkey(id, full_name, email)
     `)
     .eq('company_id', userData.company_id)
     .is('deleted_at', null)

@@ -167,11 +167,11 @@ export async function getLead(
       .from('leads')
       .select(`
         *,
-        sales_rep_user:sales_rep_id(id, full_name, email, avatar_url),
-        marketing_rep_user:marketing_rep_id(id, full_name, email, avatar_url),
-        sales_manager_user:sales_manager_id(id, full_name, email, avatar_url),
-        production_manager_user:production_manager_id(id, full_name, email, avatar_url),
-        created_user:created_by(id, full_name, email, avatar_url)
+        sales_rep_user:users!leads_sales_rep_id_fkey(id, full_name, email, avatar_url),
+        marketing_rep_user:users!leads_marketing_rep_id_fkey(id, full_name, email, avatar_url),
+        sales_manager_user:users!leads_sales_manager_id_fkey(id, full_name, email, avatar_url),
+        production_manager_user:users!leads_production_manager_id_fkey(id, full_name, email, avatar_url),
+        created_user:users!leads_created_by_fkey(id, full_name, email, avatar_url)
       `)
       .eq('company_id', companyId)
       .eq('id', leadId)
